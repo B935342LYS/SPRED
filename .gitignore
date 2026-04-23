@@ -15,6 +15,10 @@ Thumbs.db
 # Large local-only media assets
 *.mp4
 
+# Local-only legacy/reference source folders
+0. 이세계 코드 (legacy)/
+1. 개발문서/
+
 # Node / frontend build outputs
 node_modules/
 dist/

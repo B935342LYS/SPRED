@@ -154,6 +154,7 @@ Recommended first-upload include set:
 
 Recommended first-upload exclude or delay set:
 
+- local-only reference folders such as `0. 이세계 코드 (legacy)/` and `1. 개발문서/`
 - `주간보고서/`
 - `docx 제출용 보고서/`
 - temporary extraction folders and zip files
