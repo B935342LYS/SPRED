@@ -9,7 +9,7 @@
   - 우선 참조: `HARNESS.md`, `1.0-development-spec.md`, `1.5-note-cell-parser-spec.md`, `1.6-global-cell-parser-spec.md`, `1.7-analyzer-event-list-spec.md`, `1.8-parser-analyzer-pipeline-spec.md`
 - `regression-code/`
   - TypeScript 기반 신구현 작업 디렉터리
-- `3. 이세계 코드`
+- `0. 이세계 코드 (legacy)`
   - 기존 Google Sheets / Apps Script 구현체
   - 알고리즘과 기능 흐름 참고용 구버전
 

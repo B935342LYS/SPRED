@@ -25,8 +25,7 @@ The intended GitHub-facing structure is:
 At the moment, some legacy source materials still live in the original local folders:
 
 - `1. 개발문서`
-- `3. 이세계 코드`
-- `4. 회귀 코드`
+- `0. 이세계 코드 (legacy)`
 
 The preferred GitHub-facing implementation path is `regression-code/`.
 
@@ -55,7 +54,7 @@ Deprioritized material:
 
 - deleted transitional document formerly numbered `1.6`
 - `0.x` legacy text files
-- `3. 이세계 코드`
+- `0. 이세계 코드 (legacy)`
   - reference implementation only, not a compatibility target
 
 ## Role Split

@@ -100,7 +100,7 @@ Current classification:
 - `1.1-project-plan.md`
 - `1.2-master-spec.md`
 - `1.4-note-string-spec.md`
-- `3. 이세계 코드`
+- `0. 이세계 코드 (legacy)`
 
 ### 4.3. appendix
 
