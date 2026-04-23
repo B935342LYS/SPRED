@@ -82,6 +82,8 @@ Deprioritized material:
 ## Change Procedure
 
 - Before implementing a new feature or refactor, inspect the relevant active documents first.
+- If a requested behavior or document interpretation remains ambiguous after checking the active documents, ask the user and wait for clarification before locking the implementation direction.
+- Once the ambiguous point is clarified by the user, treat that answer as the task-local decision and then proceed with implementation.
 - Before making edits, identify which boundaries are affected:
   - parser
   - analyzer

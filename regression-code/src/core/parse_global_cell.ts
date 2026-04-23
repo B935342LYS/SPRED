@@ -9,6 +9,7 @@ function invalidCell(
   rawText: string,
   code: GlobalParseErrorCode,
   charIndex: number | null,
+  message?: string,
 ): ParsedGlobalCell {
   return {
     kind: "invalid",
@@ -16,6 +17,7 @@ function invalidCell(
     error: {
       code,
       charIndex,
+      message,
     },
   };
 }
@@ -23,11 +25,13 @@ function invalidCell(
 function splitRamp(rawText: string): {
   numberText: string;
   ramp: ParsedGlobalRamp;
+  rampIndex: number | null;
 } {
   if (rawText.endsWith("><")) {
     return {
       numberText: rawText.slice(0, -2),
       ramp: "endStart",
+      rampIndex: rawText.length - 2,
     };
   }
 
@@ -35,6 +39,7 @@ function splitRamp(rawText: string): {
     return {
       numberText: rawText.slice(0, -1),
       ramp: "start",
+      rampIndex: rawText.length - 1,
     };
   }
 
@@ -42,13 +47,23 @@ function splitRamp(rawText: string): {
     return {
       numberText: rawText.slice(0, -1),
       ramp: "end",
+      rampIndex: rawText.length - 1,
     };
   }
 
   return {
     numberText: rawText,
     ramp: "none",
+    rampIndex: null,
   };
+}
+
+function findInvalidDecimalIndex(text: string): number | null {
+  return /^(\d+)(?:\.(\d+))?$/.test(text) ? null : 0;
+}
+
+function findInvalidIntegerIndex(text: string): number | null {
+  return /^\d+$/.test(text) ? null : 0;
 }
 
 export const parseGlobalCell: ParseGlobalCellFn = (input, context) => {
@@ -64,15 +79,23 @@ export const parseGlobalCell: ParseGlobalCellFn = (input, context) => {
   }
 
   if (row.kind === "bpm" || row.kind === "dynamics") {
-    const { numberText, ramp } = splitRamp(rawText);
-    const value = Number(numberText);
+    const { numberText, ramp, rampIndex } = splitRamp(rawText);
+    const invalidNumberIndex =
+      row.kind === "bpm"
+        ? findInvalidDecimalIndex(numberText)
+        : findInvalidIntegerIndex(numberText);
 
-    if (numberText.length === 0 || Number.isNaN(value)) {
-      return invalidCell(rawText, "invalid_number", 0);
+    if (numberText.length === 0) {
+      return invalidCell(rawText, "invalid_number", rampIndex ?? 0);
     }
 
+    if (invalidNumberIndex !== null) {
+      return invalidCell(rawText, "invalid_number", invalidNumberIndex);
+    }
+
+    const value = Number(numberText);
     if (row.kind === "bpm") {
-      if (value <= 0) {
+      if (!Number.isFinite(value) || value <= 0) {
         return invalidCell(rawText, "invalid_bpm_range", 0);
       }
 
@@ -98,15 +121,19 @@ export const parseGlobalCell: ParseGlobalCellFn = (input, context) => {
     };
   }
 
+  if (rawText.endsWith("><")) {
+    return invalidCell(rawText, "invalid_ramp_token", rawText.length - 2);
+  }
+
   if (rawText.endsWith("<") || rawText.endsWith(">")) {
     return invalidCell(rawText, "invalid_ramp_token", rawText.length - 1);
   }
 
-  const value = Number(rawText);
-  if (!Number.isInteger(value)) {
+  if (findInvalidIntegerIndex(rawText) !== null) {
     return invalidCell(rawText, "invalid_number", 0);
   }
 
+  const value = Number(rawText);
   if (row.kind === "beatsPerBar") {
     if (value < 1) {
       return invalidCell(rawText, "invalid_beats_per_bar_range", 0);

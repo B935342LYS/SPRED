@@ -157,6 +157,10 @@ The following overlaps or boundaries still require attention.
    - `sourceCells`, partial analysis, and cache structures are broadly defined in the document
    - the first implementation can still apply them in stages by priority
 
+4. `1.0` and current implementation state
+   - `1.0` should track actual implementation progress, not remain in design-stage wording
+   - keep `1.0` synchronized when parser/analyzer implementation milestones move
+
 ## 8. Implementation Checkpoints
 
 When looking up documents during implementation, use this order.
@@ -169,6 +173,14 @@ When looking up documents during implementation, use this order.
    - `1.7`, `1.8`
 4. Is the current issue about overall priority or roadmap?
    - `1.0`
+
+Current implementation snapshot:
+
+- `ScoreIndexes`, `RuntimeDocument`, `ParsedScoreDocument`, `AnalysisResult` type skeletons exist in `regression-code/src/core/types/`
+- `build_score_indexes.ts`, `create_runtime_document.ts`, `parse_document.ts` are implemented as first-pass full-build modules
+- `parse_note_cell.ts` and `parse_global_cell.ts` now contain first-pass real parser logic aligned to `1.5` and `1.6`
+- `parse_document_range.ts` still falls back to full rebuild and should not be mistaken for completed partial parse support
+- analyzer files are not yet implemented; `1.7` remains the design baseline rather than current runtime behavior
 
 ## 9. Update Rules
 
