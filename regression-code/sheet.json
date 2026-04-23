@@ -1,0 +1,82 @@
+{
+    "format": {
+        "formatName": "spred-sheet",
+        "version": "0.0.1"
+    },
+
+    "musicData" : {
+        "musicTitle" : "testScore",
+        "musicArtist" : "testArtist",
+        "musicGenre" : "testGenre",
+
+        "scoreWriter" : "testSheetWriter",
+        "comment" : "This is a test score for Otamatone DX Basic.",
+        "scoreDifficulty" : {
+            "basic" : 1,
+            "optional" : 5,
+            "extra" : 10
+        },
+        "createdAt": "2000-09-09T10:00:00+09:00",
+        "updatedAt": "2000-09-09T10:00:00+09:00",
+
+        "youtube": {
+            "videoId": "",
+            "offsetMs": 0
+        }
+    },
+
+    "instData" : {
+        "presetId" : "otamatone-basic",
+        "family" : "otamatone",
+        "instName"  : "Otamatone DX Basic",
+        "supportsOpen": false,
+        "strings": [
+            {
+                "stringId": "s1",
+                "stringName": "1st String",
+                "minMidi": 52,
+                "maxMidi": 84
+            }
+        ]
+    },
+
+    "globalLines": {
+        "columnCount": 4000,
+        "cells": [
+            { "rowId": "global-bpm", "col": 0, "rawText": "120" },
+            { "rowId": "global-bpb", "col": 0, "rawText": "4" },
+            { "rowId": "global-spb", "col": 0, "rawText": "4" },
+            { "rowId": "global-dyn", "col": 0, "rawText": "100" }
+        ]
+    },
+
+    "layout" : {
+        "baseColumnWidthPx": 21,
+        "rowDefinitions" : [
+            { "rowId": "global-bpm", "type": "global", "kind": "bpm", "height": 21 },
+            { "rowId": "global-bpb", "type": "global", "kind": "beatsPerBar", "height": 21 },
+            { "rowId": "global-spb", "type": "global", "kind": "stepsPerBeat", "height": 21 },
+            { "rowId": "global-dyn", "type": "global", "kind": "dynamics", "height": 21 },
+
+            
+            { "rowId": "s1-gap-51-52", "type": "gap", "stringId": "s1", "fromMidi": 51, "toMidi": 52, "height": 14 },
+            { "rowId": "s1-note-52", "type": "note", "stringId": "s1", "midi": 52, "height": 7, "displayLabel": "E3" },
+            { "rowId": "s1-gap-52-53", "type": "gap", "stringId": "s1", "fromMidi": 52, "toMidi": 53, "height": 42 },
+            { "rowId": "s1-note-53", "type": "note", "stringId": "s1", "midi": 53, "height": 7, "displayLabel": "F3" },
+            { "rowId": "s1-gap-53-54", "type": "gap", "stringId": "s1", "fromMidi": 53, "toMidi": 54, "height": 54 },
+            { "rowId": "s1-note-54", "type": "note", "stringId": "s1", "midi": 54, "height": 7, "displayLabel": "F#3" }
+        ]
+    },
+
+    "tracks": [
+        {
+            "trackId": "basic",
+            "trackName": "basic",
+            "cells": [
+                { "rowId": "s1-note-52", "col": 100, "rawText": "E3" },
+                { "rowId": "s1-note-53", "col": 101, "rawText": "F3" },
+                { "rowId": "s1-note-54", "col": 102, "rawText": "F#3" }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "regression-code",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
+  }
+}

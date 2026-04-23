@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.code-workspace
+
+# Temporary DOCX extraction artifacts
+.tmp_docx_*/
+.tmp_docx_*.zip
+
+# Large local-only media assets
+*.mp4
+
+# Node / frontend build outputs
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Common TypeScript build artifacts
+*.tsbuildinfo
