@@ -108,6 +108,9 @@ Deprioritized material:
 - accompaniment should be split into:
   - phase 1: local/general audio synchronization
   - phase 2: YouTube integration
+- game mode is a far-later extension and should be treated as the lowest-priority expansion feature
+- game mode should use browser audio input and runtime pitch detection, not score JSON persistence
+- first game-mode implementation should target desktop-class browsers and practical note-event judging, not mobile-wide or effect-accurate evaluation
 
 ## Layout and Import Policy
 
