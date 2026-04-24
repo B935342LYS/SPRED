@@ -56,6 +56,7 @@ Implementation memo documents:
   - user-authored design commentary / implementation notes
   - not part of the default implementation baseline
   - inspect only when the user explicitly asks for review or feedback on those files
+  - when the user explicitly uses those memo files to propose implementation order, structure changes, or task planning, reflect that guidance in implementation planning unless it conflicts with active specifications
 
 Deprioritized material:
 
@@ -71,6 +72,10 @@ Deprioritized material:
   - implementation baseline list
   - topic entry points
   - document status classification
+  - current working mode and implementation progress summary
+- `docs/1.0-development-spec.md`
+  - long-term development roadmap
+  - stage goals and implementation direction
 - `AGENTS.md`
   - agent behavior rules
   - change-scope limits
@@ -145,6 +150,7 @@ For layout conflicts:
   - report/archive materials
 - Treat `docs/implementation-memo/` as a separate memo/commentary area rather than as baseline specification.
 - During implementation work, rely on the active specification documents first and do not read `docs/implementation-memo/` unless the user explicitly requests review of those memo files.
+- If the user explicitly asks to use reviewed roadmap or design-memo content for implementation sequencing or structure decisions, treat it as task-local planning guidance while still resolving rule conflicts in favor of the active specification documents.
 - If document numbering is discussed, note that current direction is to keep `1.1` and `1.2` as separate documents and keep the current `docs/` numbering.
 
 ## Verification Rules
