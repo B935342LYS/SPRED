@@ -50,6 +50,13 @@ Background/reference documents:
 - `docs/1.4-note-string-spec.md`
 - `docs/a1.0-open-source-reference-survey.md`
 
+Implementation memo documents:
+
+- `docs/implementation-memo/`
+  - user-authored design commentary / implementation notes
+  - not part of the default implementation baseline
+  - inspect only when the user explicitly asks for review or feedback on those files
+
 Deprioritized material:
 
 - deleted transitional document formerly numbered `1.6`
@@ -136,6 +143,8 @@ For layout conflicts:
   - active implementation documents
   - reference/background documents
   - report/archive materials
+- Treat `docs/implementation-memo/` as a separate memo/commentary area rather than as baseline specification.
+- During implementation work, rely on the active specification documents first and do not read `docs/implementation-memo/` unless the user explicitly requests review of those memo files.
 - If document numbering is discussed, note that current direction is to keep `1.1` and `1.2` as separate documents and keep the current `docs/` numbering.
 
 ## Verification Rules

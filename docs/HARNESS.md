@@ -182,6 +182,18 @@ Current implementation snapshot:
 - `parse_document_range.ts` still falls back to full rebuild and should not be mistaken for completed partial parse support
 - analyzer files are not yet implemented; `1.7` remains the design baseline rather than current runtime behavior
 
+Current working mode:
+
+- implementation work is temporarily paused
+- the user is directly reading and reviewing the current code and algorithm structure
+- `docs/implementation-memo/` is being used for implementation-interpretation notes and design commentary
+- the `1.0` memo increment currently includes structure-change proposals that may affect later implementation direction
+
+Deferred planned work:
+
+- add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
+- define a production build path that strips or minifies comments for GitHub Pages deployment
+
 ## 9. Update Rules
 
 Update this harness when one of the following happens.
