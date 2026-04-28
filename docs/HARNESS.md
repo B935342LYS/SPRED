@@ -183,7 +183,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - the early experimental implementation was separated into `regression-code-legacy/`
 - a reinitialized `regression-code/` now exists as the active implementation path
 - the project is reorganizing implementation order and folder structure to match the documented pipeline more closely
-- current near-term focus is the first increment roadmap and the `score -> parse` path
+- current near-term focus is the first-stage roadmap and the `score -> parse` path
 - analyzer, UI, renderer, and audio implementation remain later stages
 
 Deferred planned work:
