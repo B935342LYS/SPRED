@@ -172,19 +172,21 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
-- implementation work is temporarily paused
-- the user is directly reading and reviewing the current code and algorithm structure
-- `docs/implementation-memo/` is being used for implementation-interpretation notes and design commentary
-- the current implementation direction follows the reviewed roadmap in `docs/implementation-memo/1.0-roadmap.md`
+- implementation work has started in `regression-code/`
+- current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
+- `docs/implementation-memo/` is being used for implementation notes and design commentary
+- current focus is type contracts for `score`, `parse`, and `analyze` before implementing score module functions
 
 ## 10. Current Progress Summary
 
 - active specification documents `1.3`, `1.5`, `1.6`, `1.7`, `1.8` are prepared
 - the early experimental implementation was separated into `regression-code-legacy/`
 - a reinitialized `regression-code/` now exists as the active implementation path
-- the project is reorganizing implementation order and folder structure to match the documented pipeline more closely
-- current near-term focus is the first-stage roadmap and the `score -> parse` path
-- analyzer, UI, renderer, and audio implementation remain later stages
+- implementation order and folder structure now follow `docs/implementation-memo/1.0-roadmap.md`
+- `regression-code/src/core/score/types.ts` defines the score storage and runtime index types
+- `regression-code/src/core/parse/types.ts` defines parser result, parser input, document parse, and parser cache types
+- `regression-code/src/core/analyze/types.ts` has an initial analyzer type contract for events, timelines, diagnostics, and cache structures
+- current near-term focus is reviewing shared/common type extraction, then implementing the score module path
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
@@ -197,7 +199,7 @@ Deferred planned work:
 - `1.3` and `1.8`
   - `1.3` covers storage format, `1.8` covers runtime interfaces
 - `1.7` and actual code implementation
-  - `sourceCells`, partial analysis, and cache structures are still broader than current implementation
+  - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures, but analyzer algorithms remain unimplemented
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 
