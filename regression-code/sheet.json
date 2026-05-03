@@ -40,16 +40,6 @@
         ]
     },
 
-    "globalLines": {
-        "columnCount": 4000,
-        "cells": [
-            { "rowId": "global-bpm", "col": 0, "rawText": "120" },
-            { "rowId": "global-bpb", "col": 0, "rawText": "4" },
-            { "rowId": "global-spb", "col": 0, "rawText": "4" },
-            { "rowId": "global-dyn", "col": 0, "rawText": "100" }
-        ]
-    },
-
     "layout" : {
         "baseColumnWidthPx": 21,
         "rowDefinitions" : [
@@ -65,6 +55,16 @@
             { "rowId": "s1-note-53", "type": "note", "stringId": "s1", "midi": 53, "height": 7, "displayLabel": "F3" },
             { "rowId": "s1-gap-53-54", "type": "gap", "stringId": "s1", "fromMidi": 53, "toMidi": 54, "height": 54 },
             { "rowId": "s1-note-54", "type": "note", "stringId": "s1", "midi": 54, "height": 7, "displayLabel": "F#3" }
+        ]
+    },
+
+    "globalLines": {
+        "columnCount": 4000,
+        "cells": [
+            { "rowId": "global-bpm", "col": 0, "rawText": "120" },
+            { "rowId": "global-bpb", "col": 0, "rawText": "4" },
+            { "rowId": "global-spb", "col": 0, "rawText": "4" },
+            { "rowId": "global-dyn", "col": 0, "rawText": "100" }
         ]
     },
 

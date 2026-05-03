@@ -110,7 +110,7 @@ Deprioritized material:
 ## Current Project Decisions
 
 - `cent_num` is a finite real number in the range `-100` to `100`.
-- `cent_num` allows up to 2 fractional digits.
+- `cent_num` allows up to 1 fractional digit.
 - cell `rawText` length limit: `100`
 - `score comment` length limit: `100`
 - JSON file size limit: `8MB`
