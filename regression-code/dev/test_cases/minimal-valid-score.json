@@ -35,7 +35,7 @@
                 "stringId": "s1",
                 "stringName": "1st String",
                 "minMidi": 52,
-                "maxMidi": 84
+                "maxMidi": 85
             }
         ]
     },
@@ -95,22 +95,28 @@
             { "rowId": "s1-note-73", "type": "note", "stringId": "s1", "midi": 73, "height": 7, "displayLabel": "C#5" },
             { "rowId": "s1-gap-73-74", "type": "gap", "stringId": "s1", "fromMidi": 73, "toMidi": 74, "height": 14 },
             { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "D5" },
-            
-            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 14 },
-            { "rowId": "s1-note-73", "type": "note", "stringId": "s1", "midi": 73, "height": 7, "displayLabel": "D#5" },
-            { "rowId": "s1-gap-73-74", "type": "gap", "stringId": "s1", "fromMidi": 73, "toMidi": 74, "height": 14 },
-            { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "E5" },
-            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 14 },
-            { "rowId": "s1-note-73", "type": "note", "stringId": "s1", "midi": 73, "height": 7, "displayLabel": "F5" },
-            { "rowId": "s1-gap-73-74", "type": "gap", "stringId": "s1", "fromMidi": 73, "toMidi": 74, "height": 14 },            
-            { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "F#5" },
-            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 14 },
-            { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "G5" },
-            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 14 },
-            { "rowId": "s1-note-73", "type": "note", "stringId": "s1", "midi": 73, "height": 7, "displayLabel": "G#5" },
-            { "rowId": "s1-gap-73-74", "type": "gap", "stringId": "s1", "fromMidi": 73, "toMidi": 74, "height": 14 },            
-            { "rowId": "s1-note-74", "type": "note", "stringId": "s1", "midi": 74, "height": 7, "displayLabel": "A5" },
-            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 14 },      
+            { "rowId": "s1-gap-74-75", "type": "gap", "stringId": "s1", "fromMidi": 74, "toMidi": 75, "height": 10 },
+            { "rowId": "s1-note-75", "type": "note", "stringId": "s1", "midi": 75, "height": 7, "displayLabel": "D#5" },
+            { "rowId": "s1-gap-75-76", "type": "gap", "stringId": "s1", "fromMidi": 75, "toMidi": 76, "height": 6 },
+            { "rowId": "s1-note-76", "type": "note", "stringId": "s1", "midi": 76, "height": 7, "displayLabel": "E5" },
+            { "rowId": "s1-gap-76-77", "type": "gap", "stringId": "s1", "fromMidi": 76, "toMidi": 77, "height": 8 },
+            { "rowId": "s1-note-77", "type": "note", "stringId": "s1", "midi": 77, "height": 7, "displayLabel": "F5" },
+            { "rowId": "s1-gap-77-78", "type": "gap", "stringId": "s1", "fromMidi": 77, "toMidi": 78, "height": 6 },   
+            { "rowId": "s1-note-78", "type": "note", "stringId": "s1", "midi": 78, "height": 7, "displayLabel": "F#5" },
+            { "rowId": "s1-gap-78-79", "type": "gap", "stringId": "s1", "fromMidi": 78, "toMidi": 79, "height": 8 },
+            { "rowId": "s1-note-79", "type": "note", "stringId": "s1", "midi": 79, "height": 7, "displayLabel": "G5" },
+            { "rowId": "s1-gap-79-80", "type": "gap", "stringId": "s1", "fromMidi": 79, "toMidi": 80, "height": 8 },
+            { "rowId": "s1-note-80", "type": "note", "stringId": "s1", "midi": 80, "height": 7, "displayLabel": "G#5" },
+            { "rowId": "s1-gap-80-81", "type": "gap", "stringId": "s1", "fromMidi": 80, "toMidi": 81, "height": 4 },            
+            { "rowId": "s1-note-81", "type": "note", "stringId": "s1", "midi": 81, "height": 7, "displayLabel": "A5" },
+            { "rowId": "s1-gap-81-82", "type": "gap", "stringId": "s1", "fromMidi": 81, "toMidi": 82, "height": 6 },
+            { "rowId": "s1-note-82", "type": "note", "stringId": "s1", "midi": 82, "height": 7, "displayLabel": "A#5" },
+            { "rowId": "s1-gap-82-83", "type": "gap", "stringId": "s1", "fromMidi": 82, "toMidi": 83, "height": 8 },
+            { "rowId": "s1-note-83", "type": "note", "stringId": "s1", "midi": 83, "height": 7, "displayLabel": "B5" },
+            { "rowId": "s1-gap-83-84", "type": "gap", "stringId": "s1", "fromMidi": 83, "toMidi": 84, "height": 2 },
+            { "rowId": "s1-note-84", "type": "note", "stringId": "s1", "midi": 84, "height": 7, "displayLabel": "C6" },
+            { "rowId": "s1-gap-84-85", "type": "gap", "stringId": "s1", "fromMidi": 84, "toMidi": 85, "height": 6 }, 
+            { "rowId": "s1-note-85", "type": "note", "stringId": "s1", "midi": 85, "height": 7, "displayLabel": "C#6" }
         ]
     },
 
@@ -129,9 +135,15 @@
             "trackId": "basic",
             "trackName": "basic",
             "cells": [
-                { "rowId": "s1-note-52", "col": 100, "rawText": "E3" },
-                { "rowId": "s1-note-53", "col": 101, "rawText": "F3" },
-                { "rowId": "s1-note-54", "col": 102, "rawText": "F#3" }
+                { "rowId": "s1-note-52", "col": 0, "rawText": "E3" },
+                { "rowId": "s1-note-52", "col": 1, "rawText": "-" },
+                { "rowId": "s1-note-52", "col": 2, "rawText": "-" },
+                { "rowId": "s1-note-52", "col": 3, "rawText": "-" },                             
+                { "rowId": "s1-note-53", "col": 4, "rawText": "F3" },
+                { "rowId": "s1-note-53", "col": 5, "rawText": "-" },
+                { "rowId": "s1-note-53", "col": 6, "rawText": "F3" },
+                { "rowId": "s1-note-53", "col": 7, "rawText": "-" },
+                { "rowId": "s1-note-54", "col": 8, "rawText": "F#3" }
             ]
         }
     ]
