@@ -140,7 +140,10 @@ Appendix:
 `regression-code/`
 - `index.html`
 - `package.json`
+- `package-lock.json`
 - `sheet.json`
+- `tsconfig.json`
+- `dev/`
 - `styles/`
 - `src/core/`
   - `common.types.ts`
@@ -175,7 +178,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is type contracts for `score`, `parse`, and `analyze` before implementing score module functions
+- current focus is the `score` module load/validate/index path before parser implementation
 
 ## 10. Current Progress Summary
 
@@ -186,7 +189,13 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/score/types.ts` defines the score storage and runtime index types
 - `regression-code/src/core/parse/types.ts` defines parser result, parser input, document parse, and parser cache types
 - `regression-code/src/core/analyze/types.ts` has an initial analyzer type contract for events, timelines, diagnostics, and cache structures
-- current near-term focus is reviewing shared/common type extraction, then implementing the score module path
+- `regression-code/src/core/score/json_load.ts` now implements JSON parsing, top-level object checking, and the convenience `loadScoreFile()` entry point that delegates structure validation
+- `regression-code/src/core/score/score_validate.ts` now implements the first-stage minimum ScoreFile structure/reference validation
+- `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
+- `regression-code/dev/test_score.ts` verifies the fixture through `loadScoreFile()`
+- TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
+- latest verified commands: `npm run typecheck`, `npm run test:score`
+- current near-term focus is reviewing/commenting `score_validate.ts`, then implementing `build_score_indexes.ts`
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
@@ -202,6 +211,8 @@ Deferred planned work:
   - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures, but analyzer algorithms remain unimplemented
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
+- `1.0-roadmap` and actual first-stage implementation
+  - `score_validate.ts` was originally deferred, but minimum validation was added early to avoid unstable ScoreFile assumptions before index building
 
 ## 12. Cleanup Principles
 

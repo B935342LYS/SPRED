@@ -205,3 +205,11 @@ If the conflict affects implementation safety, stop and surface it clearly befor
 - Code comments and explanatory prose may use Korean when it improves clarity for the project owner.
 - New files under `docs/` should follow the current numbering plus English kebab-case naming pattern.
 - Project canonical names such as `이세계 코드` and `회귀 코드` should be preserved as-is.
+
+## Comment Style
+
+- TypeScript의 `export type`, `export function`, 주요 모듈 진입점에는 JSDoc 형태의 블록 주석을 작성한다.
+- JSDoc 태그인 `@param`, `@returns`는 사용하지 않고, 가독성을 위해 일반 문자열 형식의 `- 인수 :`, `- 반환값 :`을 사용한다.
+- 함수 내부 주석은 모든 줄에 달지 않고, 오류 처리, 타입 좁히기, 모듈 경계, 비직관적 분기처럼 구현 의도를 설명해야 하는 부분에만 `//` 주석을 작성한다.
+- 주석은 코드가 무엇을 그대로 반복하는 설명보다, 왜 해당 처리가 필요한지와 어느 모듈 책임에 속하는지를 우선 설명한다.
+- 코드 식별자와 타입명은 영어를 유지하고, 설명 주석은 한국어로 작성할 수 있다.

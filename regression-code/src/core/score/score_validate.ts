@@ -54,9 +54,12 @@ const GLOBAL_KINDS: GlobalKind[] = [
 
 /**
  * ScoreFile의 최소 구조와 핵심 참조 무결성을 검증한다.
- * note/global rawText 문법 검사는 parser 단계에서 처리한다.
+ * - 인수 : unknown : 이전 모듈에서 건네준 JSON 파싱 성공 객체의 value 필드값.
+ * - 반환값 : ScoreValidationResult : 검증 성공 또는 실패 반환 객체.
  */
 export function validateScoreFile(value: unknown): ScoreValidationResult {
+
+  
   if (!isRecord(value)) {
     return {
       ok: false,
@@ -117,9 +120,8 @@ export function validateScoreFile(value: unknown): ScoreValidationResult {
   };
 }
 
-function validateRequiredTopLevelFields(
-  score: Partial<ScoreFile>,
-): ScoreValidationError | null {
+function validateRequiredTopLevelFields(score: Partial<ScoreFile>, ): ScoreValidationError | null
+{
   const requiredFields: (keyof ScoreFile)[] = [
     "format",
     "musicData",
@@ -142,9 +144,7 @@ function validateRequiredTopLevelFields(
   return null;
 }
 
-function validateBasicShapes(
-  score: Partial<ScoreFile>,
-): ScoreValidationError | null {
+function validateBasicShapes(score: Partial<ScoreFile>, ): ScoreValidationError | null {
   if (!isRecord(score.format)) {
     return invalidShape("format must be an object.", "format");
   }
@@ -430,6 +430,11 @@ function invalidShape(message: string, path?: string): ScoreValidationError {
   };
 }
 
+/**
+ * 입력받은 JSON이 객체 형식인지 검증 
+ * - 인수 : 
+ * 
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
