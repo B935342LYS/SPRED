@@ -14,6 +14,13 @@ import type {
   TrackId,
 } from "./types";
 
+/**
+ * ScoreFile 검증 실패를 구분하는 오류 코드.
+ * - invalid_shape : 필드 타입이나 지원 범위가 맞지 않음
+ * - duplicate_* : 고유해야 하는 ID 또는 좌표가 중복됨
+ * - unknown_row_id : 셀이 존재하지 않는 rowId를 참조함
+ * - missing_global_start_cell : 필수 전역 시작 셀이 없음
+ */
 export type ScoreValidationErrorCode =
   | "invalid_shape"
   | "missing_required_field"
@@ -28,12 +35,23 @@ export type ScoreValidationErrorCode =
   | "col_out_of_range"
   | "missing_global_start_cell";
 
+/**
+ * ScoreFile 구조 또는 참조 무결성 검증 실패 정보.
+ * - code : 오류 분류 코드
+ * - message : 사용자 또는 개발자에게 전달할 오류 설명
+ * - path : 오류가 발견된 ScoreFile 내부 위치
+ */
 export type ScoreValidationError = {
   code: ScoreValidationErrorCode;
   message: string;
   path?: string;
 };
 
+/**
+ * ScoreFile 검증 결과.
+ * - 정상 검증 시 : ScoreFile
+ * - 비정상 검증 시 : ScoreValidationError
+ */
 export type ScoreValidationResult =
   | {
       ok: true;
@@ -54,12 +72,10 @@ const GLOBAL_KINDS: GlobalKind[] = [
 
 /**
  * ScoreFile의 최소 구조와 핵심 참조 무결성을 검증한다.
- * - 인수 : unknown : 이전 모듈에서 건네준 JSON 파싱 성공 객체의 value 필드값.
+ * - 인수 : value : 이전 모듈에서 건네준 JSON 파싱 성공 객체의 value 필드값.
  * - 반환값 : ScoreValidationResult : 검증 성공 또는 실패 반환 객체.
  */
 export function validateScoreFile(value: unknown): ScoreValidationResult {
-
-  
   if (!isRecord(value)) {
     return {
       ok: false,
@@ -120,8 +136,9 @@ export function validateScoreFile(value: unknown): ScoreValidationResult {
   };
 }
 
-function validateRequiredTopLevelFields(score: Partial<ScoreFile>, ): ScoreValidationError | null
-{
+function validateRequiredTopLevelFields(
+  score: Partial<ScoreFile>,
+): ScoreValidationError | null {
   const requiredFields: (keyof ScoreFile)[] = [
     "format",
     "musicData",
@@ -144,7 +161,9 @@ function validateRequiredTopLevelFields(score: Partial<ScoreFile>, ): ScoreValid
   return null;
 }
 
-function validateBasicShapes(score: Partial<ScoreFile>, ): ScoreValidationError | null {
+function validateBasicShapes(
+  score: Partial<ScoreFile>,
+): ScoreValidationError | null {
   if (!isRecord(score.format)) {
     return invalidShape("format must be an object.", "format");
   }
@@ -422,6 +441,14 @@ function unknownRowId(rowId: RowId, path: string): ScoreValidationError {
   };
 }
 
+/**
+ * 필드 형식이 맞지 않는 경우, 인수를 각 필드에 대입한 ScoreValidationError 객체를 생성한다. 
+ * - 인수
+ *    - message : 사용자에게 보일 오류 메세지 문자열.
+ *    - path(선택) : 오류 발생 위치 문자열.
+ * - 반환값
+ *    - 인수를 대입해 완성한 ScoreValidationError 타입 객체.
+ */
 function invalidShape(message: string, path?: string): ScoreValidationError {
   return {
     code: "invalid_shape",
@@ -431,9 +458,9 @@ function invalidShape(message: string, path?: string): ScoreValidationError {
 }
 
 /**
- * 입력받은 JSON이 객체 형식인지 검증 
- * - 인수 : 
- * 
+ * 입력값이 ScoreFile 후보로 다룰 수 있는 일반 객체인지 확인한다.
+ * - 인수 : value : JSON 파싱 이후의 unknown 값
+ * - 반환값 : value is Record<string, unknown> : null과 배열을 제외한 object 여부
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
