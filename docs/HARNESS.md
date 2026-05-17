@@ -193,11 +193,14 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/score/score_validate.ts` now implements the first-stage minimum ScoreFile structure/reference validation
 - `regression-code/src/core/score/build_score_indexes.ts` now implements the first-stage ScoreIndexes builder
 - `regression-code/src/core/score/create_runtime_document.ts` now bundles validated ScoreFile data with ScoreIndexes into RuntimeDocument
+- `regression-code/src/core/parse/parse_global_cell.ts` now implements the first-stage global cell parser
 - `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
 - `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
+- `regression-code/dev/test_parse.ts` verifies the fixture global cells through `parseGlobalCell()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
-- latest verified commands: `npm run typecheck`, `npm run test:score`
-- current near-term focus is reviewing the completed score load pipeline, then moving into parser implementation
+- parser verification has been introduced through `npm run test:parse`
+- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
+- current near-term focus is reviewing `parse_global_cell.ts`, then implementing the note cell parser
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`

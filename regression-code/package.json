@@ -5,6 +5,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test:score": "tsx ./dev/test_score.ts",
+    "test:parse": "tsx ./dev/test_parse.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },
   "devDependencies": {
