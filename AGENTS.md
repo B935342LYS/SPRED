@@ -152,6 +152,9 @@ For layout conflicts:
 - During implementation work, rely on the active specification documents first and do not read `docs/implementation-memo/` unless the user explicitly requests review of those memo files.
 - If the user explicitly asks to use reviewed roadmap or design-memo content for implementation sequencing or structure decisions, treat it as task-local planning guidance while still resolving rule conflicts in favor of the active specification documents.
 - If document numbering is discussed, note that current direction is to keep `1.1` and `1.2` as separate documents and keep the current `docs/` numbering.
+- When adding a meaningful new implementation file or module, consider adding a corresponding `docs/implementation-memo/` document if the implementation introduces new flow, TypeScript syntax, data structures, or design decisions that will help later review and learning.
+- Implementation memo documents should supplement active specs; they should not redefine storage format, parser/analyzer contracts, or project decisions that belong in active documents.
+- For implementation memo filenames, follow the current numbered English kebab-case pattern such as `1.4-step1-build-score-indexes.md`.
 
 ## Verification Rules
 
@@ -208,8 +211,12 @@ If the conflict affects implementation safety, stop and surface it clearly befor
 
 ## Comment Style
 
-- TypeScript의 `export type`, `export function`, 주요 모듈 진입점에는 JSDoc 형태의 블록 주석을 작성한다.
+- TypeScript의 `export type`, 모든 함수, 주요 모듈 진입점에는 JSDoc 형태의 블록 주석을 작성한다.
 - JSDoc 태그인 `@param`, `@returns`는 사용하지 않고, 가독성을 위해 일반 문자열 형식의 `- 인수 :`, `- 반환값 :`을 사용한다.
+- 함수 주석에는 함수 설명, 인수, 반환값을 기록한다.
+- 인수가 여러 개인 경우 `- 인수 : name : 설명` 형식으로 줄을 나누어 작성한다.
 - 함수 내부 주석은 모든 줄에 달지 않고, 오류 처리, 타입 좁히기, 모듈 경계, 비직관적 분기처럼 구현 의도를 설명해야 하는 부분에만 `//` 주석을 작성한다.
 - 주석은 코드가 무엇을 그대로 반복하는 설명보다, 왜 해당 처리가 필요한지와 어느 모듈 책임에 속하는지를 우선 설명한다.
 - 코드 식별자와 타입명은 영어를 유지하고, 설명 주석은 한국어로 작성할 수 있다.
+- 구현 메모 문서에는 코드에 사용된 주요 문법, 구현 판단, 모듈 흐름을 우선 기록한다.
+- 함수별 상세 해설은 설계 문서에 길게 중복 작성하지 않고, 가능한 한 코드의 `/** ... */`와 필요한 `//` 주석에 둔다.

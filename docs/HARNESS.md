@@ -191,11 +191,13 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/analyze/types.ts` has an initial analyzer type contract for events, timelines, diagnostics, and cache structures
 - `regression-code/src/core/score/json_load.ts` now implements JSON parsing, top-level object checking, and the convenience `loadScoreFile()` entry point that delegates structure validation
 - `regression-code/src/core/score/score_validate.ts` now implements the first-stage minimum ScoreFile structure/reference validation
+- `regression-code/src/core/score/build_score_indexes.ts` now implements the first-stage ScoreIndexes builder
+- `regression-code/src/core/score/create_runtime_document.ts` now bundles validated ScoreFile data with ScoreIndexes into RuntimeDocument
 - `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
-- `regression-code/dev/test_score.ts` verifies the fixture through `loadScoreFile()`
+- `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - latest verified commands: `npm run typecheck`, `npm run test:score`
-- current near-term focus is reviewing/commenting `score_validate.ts`, then implementing `build_score_indexes.ts`
+- current near-term focus is reviewing the completed score load pipeline, then moving into parser implementation
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
