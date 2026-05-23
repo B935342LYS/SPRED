@@ -25,17 +25,26 @@ import type {
  * - 반환값 : ScoreIndexes : parser/analyzer/renderer가 공유하는 조회용 파생 구조
  */
 export function buildScoreIndexes(score: ScoreFile): ScoreIndexes {
+  // 행 인덱스는 전역 셀 kind 유도에도 필요하므로 다른 전역 인덱스보다 먼저 만든다.
   const rowById = buildRowById(score.layout.rowDefinitions);
+
+  // 표시 순서 배열은 원본 rowDefinitions의 순서를 보존하는 별도 view로 둔다.
   const rowsInDisplayOrder = [...score.layout.rowDefinitions];
+
+  // note row 관련 인덱스는 현 단위 조회와 string/midi 역조회 축을 분리한다.
   const noteRowIdsByStringId = buildNoteRowIdsByStringId(
     score.layout.rowDefinitions,
   );
   const noteRowIdByStringMidi = buildNoteRowIdByStringMidi(
     score.layout.rowDefinitions,
   );
+
+  // track 인덱스는 trackId 단건 조회와 좌표/열 단위 셀 조회를 각각 담당한다.
   const trackById = buildTrackById(score.tracks);
   const cellMapByTrackId = buildCellMapByTrackId(score.tracks);
   const cellsByTrackAndCol = buildCellsByTrackAndCol(score.tracks);
+
+  // 전역 셀 인덱스는 좌표 조회, kind/col 조회, col 순회 배열을 모두 제공한다.
   const globalCellMapByCoord = buildGlobalCellMapByCoord(
     score.globalLines.cells,
   );
@@ -70,6 +79,7 @@ export function buildScoreIndexes(score: ScoreFile): ScoreIndexes {
 function buildRowById(rows: RowDefinition[]): Map<RowId, RowDefinition> {
   const rowById = new Map<RowId, RowDefinition>();
 
+  // validator가 rowId 중복을 이미 막았으므로 여기서는 조회 Map만 구성한다.
   for (const row of rows) {
     rowById.set(row.rowId, row);
   }
@@ -87,12 +97,15 @@ function buildNoteRowIdsByStringId(
 ): Map<StringId, RowId[]> {
   const noteRowIdsByStringId = new Map<StringId, RowId[]>();
 
+  // note row만 현별 그룹에 포함하고 global/gap row는 제외한다.
   for (const row of rows) {
     if (row.type !== "note") {
       continue;
     }
 
     const rowIds = noteRowIdsByStringId.get(row.stringId) ?? [];
+
+    // rowDefinitions 순회 순서를 그대로 유지해 display 순서 기반 목록을 만든다.
     rowIds.push(row.rowId);
     noteRowIdsByStringId.set(row.stringId, rowIds);
   }
@@ -110,6 +123,7 @@ function buildNoteRowIdByStringMidi(
 ): Map<`${StringId}|${number}`, RowId> {
   const noteRowIdByStringMidi = new Map<`${StringId}|${number}`, RowId>();
 
+  // @n(midi_num) 같은 음정 기반 참조를 실제 note rowId로 연결하기 위한 역방향 Map이다.
   for (const row of rows) {
     if (row.type !== "note") {
       continue;
@@ -132,6 +146,7 @@ function buildNoteRowIdByStringMidi(
 function buildTrackById(tracks: Track[]): Map<TrackId, Track> {
   const trackById = new Map<TrackId, Track>();
 
+  // validator가 trackId 중복을 이미 막았으므로 마지막 값 덮어쓰기 위험은 없다.
   for (const track of tracks) {
     trackById.set(track.trackId, track);
   }
@@ -149,9 +164,11 @@ function buildCellMapByTrackId(
 ): Map<TrackId, Map<CellCoordKey, ScoreCell>> {
   const cellMapByTrackId = new Map<TrackId, Map<CellCoordKey, ScoreCell>>();
 
+  // 각 트랙 내부에서 rowId|col 좌표로 단일 셀을 찾을 수 있게 한다.
   for (const track of tracks) {
     const cellMap = new Map<CellCoordKey, ScoreCell>();
 
+    // validator가 같은 트랙 내부 좌표 중복을 막았으므로 좌표 key는 단일 셀에 대응한다.
     for (const cell of track.cells) {
       cellMap.set(createCellCoordKey(cell), cell);
     }
@@ -172,9 +189,11 @@ function buildCellsByTrackAndCol(
 ): Map<TrackId, Map<number, ScoreCell[]>> {
   const cellsByTrackAndCol = new Map<TrackId, Map<number, ScoreCell[]>>();
 
+  // partial parse/analysis는 열 범위를 기준으로 삼으므로 col별 셀 묶음을 따로 만든다.
   for (const track of tracks) {
     const cellsByCol = new Map<number, ScoreCell[]>();
 
+    // 같은 열에는 서로 다른 row의 셀이 여러 개 있을 수 있으므로 배열로 보관한다.
     for (const cell of track.cells) {
       const cells = cellsByCol.get(cell.col) ?? [];
       cells.push(cell);
@@ -197,6 +216,7 @@ function buildGlobalCellMapByCoord(
 ): Map<GlobalCellCoordKey, GlobalCell> {
   const globalCellMapByCoord = new Map<GlobalCellCoordKey, GlobalCell>();
 
+  // 전역 셀은 track 축이 없으므로 rowId|col 좌표만으로 단건 조회한다.
   for (const cell of globalCells) {
     globalCellMapByCoord.set(createGlobalCellCoordKey(cell), cell);
   }
@@ -216,6 +236,7 @@ function buildGlobalCellsByKindAndCol(
 ): Map<GlobalKind, Map<number, GlobalCell>> {
   const globalCellsByKindAndCol = new Map<GlobalKind, Map<number, GlobalCell>>();
 
+  // rowId에서 GlobalKind를 유도하여 parser/analyzer가 kind 축으로 전역 셀을 조회하게 한다.
   for (const cell of globalCells) {
     const row = rowById.get(cell.rowId);
 
@@ -244,6 +265,7 @@ function buildGlobalCellsInColOrder(
 ): Map<GlobalKind, GlobalCell[]> {
   const globalCellsInColOrder = new Map<GlobalKind, GlobalCell[]>();
 
+  // analyzer timeline 생성은 같은 kind의 전역 셀을 시간 순서대로 훑어야 한다.
   for (const cell of globalCells) {
     const row = rowById.get(cell.rowId);
 
@@ -257,6 +279,7 @@ function buildGlobalCellsInColOrder(
     globalCellsInColOrder.set(row.kind, cells);
   }
 
+  // 입력 JSON의 정렬 상태와 무관하게 analyzer가 안정적인 col 순서를 받도록 정렬한다.
   for (const cells of globalCellsInColOrder.values()) {
     cells.sort(compareCellsByColThenRowId);
   }
@@ -305,9 +328,11 @@ function compareCellsByColThenRowId(
   left: GlobalCell | ScoreCell,
   right: GlobalCell | ScoreCell,
 ): number {
+  // timeline과 열 단위 처리가 우선이므로 col을 1차 정렬 기준으로 둔다.
   if (left.col !== right.col) {
     return left.col - right.col;
   }
 
+  // 같은 열 안에서는 rowId 기준으로 정렬해 실행마다 순서가 흔들리지 않게 한다.
   return left.rowId.localeCompare(right.rowId);
 }

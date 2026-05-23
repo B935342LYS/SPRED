@@ -178,7 +178,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the `score` module load/validate/index path before parser implementation
+- current focus is document-level parser assembly after single-cell parser completion
 
 ## 10. Current Progress Summary
 
@@ -194,13 +194,14 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/score/build_score_indexes.ts` now implements the first-stage ScoreIndexes builder
 - `regression-code/src/core/score/create_runtime_document.ts` now bundles validated ScoreFile data with ScoreIndexes into RuntimeDocument
 - `regression-code/src/core/parse/parse_global_cell.ts` now implements the first-stage global cell parser
+- `regression-code/src/core/parse/parse_note_cell.ts` now implements the first-stage note parser path for mute, pletExtend, pletHead, default note, hold-only cells, and general note modifiers
 - `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
 - `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
-- `regression-code/dev/test_parse.ts` verifies the fixture global cells through `parseGlobalCell()`
+- `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, and direct pletHead samples
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
-- current near-term focus is reviewing `parse_global_cell.ts`, then implementing the note cell parser
+- current near-term focus is implementing `build_parsed_document.ts`
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`

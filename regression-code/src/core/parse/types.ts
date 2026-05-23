@@ -60,6 +60,7 @@ export type ParseErrorCode =
   | "unterminated_paren"
   | "missing_argument"
   | "invalid_number"
+  | "invalid_gliss_id"
   | "invalid_gliss_kind"
   | "invalid_trem_division"
   | "invalid_midi_range"
@@ -134,7 +135,7 @@ export type ParsedPletExtendCell = ParsedCellBase & {
 /** gliss modifier. 연결 상대 탐색은 analyzer가 수행한다. */
 export type ParsedGliss = {
   id: string;
-  glissKind: "start" | "mid" | "end";
+  glissKind: "S" | "M" | "E";
 };
 
 /** tremolo modifier. 허용 분할 수는 note parser 명세를 따른다. */

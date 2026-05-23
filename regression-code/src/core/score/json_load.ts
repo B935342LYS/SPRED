@@ -60,6 +60,7 @@ export type LoadScoreFileResult =
 export function loadScoreJson(jsonText: string): LoadScoreJsonResult {
   let parsed: unknown;
 
+  // JSON.parse는 예외를 던지는 API이므로 loader 경계에서 결과 객체로 변환한다.
   try {
     parsed = JSON.parse(jsonText);
   } catch (error) {
@@ -98,6 +99,7 @@ export function loadScoreJson(jsonText: string): LoadScoreJsonResult {
  * - 반환값 : LoadScoreFileResult : JSON 파싱과 ScoreFile 검증 결과
  */
 export function loadScoreFile(jsonText: string): LoadScoreFileResult {
+  // JSON 문법과 최상위 object 여부를 먼저 확인한 뒤 ScoreFile 구조 검증으로 넘긴다.
   const loadResult = loadScoreJson(jsonText);
 
   // loadResult.ok === false이면 JSON 로드 실패 상황이므로 에러 정보를 그대로 반환한다.

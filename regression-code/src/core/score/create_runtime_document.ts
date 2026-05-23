@@ -38,6 +38,7 @@ export type LoadRuntimeDocumentResult =
 export function createRuntimeDocument(score: ScoreFile): RuntimeDocument {
   return {
     score,
+    // indexes는 score에서 파생되는 런타임 조회 구조이므로 같은 컨테이너에서 함께 보관한다.
     indexes: buildScoreIndexes(score),
   };
 }
@@ -50,6 +51,7 @@ export function createRuntimeDocument(score: ScoreFile): RuntimeDocument {
 export function loadRuntimeDocument(
   jsonText: string,
 ): LoadRuntimeDocumentResult {
+  // RuntimeDocument 생성 전에는 JSON 파싱과 ScoreFile 검증이 먼저 끝나야 한다.
   const loadResult = loadScoreFile(jsonText);
 
   // JSON 파싱 또는 ScoreFile 검증 실패는 인덱스 생성 전 단계의 오류이므로 그대로 전달한다.
@@ -59,6 +61,7 @@ export function loadRuntimeDocument(
 
   return {
     ok: true,
+    // 검증된 ScoreFile에 대해서만 인덱스를 생성해 score/index 불일치를 막는다.
     document: createRuntimeDocument(loadResult.score),
   };
 }
