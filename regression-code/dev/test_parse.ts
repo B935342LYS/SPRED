@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { parseGlobalCell } from "../src/core/parse/parse_global_cell";
 import { parseNoteCell } from "../src/core/parse/parse_note_cell";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
@@ -190,6 +191,53 @@ if (!result.ok) {
 
   if (unexpectedInvalidPletHeadResults.length > 0) {
     console.error(unexpectedInvalidPletHeadResults);
+    process.exitCode = 1;
+  }
+
+  // 문서 단위 parser는 단일 셀 parser 결과를 analyzer 입력 축으로 묶는다.
+  const parsedDocument = buildParsedDocument(
+    result.document.score,
+    result.document.indexes,
+  );
+  let parsedDocumentNoteCellCount = 0;
+  let parsedDocumentInvalidNoteCellCount = 0;
+  let parsedDocumentGlobalCellCount = 0;
+  let parsedDocumentInvalidGlobalCellCount = 0;
+
+  // note 문서 Map은 track -> col -> entries 구조이므로 중첩 순회로 개수를 센다.
+  for (const cellsByCol of parsedDocument.noteCellsByTrackAndCol.values()) {
+    for (const entries of cellsByCol.values()) {
+      parsedDocumentNoteCellCount += entries.length;
+      parsedDocumentInvalidNoteCellCount += entries.filter(
+        (entry) => entry.parsedCell.kind === "invalid",
+      ).length;
+    }
+  }
+
+  // global 문서 Map은 kind -> col -> entry 구조이므로 전역 행별 파싱 결과를 센다.
+  for (const cellsByCol of parsedDocument.globalCellsByKindAndCol.values()) {
+    for (const entry of cellsByCol.values()) {
+      parsedDocumentGlobalCellCount += 1;
+
+      if (entry.parsedCell.kind === "invalid") {
+        parsedDocumentInvalidGlobalCellCount += 1;
+      }
+    }
+  }
+
+  console.log("Parsed document build completed.");
+  console.log(`parsed document note cells: ${parsedDocumentNoteCellCount}`);
+  console.log(`parsed document invalid note cells: ${parsedDocumentInvalidNoteCellCount}`);
+  console.log(`parsed document global cells: ${parsedDocumentGlobalCellCount}`);
+  console.log(`parsed document invalid global cells: ${parsedDocumentInvalidGlobalCellCount}`);
+
+  if (
+    parsedDocumentNoteCellCount !== parsedNoteCells.length ||
+    parsedDocumentInvalidNoteCellCount !== 0 ||
+    parsedDocumentGlobalCellCount !== parsedGlobalCells.length ||
+    parsedDocumentInvalidGlobalCellCount !== 0
+  ) {
+    console.error("Parsed document counts did not match parser fixture expectations.");
     process.exitCode = 1;
   }
 }

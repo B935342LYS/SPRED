@@ -10,7 +10,6 @@ Active implementation root:
 - `regression-code/`
 
 Archived implementation roots:
-- `regression-code-legacy/`
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
 
@@ -62,7 +61,6 @@ Memo roots:
 `docs/a1.0-open-source-reference-survey.md` : `appendix`
 `docs/implementation-memo/` : `memo`
 `regression-code/` : `active`
-`regression-code-legacy/` : `archive`
 `0. 이세계 코드 (legacy)/` : `archive`
 `1. 개발문서/` : `archive`
 
@@ -152,10 +150,6 @@ Appendix:
   - `parse/`
   - `analyze/`
 
-`regression-code-legacy/`
-- early experimental implementation snapshot
-- reference only
-
 ## 8. Path Use Rules
 
 Default implementation target:
@@ -165,7 +159,6 @@ Open on explicit review request only:
 - `docs/implementation-memo/`
 
 Reference only, not current implementation target:
-- `regression-code-legacy/`
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
 
@@ -178,12 +171,12 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is document-level parser assembly after single-cell parser completion
+- current focus is preparing the first analyzer implementation after parser assembly
 
 ## 10. Current Progress Summary
 
 - active specification documents `1.3`, `1.5`, `1.6`, `1.7`, `1.8` are prepared
-- the early experimental implementation was separated into `regression-code-legacy/`
+- the early experimental implementation archive has been removed after the active `regression-code/` parser path was established
 - a reinitialized `regression-code/` now exists as the active implementation path
 - implementation order and folder structure now follow `docs/implementation-memo/1.0-roadmap.md`
 - `regression-code/src/core/score/types.ts` defines the score storage and runtime index types
@@ -195,13 +188,14 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/score/create_runtime_document.ts` now bundles validated ScoreFile data with ScoreIndexes into RuntimeDocument
 - `regression-code/src/core/parse/parse_global_cell.ts` now implements the first-stage global cell parser
 - `regression-code/src/core/parse/parse_note_cell.ts` now implements the first-stage note parser path for mute, pletExtend, pletHead, default note, hold-only cells, and general note modifiers
+- `regression-code/src/core/parse/build_parsed_document.ts` now assembles single-cell parser results into `ParsedScoreDocument`
 - `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
 - `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
-- `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, and direct pletHead samples
+- `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
-- current near-term focus is implementing `build_parsed_document.ts`
+- current near-term focus is starting the analyzer implementation from parsed document input
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
