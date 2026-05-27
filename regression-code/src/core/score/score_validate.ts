@@ -19,6 +19,7 @@ import type {
  * - invalid_shape : 필드 타입이나 지원 범위가 맞지 않음
  * - duplicate_* : 고유해야 하는 ID 또는 좌표가 중복됨
  * - unknown_row_id : 셀이 존재하지 않는 rowId를 참조함
+ * - missing_required_track : 고정 트랙 레이어 중 하나가 없음
  * - missing_global_start_cell : 필수 전역 시작 셀이 없음
  */
 export type ScoreValidationErrorCode =
@@ -29,6 +30,7 @@ export type ScoreValidationErrorCode =
   | "duplicate_track_id"
   | "duplicate_track_cell_coord"
   | "duplicate_global_cell_coord"
+  | "missing_required_track"
   | "unknown_row_id"
   | "invalid_cell_row_type"
   | "invalid_global_row_type"
@@ -324,7 +326,7 @@ function validateRows(
 function validateTrackIds(score: ScoreFile): ScoreValidationError | null {
   const trackIds = new Set<TrackId>();
 
-  // trackId는 고정된 세 레이어만 허용하며, 문서 안에서 한 번씩만 등장해야 한다.
+  // trackId의 허용 범위와 중복 여부를 먼저 확정해야 필수 트랙 누락을 안정적으로 판정할 수 있다.
   for (const track of score.tracks) {
     // 지원하지 않는 trackId는 UI/parser/analyzer가 처리할 수 없는 레이어이다.
     if (!TRACK_IDS.includes(track.trackId)) {
@@ -345,6 +347,17 @@ function validateTrackIds(score: ScoreFile): ScoreValidationError | null {
     }
 
     trackIds.add(track.trackId);
+  }
+
+  // 세 트랙을 항상 보장하면 UI/edit/save 경로에서 없는 트랙을 동적으로 생성하지 않아도 된다.
+  for (const trackId of TRACK_IDS) {
+    if (!trackIds.has(trackId)) {
+      return {
+        code: "missing_required_track",
+        message: `Missing required track: ${trackId}.`,
+        path: "tracks",
+      };
+    }
   }
 
   return null;

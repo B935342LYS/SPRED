@@ -37,11 +37,13 @@ When implementation guidance conflicts, use this priority order:
 
 1. `docs/HARNESS.md`
 2. `docs/1.8-parser-analyzer-pipeline-spec.md`
-3. `docs/1.5-note-cell-parser-spec.md`
-4. `docs/1.6-global-cell-parser-spec.md`
-5. `docs/1.7-analyzer-event-list-spec.md`
-6. `docs/1.3-score-json-format.md`
-7. `docs/1.0-development-spec.md`
+3. `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
+4. `docs/2.0-ui-mvp-spec.md`
+5. `docs/1.5-note-cell-parser-spec.md`
+6. `docs/1.6-global-cell-parser-spec.md`
+7. `docs/1.7-analyzer-event-list-spec.md`
+8. `docs/1.3-score-json-format.md`
+9. `docs/1.0-development-spec.md`
 
 Background/reference documents:
 
@@ -164,6 +166,8 @@ For layout conflicts:
 - After parser or analyzer changes, re-check that output structures still match the active specs, especially:
   - `docs/1.7-analyzer-event-list-spec.md`
   - `docs/1.8-parser-analyzer-pipeline-spec.md`
+  - `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
+  - `docs/2.0-ui-mvp-spec.md`
 - If import failure conditions or structural constraints are changed, verify that error-handling behavior and document rules still match.
 - If verification could not be performed, state that explicitly rather than implying success.
 

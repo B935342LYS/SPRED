@@ -1,9 +1,66 @@
 import { readFileSync } from "node:fs";
 
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+import { validateScoreFile } from "../src/core/score/score_validate";
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
+const fixtureValue = JSON.parse(jsonText);
+
+/**
+ * JSON fixture 값을 테스트별로 안전하게 변형하기 위한 복제 함수.
+ * - 인수 : value : JSON 직렬화 가능한 fixture 값
+ * - 반환값 : T : 원본과 참조를 공유하지 않는 복제 값
+ */
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+// UI와 edit/save 계약을 위해 고정 트랙 레이어 누락은 validator에서 차단해야 한다.
+const missingBasicTrack = cloneJson(fixtureValue);
+missingBasicTrack.tracks = missingBasicTrack.tracks.filter(
+  (track: { trackId: string }) => track.trackId !== "basic",
+);
+
+const missingBasicResult = validateScoreFile(missingBasicTrack);
+if (missingBasicResult.ok) {
+  console.error("Score validation failed to reject missing basic track.");
+  process.exitCode = 1;
+} else if (missingBasicResult.error.code !== "missing_required_track") {
+  console.error("Unexpected error for missing basic track.");
+  console.error(missingBasicResult.error);
+  process.exitCode = 1;
+}
+
+const missingOptionalTrack = cloneJson(fixtureValue);
+missingOptionalTrack.tracks = missingOptionalTrack.tracks.filter(
+  (track: { trackId: string }) => track.trackId !== "optional",
+);
+
+const missingOptionalResult = validateScoreFile(missingOptionalTrack);
+if (missingOptionalResult.ok) {
+  console.error("Score validation failed to reject missing optional track.");
+  process.exitCode = 1;
+} else if (missingOptionalResult.error.code !== "missing_required_track") {
+  console.error("Unexpected error for missing optional track.");
+  console.error(missingOptionalResult.error);
+  process.exitCode = 1;
+}
+
+const missingExtraTrack = cloneJson(fixtureValue);
+missingExtraTrack.tracks = missingExtraTrack.tracks.filter(
+  (track: { trackId: string }) => track.trackId !== "extra",
+);
+
+const missingExtraResult = validateScoreFile(missingExtraTrack);
+if (missingExtraResult.ok) {
+  console.error("Score validation failed to reject missing extra track.");
+  process.exitCode = 1;
+} else if (missingExtraResult.error.code !== "missing_required_track") {
+  console.error("Unexpected error for missing extra track.");
+  console.error(missingExtraResult.error);
+  process.exitCode = 1;
+}
 
 // score 모듈 전체 로드 경로를 확인하기 위해 JSON -> RuntimeDocument까지 한 번에 실행한다.
 const result = loadRuntimeDocument(jsonText);

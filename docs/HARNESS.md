@@ -19,6 +19,8 @@ Primary spec roots:
 - `docs/1.6-global-cell-parser-spec.md`
 - `docs/1.7-analyzer-event-list-spec.md`
 - `docs/1.8-parser-analyzer-pipeline-spec.md`
+- `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
+- `docs/2.0-ui-mvp-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -55,6 +57,12 @@ Memo roots:
 `docs/1.8-parser-analyzer-pipeline-spec.md` : `spec`
 - end-to-end runtime interfaces and pipeline boundaries
 
+`docs/1.9-mvp-analyzer-renderer-ui-spec.md` : `spec`
+- first analyzer / renderer / UI MVP scope
+
+`docs/2.0-ui-mvp-spec.md` : `spec`
+- first UI layout, state, and event-action MVP scope
+
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
 `docs/1.4-note-string-spec.md` : `reference`
@@ -69,15 +77,19 @@ Memo roots:
 Read in this order for implementation work:
 
 1. `docs/1.8-parser-analyzer-pipeline-spec.md`
-2. `docs/1.5-note-cell-parser-spec.md`
-3. `docs/1.6-global-cell-parser-spec.md`
-4. `docs/1.7-analyzer-event-list-spec.md`
-5. `docs/1.3-score-json-format.md`
-6. `docs/1.0-development-spec.md`
+2. `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
+3. `docs/2.0-ui-mvp-spec.md`
+4. `docs/1.5-note-cell-parser-spec.md`
+5. `docs/1.6-global-cell-parser-spec.md`
+6. `docs/1.7-analyzer-event-list-spec.md`
+7. `docs/1.3-score-json-format.md`
+8. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
 - runtime types and function signatures follow `1.8` first
+- first analyzer / renderer / UI MVP implementation scope follows `1.9` first
+- first UI layout, state, and event-action scope follows `2.0` first
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -107,6 +119,12 @@ Analyzer:
 Pipeline:
 - `docs/1.8-parser-analyzer-pipeline-spec.md`
 
+MVP analyzer / renderer / UI:
+- `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
+
+UI MVP:
+- `docs/2.0-ui-mvp-spec.md`
+
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
@@ -119,6 +137,8 @@ Appendix:
 - `1.6-global-cell-parser-spec.md`
 - `1.7-analyzer-event-list-spec.md`
 - `1.8-parser-analyzer-pipeline-spec.md`
+- `1.9-mvp-analyzer-renderer-ui-spec.md`
+- `2.0-ui-mvp-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -176,6 +196,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 ## 10. Current Progress Summary
 
 - active specification documents `1.3`, `1.5`, `1.6`, `1.7`, `1.8` are prepared
+- active MVP implementation specification document `1.9` is prepared for the first analyzer / renderer / UI connection
+- active UI MVP specification document `2.0` is prepared for layout, UI state, and event-action flow
 - the early experimental implementation archive has been removed after the active `regression-code/` parser path was established
 - a reinitialized `regression-code/` now exists as the active implementation path
 - implementation order and folder structure now follow `docs/implementation-memo/1.0-roadmap.md`
@@ -196,6 +218,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - parser verification has been introduced through `npm run test:parse`
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
 - current near-term focus is starting the analyzer implementation from parsed document input
+- the first analyzer MVP scope is fixed to default note text and `"-"` hold only
+- UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
+- `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
@@ -209,6 +234,8 @@ Deferred planned work:
   - `1.3` covers storage format, `1.8` covers runtime interfaces
 - `1.7` and actual code implementation
   - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures, but analyzer algorithms remain unimplemented
+- `1.9` and actual MVP implementation
+  - `1.9` intentionally narrows the broad analyzer/renderer/audio goals to default note text, `"-"` hold, minimum renderer, and basic audio/playback
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation
