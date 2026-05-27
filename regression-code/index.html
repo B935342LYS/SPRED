@@ -4,8 +4,345 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPRED</title>
+    <link rel="stylesheet" href="./styles/app.css">
 </head>
 <body>
-    
+    <main class="app-shell" aria-label="SPRED score app">
+        <input class="mode-toggle" id="edit-mode-toggle" type="checkbox" aria-hidden="true">
+        <header class="menu-area">
+            <nav class="left-tool-group" aria-label="Tool menus">
+                <div class="tool-menu-row">
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">File</button>
+                        <div class="menu-panel">
+                            <button type="button">JSON Load</button>
+                            <button type="button" disabled>JSON Download</button>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">View</button>
+                        <div class="menu-panel">
+                            <label class="compact-field">
+                                Zoom
+                                <input type="range" min="50" max="200" value="100">
+                            </label>
+                            <label class="compact-field">
+                                Text Scale
+                                <input type="range" min="75" max="150" value="100" disabled>
+                            </label>
+                            <label class="compact-field">
+                                Speed
+                                <input type="range" min="50" max="150" value="100" disabled>
+                            </label>
+                            <button type="button" disabled>Fullscreen</button>
+                            <button type="button" disabled>Fit Height</button>
+                            <button type="button" disabled>Reverse</button>
+                            <button type="button" disabled>Theme</button>
+                            <label class="switch-field">
+                                <input type="checkbox" disabled>
+                                Text off
+                            </label>
+                            <label class="switch-field">
+                                <input type="checkbox" checked disabled>
+                                Beat lines
+                            </label>
+                            <label class="switch-field">
+                                <input type="checkbox" checked disabled>
+                                Bar lines
+                            </label>
+                            <button type="button" disabled>Refresh Lines</button>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Loop</button>
+                        <div class="menu-panel loop-panel">
+                            <div class="edit-control-row">
+                                <span class="micro-label">Loop</span>
+                                <button type="button" class="pill-toggle off" disabled>Off</button>
+                            </div>
+                            <label class="inline-field">
+                                Start
+                                <select disabled>
+                                    <option>First</option>
+                                    <option>Select Start Column</option>
+                                </select>
+                                <span class="preview-pill">--</span>
+                            </label>
+                            <label class="inline-field">
+                                End
+                                <select disabled>
+                                    <option>Last</option>
+                                    <option>Select End Column</option>
+                                </select>
+                                <span class="preview-pill">--</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Help</button>
+                        <div class="menu-panel">
+                            <button type="button" onclick="document.getElementById('legal-info').showModal()">Info</button>
+                            <button type="button" disabled>Manual</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tool-action-row">
+                    <label class="toggle-button" for="edit-mode-toggle">Edit Mode</label>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Track</button>
+                        <div class="menu-panel track-panel">
+                            <button type="button" class="pill-toggle on">Basic</button>
+                            <button type="button" class="pill-toggle off">Optional</button>
+                            <button type="button" class="pill-toggle off">Extra</button>
+                        </div>
+                    </div>
+                    <div class="menu-dropdown">
+                        <button class="menu-trigger" type="button">Expand</button>
+                        <div class="menu-panel expand-panel">
+                            <span class="micro-label">Expand columns</span>
+                            <input type="number" min="1" max="960" step="1" placeholder="cols" disabled>
+                            <button type="button" disabled>Expand right</button>
+                        </div>
+                    </div>
+                    <button class="menu-trigger" type="button">Reload</button>
+                </div>
+            </nav>
+
+            <section class="player-group" aria-label="Playback controls">
+                <span class="status-pill playback-status">stopped</span>
+                <button type="button" class="details-button" disabled>Details</button>
+                <div class="music-meta">
+                    <span class="artist">unknown</span>
+                    <span aria-hidden="true">-</span>
+                    <strong class="title">unknown</strong>
+                </div>
+                <div class="transport-row">
+                    <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
+                    <button type="button" class="transport-button" aria-label="Stop">■</button>
+                    <label class="seek-field">
+                        <span>0</span>
+                        <input type="range" min="0" max="100" value="0">
+                        <span>100</span>
+                    </label>
+                </div>
+                <div class="audio-row">
+                    <label class="compact-field">
+                        Volume
+                        <input type="range" min="0" max="100" value="70">
+                    </label>
+                    <label class="compact-field">
+                        Wave
+                        <select>
+                            <option>sine</option>
+                            <option>square</option>
+                            <option>triangle</option>
+                            <option>sawtooth</option>
+                        </select>
+                    </label>
+                    <span class="status-pill step-info">stepMs: --</span>
+                </div>
+            </section>
+
+            <section class="youtube-group" aria-label="YouTube mode">
+                <input class="youtube-toggle" id="youtube-toggle" type="checkbox" disabled>
+                <label class="switch-field youtube-switch" for="youtube-toggle">YouTube</label>
+                <div class="youtube-controls">
+                    <label class="compact-field">
+                        Offset ms
+                        <input type="number" value="0" min="-60000" max="60000" step="100" disabled>
+                    </label>
+                    <button type="button" disabled>Re-sync</button>
+                    <span class="status-pill">No video</span>
+                </div>
+            </section>
+        </header>
+
+        <section class="edit-panel" aria-label="Edit panel">
+            <div class="edit-row">
+                <section class="edit-card number-card" aria-label="Number edit tools">
+                    <div class="edit-card-title">Number</div>
+                    <div class="edit-control-row">
+                        <input type="number" min="0" step="1" placeholder="num" disabled>
+                        <div class="tempo-mark-group">
+                            <span class="micro-label">Tempo mark</span>
+                            <div class="pill-row">
+                                <button type="button" class="pill-toggle on" disabled>Instant</button>
+                                <button type="button" class="pill-toggle off" disabled>start&lt;</button>
+                                <button type="button" class="pill-toggle off" disabled>End &gt;</button>
+                                <button type="button" class="pill-toggle off" disabled>End+Start &gt;&lt;</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="edit-card default-card" aria-label="Default note tools">
+                    <div class="edit-card-title-row">
+                        <span class="edit-card-title">Default</span>
+                        <span class="preview-pill">current: empty</span>
+                    </div>
+                    <div class="edit-control-row">
+                        <select disabled>
+                            <option>AUTO sharp</option>
+                            <option>AUTO flat</option>
+                            <option>CUSTOM</option>
+                            <option>comment</option>
+                            <option>ERASER</option>
+                        </select>
+                        <input type="text" placeholder="custom text" disabled>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Long note tools">
+                    <div class="edit-card-title">Long</div>
+                    <div class="edit-control-row">
+                        <button type="button" class="pill-toggle off" disabled>Off</button>
+                        <select disabled>
+                            <option>(none)</option>
+                            <option>-</option>
+                            <option>~</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Glissando tools">
+                    <div class="edit-card-title">Gliss.</div>
+                    <div class="edit-control-row">
+                        <button type="button" class="pill-toggle off" disabled>Off</button>
+                        <select disabled>
+                            <option>(none)</option>
+                            <option>start</option>
+                            <option>curve</option>
+                            <option>end</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="edit-card narrow-card" aria-label="Tremolo tools">
+                    <div class="edit-card-title">Trem.</div>
+                    <div class="edit-control-row">
+                        <button type="button" class="pill-toggle off" disabled>Off</button>
+                        <select disabled>
+                            <option>(none)</option>
+                            <option>trem 1</option>
+                            <option>trem 2</option>
+                            <option>trem 3</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="edit-card pitch-card" aria-label="Pitch modifier tools">
+                    <div class="edit-card-title">Pitch</div>
+                    <div class="edit-control-row">
+                        <select disabled>
+                            <option>absolutePitch</option>
+                            <option>C</option>
+                            <option>C sharp</option>
+                            <option>D</option>
+                        </select>
+                        <input type="number" min="-100" max="100" step="0.1" placeholder="microPitch" disabled>
+                    </div>
+                </section>
+
+                <section class="edit-card tuplet-card" aria-label="Tuplet tools">
+                    <div class="edit-card-title">Tuplet</div>
+                    <div class="tuplet-toolbar">
+                        <button type="button" class="pill-toggle off" disabled>Off</button>
+                        <label class="inline-field">
+                            plets
+                            <select disabled>
+                                <option>2</option>
+                                <option selected>3</option>
+                                <option>4</option>
+                                <option>5</option>
+                                <option>6</option>
+                                <option>7</option>
+                            </select>
+                        </label>
+                        <label class="inline-field">
+                            Insert Mode
+                            <select disabled>
+                                <option>SELECT MODE</option>
+                                <option>SELECT ROW</option>
+                                <option>DIRECT INPUT</option>
+                            </select>
+                        </label>
+                        <button type="button" disabled>Finalize Value</button>
+                        <button type="button" disabled>To pletExtend</button>
+                    </div>
+                    <div class="tuplet-slots" aria-label="Tuplet slot inputs">
+                        <input type="text" placeholder="slot 1" disabled>
+                        <input type="text" placeholder="slot 2" disabled>
+                        <input type="text" placeholder="slot 3" disabled>
+                        <input type="text" placeholder="slot 4" disabled>
+                        <input type="text" placeholder="slot 5" disabled>
+                        <input type="text" placeholder="slot 6" disabled>
+                        <input type="text" placeholder="slot 7" disabled>
+                    </div>
+                    <div class="edit-help">Select a slot, choose an insert mode, then finalize the tuplet value.</div>
+                </section>
+
+                <section class="edit-card actions-card" aria-label="Edit action tools">
+                    <div class="edit-card-title">Edit Actions</div>
+                    <div class="edit-control-row">
+                        <span class="preview-pill">Pending: 0</span>
+                        <button type="button" disabled>Undo</button>
+                        <button type="button" disabled>Apply edits</button>
+                        <button type="button" disabled>Clear edits</button>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="score-viewer" aria-label="Score viewer">
+            <aside class="layout-area">
+                <div class="layout-toolbar">
+                    <select aria-label="Layout preset">
+                        <option>Default Layout</option>
+                    </select>
+                    <button type="button">Modify</button>
+                    <button type="button">Save</button>
+                    <button type="button">Reset</button>
+                </div>
+                <div class="label-grid" aria-label="Row labels">
+                    <span>BPM</span>
+                    <span>BeatsPerBar</span>
+                    <span>StepsPerBeat</span>
+                    <span>Dynamics</span>
+                    <span>C5</span>
+                    <span></span>
+                    <span>B4</span>
+                    <span></span>
+                    <span>A#4</span>
+                    <span>A4</span>
+                </div>
+            </aside>
+
+            <section class="score-area" aria-label="Score canvas">
+                <div class="score-grid" aria-hidden="true">
+                    <div class="note-rect note-a">C</div>
+                    <div class="note-rect note-b">D</div>
+                    <div class="note-rect note-c">E</div>
+                </div>
+            </section>
+        </section>
+
+        <footer class="status-area">
+            <span>sample auto load: pending</span>
+            <span>analysis: waiting</span>
+            <span>renderer: static shell</span>
+        </footer>
+    </main>
+
+    <dialog id="legal-info" class="info-dialog">
+        <form method="dialog">
+            <h2>Info</h2>
+            <p>This program is provided for non-commercial purposes.</p>
+            <p>This program does not provide music file downloads.</p>
+            <p>All musical works belong to their lawful copyright holders.</p>
+            <p>Score data may be removed from the database or public list upon request from the copyright holder.</p>
+            <p>Users must respect copyright.</p>
+            <button type="submit">Close</button>
+        </form>
+    </dialog>
 </body>
 </html>

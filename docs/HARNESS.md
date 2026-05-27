@@ -163,6 +163,7 @@ Appendix:
 - `tsconfig.json`
 - `dev/`
 - `styles/`
+  - `app.css`
 - `src/core/`
   - `common.types.ts`
   - `index.ts`
@@ -191,7 +192,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is preparing the first analyzer implementation after parser assembly
+- current focus is finalizing the static MVP UI shell before replacing the temporary score grid with canvas layers
 
 ## 10. Current Progress Summary
 
@@ -217,10 +218,13 @@ If memo content is explicitly adopted by the user for implementation order or st
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
-- current near-term focus is starting the analyzer implementation from parsed document input
+- current near-term focus is replacing the temporary static score grid with legacy-like canvas layer slots
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
+- `regression-code/index.html` and `regression-code/styles/app.css` now contain a static MVP UI shell modeled after legacy `이세계 코드`
+- the UI shell currently includes hover/focus menu groups, center player card, YouTube placeholder, legacy-like edit panel cards, layout label area, temporary score grid, and Info dialog
+- renderer/playback specs now keep the layout/score boundary as the playback reference and use layout-side padding columns with a translucent red right-half overlay to emphasize that boundary
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
@@ -236,6 +240,9 @@ Deferred planned work:
   - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures, but analyzer algorithms remain unimplemented
 - `1.9` and actual MVP implementation
   - `1.9` intentionally narrows the broad analyzer/renderer/audio goals to default note text, `"-"` hold, minimum renderer, and basic audio/playback
+- `2.0` and actual UI shell
+  - static HTML/CSS UI structure exists, but controls are mostly placeholders and are not yet connected to TypeScript state
+  - current score grid is temporary and should be replaced by canvas layer DOM before renderer implementation
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation
