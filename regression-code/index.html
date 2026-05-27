@@ -233,13 +233,19 @@
                 <section class="edit-card pitch-card" aria-label="Pitch modifier tools">
                     <div class="edit-card-title">Pitch</div>
                     <div class="edit-control-row">
-                        <select disabled>
-                            <option>absolutePitch</option>
-                            <option>C</option>
-                            <option>C sharp</option>
-                            <option>D</option>
-                        </select>
-                        <input type="number" min="-100" max="100" step="0.1" placeholder="microPitch" disabled>
+                        <label class="stacked-field">
+                            <span>absolutePitch</span>
+                            <select disabled>
+                                <option selected>(none)</option>
+                                <option>C</option>
+                                <option>C sharp</option>
+                                <option>D</option>
+                            </select>
+                        </label>
+                        <label class="stacked-field">
+                            <span>microPitch</span>
+                            <input type="number" min="-100" max="100" step="0.1" disabled>
+                        </label>
                     </div>
                 </section>
 
@@ -267,7 +273,7 @@
                             </select>
                         </label>
                         <button type="button" disabled>Finalize Value</button>
-                        <button type="button" disabled>To pletExtend</button>
+                        <button type="button" disabled>Extend</button>
                     </div>
                     <div class="tuplet-slots" aria-label="Tuplet slot inputs">
                         <input type="text" placeholder="slot 1" disabled>
@@ -283,11 +289,11 @@
 
                 <section class="edit-card actions-card" aria-label="Edit action tools">
                     <div class="edit-card-title">Edit Actions</div>
+                    <span class="preview-pill pending-pill">Pending: 0</span>
                     <div class="edit-control-row">
-                        <span class="preview-pill">Pending: 0</span>
                         <button type="button" disabled>Undo</button>
-                        <button type="button" disabled>Apply edits</button>
-                        <button type="button" disabled>Clear edits</button>
+                        <button type="button" disabled>Save</button>
+                        <button type="button" disabled>Reset</button>
                     </div>
                 </section>
             </div>

@@ -403,11 +403,11 @@ select:disabled {
 
 .edit-card {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   flex: 1 1 180px;
   min-width: 0;
   max-width: 100%;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -426,7 +426,7 @@ select:disabled {
 }
 
 .pitch-card {
-  flex-basis: 240px;
+  flex-basis: 220px;
 }
 
 .tuplet-card {
@@ -434,14 +434,16 @@ select:disabled {
 }
 
 .actions-card {
+  position: relative;
   flex-basis: 320px;
+  padding-right: 86px;
 }
 
 .edit-card-title,
 .micro-label,
 .edit-help {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .edit-card-title {
@@ -468,19 +470,33 @@ select:disabled {
   min-width: 0;
 }
 
+.edit-panel select,
+.edit-panel input[type="text"],
+.edit-panel input[type="number"] {
+  min-height: 26px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+.edit-panel input::placeholder {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .default-card input[type="text"] {
-  flex: 1 1 160px;
+  flex: 1 1 132px;
 }
 
 .default-card select,
 .narrow-card select,
 .pitch-card select {
-  flex: 0 1 120px;
+  flex: 0 1 96px;
+  max-width: 104px;
 }
 
 .pitch-card input[type="number"],
 .number-card input[type="number"] {
-  width: 104px;
+  width: 84px;
 }
 
 .tempo-mark-group {
@@ -489,10 +505,28 @@ select:disabled {
   min-width: 0;
 }
 
+.tempo-mark-group .pill-row {
+  gap: 6px;
+}
+
 .pill-toggle {
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
+  font-size: 12px;
+}
+
+.tempo-mark-group .pill-toggle {
+  min-height: 22px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.tuplet-toolbar > button:not(.pill-toggle),
+.actions-card button {
+  min-height: 24px;
+  padding: 0 8px;
   font-size: 12px;
 }
 
@@ -508,7 +542,7 @@ select:disabled {
 
 .preview-pill {
   max-width: 100%;
-  padding: 4px 8px;
+  padding: 3px 7px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -516,7 +550,14 @@ select:disabled {
   color: var(--muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.pending-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  max-width: 72px;
 }
 
 .inline-field {
@@ -529,7 +570,21 @@ select:disabled {
 }
 
 .inline-field select {
-  max-width: 140px;
+  max-width: 112px;
+}
+
+.stacked-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.stacked-field select,
+.stacked-field input {
+  width: 100%;
 }
 
 .tuplet-toolbar button {
