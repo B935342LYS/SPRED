@@ -9,6 +9,8 @@
 <body>
     <main class="app-shell" aria-label="SPRED score app">
         <input class="mode-toggle" id="edit-mode-toggle" type="checkbox" aria-hidden="true">
+
+        <!-- Menu Area -->
         <header class="menu-area">
             <nav class="left-tool-group" aria-label="Tool menus">
                 <div class="tool-menu-row">
@@ -157,6 +159,7 @@
             </section>
         </header>
 
+        <!-- Edit Panel -->
         <section class="edit-panel" aria-label="Edit panel">
             <div class="edit-row">
                 <section class="edit-card number-card" aria-label="Number edit tools">
@@ -299,6 +302,7 @@
             </div>
         </section>
 
+        <!-- Score Viewer -->
         <section class="score-viewer" aria-label="Score viewer">
             <aside class="layout-area">
                 <div class="layout-toolbar">
@@ -324,14 +328,10 @@
             </aside>
 
             <section class="score-area" aria-label="Score canvas">
-                <div class="score-grid" aria-hidden="true">
-                    <div class="note-rect note-a">C</div>
-                    <div class="note-rect note-b">D</div>
-                    <div class="note-rect note-c">E</div>
-                </div>
             </section>
         </section>
 
+        <!-- Status Area -->
         <footer class="status-area">
             <span>sample auto load: pending</span>
             <span>analysis: waiting</span>
@@ -339,6 +339,7 @@
         </footer>
     </main>
 
+    <!-- Info Dialog -->
     <dialog id="legal-info" class="info-dialog">
         <form method="dialog">
             <h2>Info</h2>

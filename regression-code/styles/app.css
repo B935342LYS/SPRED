@@ -700,48 +700,6 @@ select:disabled {
   background: var(--surface);
 }
 
-.score-grid {
-  position: relative;
-  width: 2400px;
-  height: 1400px;
-  background-image:
-    linear-gradient(to right, #d7e0e5 1px, transparent 1px),
-    linear-gradient(to bottom, #d7e0e5 1px, transparent 1px);
-  background-size: 48px 36px;
-}
-
-.note-rect {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  border: 1px solid #0f5664;
-  border-radius: 4px;
-  background: #46a6b8;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.note-a {
-  top: 154px;
-  left: 72px;
-  width: 46px;
-}
-
-.note-b {
-  top: 190px;
-  left: 120px;
-  width: 142px;
-}
-
-.note-c {
-  top: 226px;
-  left: 312px;
-  width: 94px;
-}
-
 .status-area {
   min-width: 0;
   overflow: hidden;
