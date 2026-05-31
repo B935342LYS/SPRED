@@ -7,6 +7,7 @@
 import type {
   GlobalKind,
   GlobalRowDefinition,
+  RuntimeDocument,
   ScoreFile,
   ScoreIndexes,
   Track,
@@ -20,15 +21,15 @@ import type {
 } from "./types";
 
 /**
- * ScoreFile 전체를 ParsedScoreDocument로 파싱한다.
- * - 인수 : score : validator와 index builder를 통과한 악보 원본
- * - 인수 : indexes : score에서 파생된 런타임 조회 인덱스
+ * RuntimeDocument 전체를 ParsedScoreDocument로 파싱한다.
+ * - 인수 : document : validator와 index builder를 통과한 런타임 문서
  * - 반환값 : ParsedScoreDocument : analyzer가 소비할 문서 단위 parser 결과
  */
 export function buildParsedDocument(
-  score: ScoreFile,
-  indexes: ScoreIndexes,
+  document: RuntimeDocument,
 ): ParsedScoreDocument {
+  const { score, indexes } = document;
+
   return {
     noteCellsByTrackAndCol: buildParsedNoteCells(score, indexes),
     globalCellsByKindAndCol: buildParsedGlobalCells(score, indexes),

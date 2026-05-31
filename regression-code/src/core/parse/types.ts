@@ -6,12 +6,10 @@
 
 import type {
   GlobalKind,
+  RuntimeDocument,
   RowDefinition,
   RowId,
-  ScoreFile,
-  ScoreIndexes,
   TrackId,
-  
 } from "../score/types";
 
 /** 셀 단위 note parser 결과. */
@@ -302,15 +300,13 @@ export type ParseGlobalCellFn = (
 
 /** 문서 전체를 파싱하는 full rebuild 함수 타입. */
 export type ParseDocumentFn = (
-  score: ScoreFile,
-  indexes: ScoreIndexes,
+  document: RuntimeDocument,
 ) => ParsedScoreDocument;
 
 /** 문서 일부를 다시 파싱하는 partial rebuild 함수 타입. */
 export type ParseDocumentRangeFn = (
   prev: ParsedScoreDocument,
-  score: ScoreFile,
-  indexes: ScoreIndexes,
+  document: RuntimeDocument,
   request: ParseRangeRequest,
 ) => ParsedScoreDocument;
 

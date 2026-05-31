@@ -195,10 +195,7 @@ if (!result.ok) {
   }
 
   // 문서 단위 parser는 단일 셀 parser 결과를 analyzer 입력 축으로 묶는다.
-  const parsedDocument = buildParsedDocument(
-    result.document.score,
-    result.document.indexes,
-  );
+  const parsedDocument = buildParsedDocument(result.document);
   let parsedDocumentNoteCellCount = 0;
   let parsedDocumentInvalidNoteCellCount = 0;
   let parsedDocumentGlobalCellCount = 0;
