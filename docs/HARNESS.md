@@ -202,7 +202,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is finalizing the static MVP UI shell before replacing the temporary score grid with canvas layers
+- current focus is replacing the temporary score grid with the first canvas base-layer renderer path
 
 ## 10. Current Progress Summary
 
@@ -221,7 +221,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/score/create_runtime_document.ts` now bundles validated ScoreFile data with ScoreIndexes into RuntimeDocument
 - `regression-code/src/core/parse/parse_global_cell.ts` now implements the first-stage global cell parser
 - `regression-code/src/core/parse/parse_note_cell.ts` now implements the first-stage note parser path for mute, pletExtend, pletHead, default note, hold-only cells, and general note modifiers
-- `regression-code/src/core/parse/build_parsed_document.ts` now assembles single-cell parser results into `ParsedScoreDocument`
+- `regression-code/src/core/parse/build_parsed_document.ts` now accepts `RuntimeDocument` as the public parse input and assembles single-cell parser results into `ParsedScoreDocument`
+- document-level parser public API now uses `RuntimeDocument` instead of separate `ScoreFile` and `ScoreIndexes` arguments to keep score/index pairs synchronized for later runtime editing and partial update work
 - `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
 - `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
@@ -235,9 +236,13 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/index.html` and `regression-code/styles/app.css` now contain a static MVP UI shell modeled after legacy `이세계 코드`
 - the UI shell currently includes hover/focus menu groups, center player card, YouTube placeholder, legacy-like edit panel cards, layout label area, temporary score grid, and Info dialog
 - renderer/playback specs now keep the layout/score boundary as the playback reference and use layout-side padding columns with a translucent red right-half overlay to emphasize that boundary
-- `docs/2.1-canvas-renderer-module-spec.md` now defines the initial renderer file structure, `CanvasRenderContext` input boundary, canvas layout conversion flow, layer renderer input rules, and canvas virtualization preparation principles
+- `docs/2.1-canvas-renderer-module-spec.md` now defines the initial canvas renderer base-layer path around `CanvasRenderInput`, `CanvasScoreLayout`, `canvas_renderer_adapter.ts`, `canvas_types.ts`, `canvas_coordinate.ts`, `canvas_grid_renderer.ts`, and `canvas_score_renderer.ts`
+- renderer score/layout DTO conversion is assigned to `src/app/canvas_renderer_adapter.ts`, while later `AnalysisResult` to canvas item conversion is assigned to renderer-side `canvas_item_builder.ts` to avoid both adapter overreach and draw-layer analyzer coupling
+- `CanvasScoreLayout` now keeps only layout/base renderer coordinates; score-side playback scroll boundary is deferred to the later playback/scroll controller
+- legacy `이세계 코드` rendering flow has been inspected for reference concepts: cumulative coordinate precomputation, DPR canvas sizing, label/score vertical scroll sync, base grid draw order, and range rendering preparation
 
 Deferred planned work:
+- implement the first canvas base-layer renderer path in `regression-code/src/app/` and `regression-code/src/renderer/`
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
@@ -255,7 +260,9 @@ Deferred planned work:
   - static HTML/CSS UI structure exists, but controls are mostly placeholders and are not yet connected to TypeScript state
   - current score grid is temporary and should be replaced by canvas layer DOM before renderer implementation
 - `2.1` and actual renderer modules
-  - renderer module boundaries are specified, but `regression-code/src/renderer/` has not yet been implemented
+  - renderer module boundaries are specified, but `regression-code/src/app/canvas_renderer_adapter.ts` and `regression-code/src/renderer/` have not yet been implemented
+  - `1.9` says renderer consumes `AnalysisResult`; for current implementation this is interpreted as the broad render pipeline, while draw-layer modules consume canvas DTOs and `AnalysisResult` interpretation is isolated to the future `canvas_item_builder.ts`
+  - app/controller adapter converts `RuntimeDocument` to `CanvasRenderInput` only; it does not convert analyzer output into note or marker items
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation
