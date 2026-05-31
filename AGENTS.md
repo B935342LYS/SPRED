@@ -39,11 +39,12 @@ When implementation guidance conflicts, use this priority order:
 2. `docs/1.8-parser-analyzer-pipeline-spec.md`
 3. `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
 4. `docs/2.0-ui-mvp-spec.md`
-5. `docs/1.5-note-cell-parser-spec.md`
-6. `docs/1.6-global-cell-parser-spec.md`
-7. `docs/1.7-analyzer-event-list-spec.md`
-8. `docs/1.3-score-json-format.md`
-9. `docs/1.0-development-spec.md`
+5. `docs/2.1-canvas-renderer-module-spec.md`
+6. `docs/1.5-note-cell-parser-spec.md`
+7. `docs/1.6-global-cell-parser-spec.md`
+8. `docs/1.7-analyzer-event-list-spec.md`
+9. `docs/1.3-score-json-format.md`
+10. `docs/1.0-development-spec.md`
 
 Background/reference documents:
 

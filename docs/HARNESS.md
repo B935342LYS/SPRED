@@ -21,6 +21,7 @@ Primary spec roots:
 - `docs/1.8-parser-analyzer-pipeline-spec.md`
 - `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
 - `docs/2.0-ui-mvp-spec.md`
+- `docs/2.1-canvas-renderer-module-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -63,6 +64,9 @@ Memo roots:
 `docs/2.0-ui-mvp-spec.md` : `spec`
 - first UI layout, state, and event-action MVP scope
 
+`docs/2.1-canvas-renderer-module-spec.md` : `spec`
+- canvas renderer module structure, layer input boundaries, and layout conversion scope
+
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
 `docs/1.4-note-string-spec.md` : `reference`
@@ -79,17 +83,19 @@ Read in this order for implementation work:
 1. `docs/1.8-parser-analyzer-pipeline-spec.md`
 2. `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
 3. `docs/2.0-ui-mvp-spec.md`
-4. `docs/1.5-note-cell-parser-spec.md`
-5. `docs/1.6-global-cell-parser-spec.md`
-6. `docs/1.7-analyzer-event-list-spec.md`
-7. `docs/1.3-score-json-format.md`
-8. `docs/1.0-development-spec.md`
+4. `docs/2.1-canvas-renderer-module-spec.md`
+5. `docs/1.5-note-cell-parser-spec.md`
+6. `docs/1.6-global-cell-parser-spec.md`
+7. `docs/1.7-analyzer-event-list-spec.md`
+8. `docs/1.3-score-json-format.md`
+9. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
 - runtime types and function signatures follow `1.8` first
 - first analyzer / renderer / UI MVP implementation scope follows `1.9` first
 - first UI layout, state, and event-action scope follows `2.0` first
+- canvas renderer module structure and layout conversion scope follows `2.1` first
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -125,6 +131,9 @@ MVP analyzer / renderer / UI:
 UI MVP:
 - `docs/2.0-ui-mvp-spec.md`
 
+Canvas renderer:
+- `docs/2.1-canvas-renderer-module-spec.md`
+
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
@@ -139,6 +148,7 @@ Appendix:
 - `1.8-parser-analyzer-pipeline-spec.md`
 - `1.9-mvp-analyzer-renderer-ui-spec.md`
 - `2.0-ui-mvp-spec.md`
+- `2.1-canvas-renderer-module-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -225,6 +235,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/index.html` and `regression-code/styles/app.css` now contain a static MVP UI shell modeled after legacy `이세계 코드`
 - the UI shell currently includes hover/focus menu groups, center player card, YouTube placeholder, legacy-like edit panel cards, layout label area, temporary score grid, and Info dialog
 - renderer/playback specs now keep the layout/score boundary as the playback reference and use layout-side padding columns with a translucent red right-half overlay to emphasize that boundary
+- `docs/2.1-canvas-renderer-module-spec.md` now defines the initial renderer file structure, `CanvasRenderContext` input boundary, canvas layout conversion flow, layer renderer input rules, and canvas virtualization preparation principles
 
 Deferred planned work:
 - add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
@@ -243,6 +254,8 @@ Deferred planned work:
 - `2.0` and actual UI shell
   - static HTML/CSS UI structure exists, but controls are mostly placeholders and are not yet connected to TypeScript state
   - current score grid is temporary and should be replaced by canvas layer DOM before renderer implementation
+- `2.1` and actual renderer modules
+  - renderer module boundaries are specified, but `regression-code/src/renderer/` has not yet been implemented
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation
