@@ -13,11 +13,6 @@ import type {
   CanvasRenderTarget,
 } from "../renderer/canvas_types";
 
-const DEFAULT_LAYOUT_PADDING_COLUMNS = {
-  left: 0,
-  right: 1,
-};
-
 /**
  * selector에 해당하는 HTML 요소를 찾고 타입을 확인한다.
  * - 인수 : selector : 조회할 CSS selector
@@ -100,19 +95,16 @@ function syncLayoutScroll(
 
 /**
  * 현재 DOM 상태와 UI 옵션으로 renderer option을 만든다.
- * - 인수 : layoutCanvas : layout label canvas
+ * - 인수 : 없음
  * - 반환값 : renderer 좌표 계산 옵션
  */
-function createRenderOptions(layoutCanvas: HTMLCanvasElement): CanvasRenderOptions {
+function createRenderOptions(): CanvasRenderOptions {
   const zoomInput = queryElement(".menu-panel input[type='range']", HTMLInputElement);
   const zoom = Number(zoomInput.value) / 100;
 
   return {
     zoom,
     devicePixelRatio: window.devicePixelRatio || 1,
-    layoutWidth: layoutCanvas.clientWidth,
-    layoutLeftPaddingColumns: DEFAULT_LAYOUT_PADDING_COLUMNS.left,
-    layoutRightPaddingColumns: DEFAULT_LAYOUT_PADDING_COLUMNS.right,
   };
 }
 
@@ -120,9 +112,14 @@ function createRenderOptions(layoutCanvas: HTMLCanvasElement): CanvasRenderOptio
  * renderer 결과 크기를 CSS 변수에 반영해 scroll container와 canvas style을 맞춘다.
  * - 인수 : stageWidth : score stage CSS pixel 너비
  * - 인수 : stageHeight : score stage CSS pixel 높이
+ * - 인수 : layoutWidth : layout label area CSS pixel 너비
  * - 반환값 : 없음
  */
-function updateStageCssVars(stageWidth: number, stageHeight: number): void {
+function updateStageCssVars(
+  stageWidth: number,
+  stageHeight: number,
+  layoutWidth: number,
+): void {
   document.documentElement.style.setProperty(
     "--score-stage-width",
     `${stageWidth}px`,
@@ -130,6 +127,10 @@ function updateStageCssVars(stageWidth: number, stageHeight: number): void {
   document.documentElement.style.setProperty(
     "--score-stage-height",
     `${stageHeight}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--label-width",
+    `${layoutWidth}px`,
   );
 }
 
@@ -156,10 +157,14 @@ async function boot(): Promise<void> {
     const result = renderCanvasScore(
       target,
       renderInput,
-      createRenderOptions(target.layout.canvas),
+      createRenderOptions(),
     );
     // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
-    updateStageCssVars(result.layout.stageWidth, result.layout.stageHeight);
+    updateStageCssVars(
+      result.layout.stageWidth,
+      result.layout.stageHeight,
+      result.layout.layoutWidth,
+    );
     syncLayoutScroll(scoreArea, layoutStage);
     setStatus(2, `renderer: ${result.layout.rows.length} rows`);
   };

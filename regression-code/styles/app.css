@@ -9,7 +9,7 @@
   --accent: #4f5961;
   --accent-weak: #eef1f3;
   --danger: #b85042;
-  --label-width: clamp(150px, 18vw, 208px);
+  --label-width: 142px;
   --score-stage-width: 2400px;
   --score-stage-height: 1400px;
   --menu-height: 96px;

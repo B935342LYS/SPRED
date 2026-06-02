@@ -37,10 +37,7 @@ export type CanvasRenderInput = {
 export type CanvasRenderOptions = {
   zoom: number;
   devicePixelRatio: number;
-  layoutWidth: number;
   columnWidth?: number;
-  layoutLeftPaddingColumns: number;
-  layoutRightPaddingColumns: number;
 };
 
 /**
@@ -94,9 +91,11 @@ export type CanvasScoreLayout = {
   stageWidth: number;
   stageHeight: number;
   layoutWidth: number;
+  layoutLabelWidth: number;
   layoutLeftPaddingWidth: number;
   layoutRightPaddingWidth: number;
   layoutPlaybackBoundaryX: number;
+  layoutFontSize: number;
 };
 
 /**

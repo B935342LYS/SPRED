@@ -10,17 +10,23 @@ import type {
   CanvasScoreLayout,
 } from "./canvas_types";
 
-const DEFAULT_LAYOUT_WIDTH = 208;
+const BASE_LAYOUT_LABEL_WIDTH = 100;
+const BASE_LAYOUT_PADDING_WIDTH = 21;
+const BASE_LAYOUT_FONT_SIZE = 12;
+const DEFAULT_LAYOUT_WIDTH =
+  BASE_LAYOUT_PADDING_WIDTH + BASE_LAYOUT_LABEL_WIDTH + BASE_LAYOUT_PADDING_WIDTH;
 const MAX_CANVAS_BITMAP_DIMENSION = 16_384;
 const MAX_CANVAS_BITMAP_AREA = 67_108_864;
 
 type NormalizedCanvasRenderOptions = {
   zoom: number;
   devicePixelRatio: number;
-  layoutWidth: number;
   columnWidth: number;
-  layoutLeftPaddingColumns: number;
-  layoutRightPaddingColumns: number;
+  layoutWidth: number;
+  layoutLabelWidth: number;
+  layoutLeftPaddingWidth: number;
+  layoutRightPaddingWidth: number;
+  layoutFontSize: number;
 };
 
 /**
@@ -30,15 +36,6 @@ type NormalizedCanvasRenderOptions = {
  */
 function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
-}
-
-/**
- * 숫자 옵션이 유효한 0 이상 값인지 확인한다.
- * - 인수 : value : 검사할 숫자
- * - 반환값 : 0 이상 finite number 여부
- */
-function isNonNegativeFinite(value: number): boolean {
-  return Number.isFinite(value) && value >= 0;
 }
 
 /**
@@ -82,9 +79,6 @@ function normalizeCanvasRenderOptions(
   const devicePixelRatio = isPositiveFinite(options.devicePixelRatio)
     ? options.devicePixelRatio
     : 1;
-  const layoutWidth = isPositiveFinite(options.layoutWidth)
-    ? options.layoutWidth
-    : DEFAULT_LAYOUT_WIDTH;
   const baseColumnWidth = isPositiveFinite(input.baseColumnWidthPx)
     ? input.baseColumnWidthPx
     : 1;
@@ -97,18 +91,12 @@ function normalizeCanvasRenderOptions(
   return {
     zoom,
     devicePixelRatio,
-    layoutWidth,
     columnWidth,
-    layoutLeftPaddingColumns: isNonNegativeFinite(
-      options.layoutLeftPaddingColumns,
-    )
-      ? options.layoutLeftPaddingColumns
-      : 0,
-    layoutRightPaddingColumns: isNonNegativeFinite(
-      options.layoutRightPaddingColumns,
-    )
-      ? options.layoutRightPaddingColumns
-      : 0,
+    layoutWidth: DEFAULT_LAYOUT_WIDTH * zoom,
+    layoutLabelWidth: BASE_LAYOUT_LABEL_WIDTH * zoom,
+    layoutLeftPaddingWidth: BASE_LAYOUT_PADDING_WIDTH * zoom,
+    layoutRightPaddingWidth: BASE_LAYOUT_PADDING_WIDTH * zoom,
+    layoutFontSize: BASE_LAYOUT_FONT_SIZE * zoom,
   };
 }
 
@@ -149,10 +137,6 @@ export function buildCanvasScoreLayout(
   });
   const columnCount = Math.max(0, Math.floor(input.columnCount));
   const scoreContentWidth = columnCount * normalized.columnWidth;
-  const layoutLeftPaddingWidth =
-    normalized.layoutLeftPaddingColumns * normalized.columnWidth;
-  const layoutRightPaddingWidth =
-    normalized.layoutRightPaddingColumns * normalized.columnWidth;
 
   // score stage 크기와 layout label 영역에서 사용할 padding/boundary 좌표를 묶어 반환한다.
   return {
@@ -163,9 +147,11 @@ export function buildCanvasScoreLayout(
     stageWidth: scoreContentWidth,
     stageHeight: y,
     layoutWidth: normalized.layoutWidth,
-    layoutLeftPaddingWidth,
-    layoutRightPaddingWidth,
+    layoutLabelWidth: normalized.layoutLabelWidth,
+    layoutLeftPaddingWidth: normalized.layoutLeftPaddingWidth,
+    layoutRightPaddingWidth: normalized.layoutRightPaddingWidth,
     layoutPlaybackBoundaryX: normalized.layoutWidth,
+    layoutFontSize: normalized.layoutFontSize,
   };
 }
 
