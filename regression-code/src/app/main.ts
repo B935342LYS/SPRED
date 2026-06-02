@@ -139,6 +139,7 @@ function updateStageCssVars(stageWidth: number, stageHeight: number): void {
  * - 반환값 : 없음
  */
 async function boot(): Promise<void> {
+  // score viewer DOM 요소와 renderer가 사용할 canvas target을 준비한다.
   const scoreArea = queryElement(".score-area", HTMLElement);
   const layoutStage = queryElement(".layout-canvas-stage", HTMLElement);
   const target = createCanvasRenderTarget();
@@ -151,11 +152,13 @@ async function boot(): Promise<void> {
   const renderInput = createCanvasRenderInput(loadResult.document);
 
   const render = (): void => {
+    // CanvasRenderInput과 현재 UI 옵션으로 canvas score를 다시 그린다.
     const result = renderCanvasScore(
       target,
       renderInput,
       createRenderOptions(target.layout.canvas),
     );
+    // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
     updateStageCssVars(result.layout.stageWidth, result.layout.stageHeight);
     syncLayoutScroll(scoreArea, layoutStage);
     setStatus(2, `renderer: ${result.layout.rows.length} rows`);
@@ -165,8 +168,10 @@ async function boot(): Promise<void> {
   setStatus(0, "sample auto load: done");
   setStatus(1, "analysis: not connected");
 
+  // score 영역이 스크롤될 때 layout label stage의 세로 위치를 함께 이동한다.
   scoreArea.addEventListener("scroll", () => syncLayoutScroll(scoreArea, layoutStage));
   window.addEventListener("resize", render);
+  // zoom 값이 확정되면 전체 canvas score를 다시 그린다.
   document
     .querySelector(".menu-panel input[type='range']")
     ?.addEventListener("change", render);

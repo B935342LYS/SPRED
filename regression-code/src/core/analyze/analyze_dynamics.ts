@@ -22,6 +22,7 @@ const DEFAULT_DYNAMICS = 100;
 export const analyzeDynamicsTimeline: AnalyzeDynamicsTimelineFn = (
   context: AnalyzeContext,
 ): AnalyzedDynamicsSegment[] => {
+  // col 0의 dynamics 전역 셀을 문서 전체 dynamics 시작값으로 가져온다.
   const dynamicsEntry =
     context.parsed.globalCellsByKindAndCol.get("dynamics")?.get(0) ?? null;
   const value = getNumericGlobalValue(dynamicsEntry, DEFAULT_DYNAMICS);
@@ -57,6 +58,7 @@ function getNumericGlobalValue(
 ): number {
   const parsedCell = entry?.parsedCell;
 
+  // 정상 숫자 global cell이면 parser가 만든 value를 dynamics 값으로 사용한다.
   if (
     parsedCell?.kind === "instantGlobalValue" ||
     parsedCell?.kind === "linearGlobalValue"

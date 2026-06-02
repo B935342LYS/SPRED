@@ -26,6 +26,7 @@ const DEFAULT_STEPS_PER_BEAT = 4;
 export const analyzeTimingTimeline: AnalyzeTimingTimelineFn = (
   context: AnalyzeContext,
 ): AnalyzedTimeSegment[] => {
+  // col 0에 있는 timing 관련 전역 셀들을 시작값으로 가져온다.
   const bpmEntry = getGlobalEntryAtZero(context, "bpm");
   const beatsPerBarEntry = getGlobalEntryAtZero(context, "beatsPerBar");
   const stepsPerBeatEntry = getGlobalEntryAtZero(context, "stepsPerBeat");
@@ -78,6 +79,7 @@ function getNumericGlobalValue(
 ): number {
   const parsedCell = entry?.parsedCell;
 
+  // 정상 숫자 global cell이면 parser가 만든 value를 timeline 값으로 사용한다.
   if (
     parsedCell?.kind === "instantGlobalValue" ||
     parsedCell?.kind === "linearGlobalValue"

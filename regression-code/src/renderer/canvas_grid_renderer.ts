@@ -26,12 +26,14 @@ export function drawLayoutGrid(
   context: CanvasRenderingContext2D,
   layout: CanvasScoreLayout,
 ): void {
+  // layout label canvas 전체를 지운 뒤 기본 배경색으로 채운다.
   context.clearRect(0, 0, layout.layoutWidth, layout.stageHeight);
   context.fillStyle = COLORS.rollBackground;
   context.fillRect(0, 0, layout.layoutWidth, layout.stageHeight);
   context.font = "700 12px Arial, sans-serif";
   context.textBaseline = "middle";
 
+  // layout rows를 순회하며 note row 배경, row 경계선, label 문자열을 그린다.
   for (const row of layout.rows) {
     if (row.kind === "note") {
       context.fillStyle = COLORS.noteRowBackground;
@@ -84,6 +86,7 @@ export function drawScoreGrid(
   context: CanvasRenderingContext2D,
   layout: CanvasScoreLayout,
 ): void {
+  // score base canvas 전체를 지운 뒤 기본 배경색으로 채운다.
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
   context.fillStyle = COLORS.rollBackground;
   context.fillRect(0, 0, layout.stageWidth, layout.stageHeight);
@@ -97,6 +100,7 @@ export function drawScoreGrid(
 
   context.lineWidth = 1;
 
+  // column index를 x 좌표로 변환해 세로 grid line을 그린다.
   for (let column = 0; column <= layout.columnCount; column += 1) {
     const x = columnToX(column, layout);
     context.strokeStyle =

@@ -38,6 +38,7 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
   const sortedEntries = getSortedTrackEntries(cellsByCol, range);
   const events: NoteEvent[] = [];
 
+  // 정렬된 parsed entry를 차례대로 분석하며 새 NoteEvent를 events 배열에 누적한다.
   for (const entry of sortedEntries) {
     const event = analyzeParsedNoteEntry(trackId, context, entry, events);
 
@@ -64,6 +65,7 @@ function getSortedTrackEntries(
 ): ParsedCellEntry[] {
   const entries: ParsedCellEntry[] = [];
 
+  // col별 Map에 들어 있는 parsed entry들을 하나의 배열로 모은다.
   for (const [col, colEntries] of cellsByCol) {
     if (range !== undefined && (col < range.colStart || col > range.colEnd)) {
       continue;
@@ -109,6 +111,7 @@ function analyzeParsedNoteEntry(
 
   const sourceCell = createSourceCellRef(entry);
 
+  // 현재 셀이 "-" hold이면 바로 왼쪽에 이어 붙일 수 있는 기존 NoteEvent를 찾는다.
   if (parsedCell.hold === "-") {
     const previousEvent = findConnectablePreviousEvent(
       events,
@@ -117,6 +120,7 @@ function analyzeParsedNoteEntry(
     );
 
     if (previousEvent !== null) {
+      // 연결 가능한 이벤트가 있으면 끝 tick과 source cell 목록을 확장하고 새 이벤트는 만들지 않는다.
       previousEvent.time.endTick = integerTick(entry.col + 1);
       previousEvent.sourceCells.push(sourceCell);
       previousEvent.effects = [createDefaultEffectSegment(previousEvent.time)];
@@ -126,6 +130,7 @@ function analyzeParsedNoteEntry(
 
   const time = createIntegerTimeRange(entry.col, entry.col + 1);
 
+  // hold 병합이 없으면 현재 셀의 rowId와 midi를 사용해 새 NoteEvent를 만든다.
   return {
     eventKind: "note",
     eventId: createNoteEventId(trackId, sourceCell),
@@ -152,6 +157,7 @@ function analyzeParsedNoteEntry(
  * - 반환값 : boolean : modifier 없는 default note 또는 "-" hold 여부
  */
 function isMvpNoteCell(parsedCell: ParsedNoteCell): boolean {
+  // "-" 이외의 hold 토큰은 현재 MVP 분석 범위에서 제외한다.
   if (parsedCell.hold !== null && parsedCell.hold !== "-") {
     return false;
   }
@@ -176,6 +182,7 @@ function findConnectablePreviousEvent(
   col: number,
   row: NoteRowDefinition,
 ): NoteEvent | null {
+  // 가장 가까운 이전 후보부터 확인하기 위해 events 배열을 뒤에서 앞으로 순회한다.
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
 

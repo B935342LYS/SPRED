@@ -23,8 +23,11 @@ const GLOBAL_LABEL_BY_KIND: Record<GlobalKind, string> = {
 export function createCanvasRenderInput(
   document: RuntimeDocument,
 ): CanvasRenderInput {
+ 
+  // rows에 layout의 row definition을 순회하며 각 row의 type에 따라 renderer source row로 변환한다.
   const rows: CanvasSourceRow[] =
     document.score.layout.rowDefinitions.map((row) => {
+      // row type이 global인 경우 
       if (row.type === "global") {
         return {
           rowId: row.rowId,
@@ -33,7 +36,7 @@ export function createCanvasRenderInput(
           height: row.height,
         };
       }
-
+      // row type이 note인 경우
       if (row.type === "note") {
         return {
           rowId: row.rowId,
@@ -42,7 +45,7 @@ export function createCanvasRenderInput(
           height: row.height,
         };
       }
-
+      // row type이 gap인 경우. 갭 행은 빈 공간을 표시하는 용도이므로 표시용 문자열이 필요하지 않다.
       return {
         rowId: row.rowId,
         kind: "gap",
@@ -51,6 +54,7 @@ export function createCanvasRenderInput(
       };
     });
 
+  // 만들어진 rows 배열과 열의 개수, 너비를 묶어서 반환한다. 모든 열은 동일한 너비를 가진다.
   return {
     rows,
     columnCount: document.score.globalLines.columnCount,

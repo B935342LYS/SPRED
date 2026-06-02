@@ -20,6 +20,7 @@ import type {
 export const analyzeDocument: AnalyzeDocumentFn = (
   context: AnalyzeContext,
 ): AnalysisResult => {
+  // timing, dynamics, track 분석 결과와 issue 목록을 묶어서 AnalysisResult로 반환한다.
   return {
     timingTimeline: analyzeTimingTimeline(context),
     dynamicsTimeline: analyzeDynamicsTimeline(context),

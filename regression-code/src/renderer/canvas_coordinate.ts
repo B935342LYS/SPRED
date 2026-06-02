@@ -53,6 +53,7 @@ function clampDevicePixelRatioForCanvas(
   cssHeight: number,
   requestedDevicePixelRatio: number,
 ): number {
+  // canvas bitmap의 최대 가로/세로 크기를 넘지 않는 DPR 비율을 계산한다.
   const dimensionLimitedRatio = Math.min(
     requestedDevicePixelRatio,
     MAX_CANVAS_BITMAP_DIMENSION / Math.max(1, cssWidth),
@@ -62,6 +63,7 @@ function clampDevicePixelRatioForCanvas(
     MAX_CANVAS_BITMAP_AREA / Math.max(1, cssWidth * cssHeight),
   );
 
+  // dimension 제한과 area 제한을 모두 만족하는 DPR을 반환한다.
   return Math.max(0.25, Math.min(dimensionLimitedRatio, areaLimitedRatio));
 }
 
@@ -75,6 +77,7 @@ function normalizeCanvasRenderOptions(
   input: CanvasRenderInput,
   options: CanvasRenderOptions,
 ): NormalizedCanvasRenderOptions {
+  // UI 옵션이 유효한 숫자가 아니면 renderer 기본값으로 대체한다.
   const zoom = isPositiveFinite(options.zoom) ? options.zoom : 1;
   const devicePixelRatio = isPositiveFinite(options.devicePixelRatio)
     ? options.devicePixelRatio
@@ -131,6 +134,7 @@ export function buildCanvasScoreLayout(
 ): CanvasScoreLayout {
   const normalized = normalizeCanvasRenderOptions(input, options);
   let y = 0;
+  // 입력 row를 순회하며 각 row의 y 좌표와 zoom이 적용된 높이를 계산한다.
   const rows = input.rows.map((row) => {
     const height = Math.max(0, row.height * normalized.zoom);
     const layoutRow = {
@@ -150,6 +154,7 @@ export function buildCanvasScoreLayout(
   const layoutRightPaddingWidth =
     normalized.layoutRightPaddingColumns * normalized.columnWidth;
 
+  // score stage 크기와 layout label 영역에서 사용할 padding/boundary 좌표를 묶어 반환한다.
   return {
     rows,
     columnCount,
@@ -178,6 +183,7 @@ function resizeCanvasLayer(
   cssHeight: number,
   devicePixelRatio: number,
 ): void {
+  // canvas 크기에 맞춰 실제 적용할 DPR과 bitmap 크기를 계산한다.
   const effectiveDevicePixelRatio = clampDevicePixelRatioForCanvas(
     cssWidth,
     cssHeight,
@@ -195,6 +201,7 @@ function resizeCanvasLayer(
   target.canvas.style.width = `${cssWidth}px`;
   target.canvas.style.height = `${cssHeight}px`;
 
+  // 계산된 bitmap 크기가 현재 canvas 속성과 다를 때만 width/height를 갱신한다.
   if (target.canvas.width !== bitmapWidth) {
     target.canvas.width = bitmapWidth;
   }
@@ -202,6 +209,7 @@ function resizeCanvasLayer(
     target.canvas.height = bitmapHeight;
   }
 
+  // 이후 draw 함수들이 CSS pixel 좌표로 그릴 수 있도록 context transform을 설정한다.
   target.context.setTransform(
     effectiveDevicePixelRatio,
     0,
