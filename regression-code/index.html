@@ -108,6 +108,7 @@
                     </div>
                     <button class="menu-trigger" type="button">Reload</button>
                 </div>
+                <div class="left-status-line" role="status" aria-live="polite">Loaded. cols --</div>
             </nav>
 
             <section class="player-group" aria-label="Playback controls">
@@ -184,14 +185,14 @@
                         <span class="preview-pill">current: empty</span>
                     </div>
                     <div class="edit-control-row">
-                        <select disabled>
-                            <option>AUTO sharp</option>
-                            <option>AUTO flat</option>
-                            <option>CUSTOM</option>
-                            <option>comment</option>
-                            <option>ERASER</option>
+                        <select class="default-mode-select" disabled>
+                            <option value="autoSharp" disabled>AUTO sharp</option>
+                            <option value="autoFlat" disabled>AUTO flat</option>
+                            <option value="custom" selected>CUSTOM</option>
+                            <option value="comment" disabled>comment</option>
+                            <option value="eraser" disabled>ERASER</option>
                         </select>
-                        <input type="text" placeholder="custom text" disabled>
+                        <input class="custom-text-input" type="text" placeholder="custom text" disabled>
                     </div>
                 </section>
 

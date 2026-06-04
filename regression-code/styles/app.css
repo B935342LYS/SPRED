@@ -12,7 +12,7 @@
   --label-width: 142px;
   --score-stage-width: 2400px;
   --score-stage-height: 1400px;
-  --menu-height: 96px;
+  --menu-height: 112px;
   --status-height: 28px;
   font-family: Arial, "Noto Sans KR", sans-serif;
 }
@@ -105,10 +105,30 @@ select:disabled {
 
 .left-tool-group {
   display: grid;
-  grid-template-rows: 34px 34px;
+  grid-template-rows: 34px 34px minmax(16px, auto);
   align-items: stretch;
   gap: 7px;
   min-width: 0;
+}
+
+.left-status-line {
+  min-width: 0;
+  min-height: 16px;
+  overflow: hidden;
+  padding: 0 2px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.left-status-line[data-level="warning"] {
+  color: #8a6f24;
+}
+
+.left-status-line[data-level="error"] {
+  color: var(--danger);
 }
 
 .tool-menu-row,
