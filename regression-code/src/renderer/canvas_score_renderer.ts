@@ -7,11 +7,14 @@ import {
   resizeCanvasLayers,
 } from "./canvas_coordinate";
 import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
+import { drawScoreNotes } from "./canvas_note_renderer";
 import type {
+  CanvasAnalyzedRenderInput,
   CanvasRenderInput,
   CanvasRenderOptions,
   CanvasRenderResult,
   CanvasRenderTarget,
+  CanvasNoteRenderItem,
 } from "./canvas_types";
 
 /**
@@ -38,18 +41,34 @@ function clearLayer(
  */
 export function renderCanvasScore(
   target: CanvasRenderTarget,
-  input: CanvasRenderInput,
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
   options: CanvasRenderOptions,
 ): CanvasRenderResult {
   const layout = buildCanvasScoreLayout(input, options);
+  const noteItems = getNoteItems(input);
 
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
   drawScoreGrid(target.base.context, layout);
-  clearLayer(target.note.context, layout.stageWidth, layout.stageHeight);
+  drawScoreNotes(target.note.context, layout, noteItems);
   clearLayer(target.marker.context, layout.stageWidth, layout.stageHeight);
 
   return {
     layout,
   };
+}
+
+/**
+ * renderer 입력에서 note item 목록을 꺼낸다.
+ * - 인수 : input : base-only 또는 analyzer 연결 renderer 입력
+ * - 반환값 : CanvasNoteRenderItem[] : note layer가 그릴 item 목록
+ */
+function getNoteItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasNoteRenderItem[] {
+  if ("noteItems" in input) {
+    return input.noteItems;
+  }
+
+  return [];
 }

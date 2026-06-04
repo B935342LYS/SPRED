@@ -10,6 +10,7 @@ const COLORS = {
   noteRowBackground: "#646464",
   gridStrong: "rgba(255,255,255,0.18)",
   gridSoft: "rgba(255,255,255,0.12)",
+  gridVertical: "rgba(0,0,0,0.18)",
   labelText: "rgba(255,255,255,0.92)",
   labelLine: "rgba(255,255,255,0.18)",
   boundary: "rgba(255,80,80,0.35)",
@@ -152,8 +153,7 @@ export function drawScoreGrid(
   // column index를 x 좌표로 변환해 세로 grid line을 그린다.
   for (let column = 0; column <= layout.columnCount; column += 1) {
     const x = columnToX(column, layout);
-    context.strokeStyle =
-      column % 4 === 0 ? COLORS.gridStrong : COLORS.gridSoft;
+    context.strokeStyle = COLORS.gridVertical;
     context.beginPath();
     context.moveTo(x + 0.5, 0);
     context.lineTo(x + 0.5, layout.stageHeight);

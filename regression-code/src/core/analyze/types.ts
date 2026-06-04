@@ -87,11 +87,24 @@ export type FinalSoundPitch = {
 export type NoteEvent = AnalyzedEventBase & {
   eventKind: "note";
   eventId: string;
+  text: string;
+  displayTextAnchors: NoteDisplayTextAnchor[];
   display: FinalDisplayPosition;
   sound: FinalSoundPitch;
   effects: NoteEffectSegment[];
   glissRole?: GlissAnchorRole | null;
   tuplet?: TupletMembership | null;
+};
+
+/**
+ * NoteEvent 내부에서 원본 셀 또는 슬롯별로 표시할 텍스트와 시간 위치.
+ * - 인수 : 없음
+ * - 반환값 : renderer가 시간 범위 중심에 배치할 표시 텍스트 anchor
+ */
+export type NoteDisplayTextAnchor = {
+  source: SourceCellRef;
+  time: TimeRange;
+  text: string;
 };
 
 /** note 내부의 시간 구간별 발음 효과. */

@@ -15,11 +15,18 @@ import type {
   AnalyzeTrackEventsFn,
   AnalyzeTrackRange,
   AnalyzedTrackResult,
+  FinalDisplayPosition,
+  FinalSoundPitch,
   NoteEvent,
+  NoteDisplayTextAnchor,
   SourceCellRef,
   TimeFraction,
   TimeRange,
 } from "./types";
+
+type HoldConnectionKey = string;
+
+type ActiveNoteMap = Map<HoldConnectionKey, NoteEvent>;
 
 /**
  * 한 track 내부의 MVP note event를 분석한다.
@@ -37,10 +44,16 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
     context.parsed.noteCellsByTrackAndCol.get(trackId) ?? new Map();
   const sortedEntries = getSortedTrackEntries(cellsByCol, range);
   const events: NoteEvent[] = [];
+  const activeNotesByConnectionKey: ActiveNoteMap = new Map();
 
   // 정렬된 parsed entry를 차례대로 분석하며 새 NoteEvent를 events 배열에 누적한다.
   for (const entry of sortedEntries) {
-    const event = analyzeParsedNoteEntry(trackId, context, entry, events);
+    const event = analyzeParsedNoteEntry(
+      trackId,
+      context,
+      entry,
+      activeNotesByConnectionKey,
+    );
 
     if (event !== null) {
       events.push(event);
@@ -88,14 +101,14 @@ function getSortedTrackEntries(
  * - 인수 : trackId : 분석 대상 track
  * - 인수 : context : score/index/parsed 문맥
  * - 인수 : entry : 문서 위치가 붙은 parsed cell
- * - 인수 : events : 현재까지 생성된 note event 목록
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
  * - 반환값 : 새로 생성된 NoteEvent 또는 병합/제외 시 null
  */
 function analyzeParsedNoteEntry(
   trackId: TrackId,
   context: AnalyzeContext,
   entry: ParsedCellEntry,
-  events: NoteEvent[],
+  activeNotesByConnectionKey: ActiveNoteMap,
 ): NoteEvent | null {
   const parsedCell = entry.parsedCell;
 
@@ -110,20 +123,27 @@ function analyzeParsedNoteEntry(
   }
 
   const sourceCell = createSourceCellRef(entry);
+  const display = createDefaultDisplayPosition(row);
+  const sound = createDefaultSoundPitch(row);
+  const connectionKey = createHoldConnectionKey(display, sound);
 
   // 현재 셀이 "-" hold이면 바로 왼쪽에 이어 붙일 수 있는 기존 NoteEvent를 찾는다.
   if (parsedCell.hold === "-") {
     const previousEvent = findConnectablePreviousEvent(
-      events,
+      activeNotesByConnectionKey,
       entry.col,
-      row,
+      connectionKey,
     );
 
     if (previousEvent !== null) {
       // 연결 가능한 이벤트가 있으면 끝 tick과 source cell 목록을 확장하고 새 이벤트는 만들지 않는다.
       previousEvent.time.endTick = integerTick(entry.col + 1);
       previousEvent.sourceCells.push(sourceCell);
+      previousEvent.displayTextAnchors.push(
+        createNoteDisplayTextAnchor(entry, parsedCell),
+      );
       previousEvent.effects = [createDefaultEffectSegment(previousEvent.time)];
+      activeNotesByConnectionKey.set(connectionKey, previousEvent);
       return null;
     }
   }
@@ -131,24 +151,23 @@ function analyzeParsedNoteEntry(
   const time = createIntegerTimeRange(entry.col, entry.col + 1);
 
   // hold 병합이 없으면 현재 셀의 rowId와 midi를 사용해 새 NoteEvent를 만든다.
-  return {
+  const event: NoteEvent = {
     eventKind: "note",
     eventId: createNoteEventId(trackId, sourceCell),
+    text: parsedCell.displayText,
+    displayTextAnchors: [createNoteDisplayTextAnchor(entry, parsedCell)],
     trackId,
     time,
     sourceCells: [sourceCell],
-    display: {
-      rowId: row.rowId,
-      centOffset: 0,
-    },
-    sound: {
-      midi: row.midi,
-      centOffset: 0,
-    },
+    display,
+    sound,
     effects: [createDefaultEffectSegment(time)],
     glissRole: null,
     tuplet: null,
   };
+
+  activeNotesByConnectionKey.set(connectionKey, event);
+  return event;
 }
 
 /**
@@ -172,33 +191,69 @@ function isMvpNoteCell(parsedCell: ParsedNoteCell): boolean {
 
 /**
  * 바로 왼쪽 tick에 끝나고 표시/발음 위치가 같은 기존 NoteEvent를 찾는다.
- * - 인수 : events : 현재까지 생성된 note event 목록
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
  * - 인수 : col : 현재 셀 col
- * - 인수 : row : 현재 셀의 note row definition
+ * - 인수 : connectionKey : 현재 셀의 표시/발음 위치 기준 key
  * - 반환값 : 연결 가능한 이전 NoteEvent 또는 null
  */
 function findConnectablePreviousEvent(
-  events: NoteEvent[],
+  activeNotesByConnectionKey: ActiveNoteMap,
   col: number,
-  row: NoteRowDefinition,
+  connectionKey: HoldConnectionKey,
 ): NoteEvent | null {
-  // 가장 가까운 이전 후보부터 확인하기 위해 events 배열을 뒤에서 앞으로 순회한다.
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
+  const event = activeNotesByConnectionKey.get(connectionKey);
 
-    if (
-      event !== undefined &&
-      fractionToNumber(event.time.endTick) === col &&
-      event.display.rowId === row.rowId &&
-      event.display.centOffset === 0 &&
-      event.sound.midi === row.midi &&
-      event.sound.centOffset === 0
-    ) {
-      return event;
-    }
+  // 같은 연결 key의 마지막 note가 현재 col 바로 앞에서 끝났는지 확인한다.
+  if (event !== undefined && fractionToNumber(event.time.endTick) === col) {
+    return event;
   }
 
   return null;
+}
+
+/**
+ * note row에서 MVP 기본 표시 위치를 만든다.
+ * - 인수 : row : 현재 셀의 note row definition
+ * - 반환값 : FinalDisplayPosition : renderer가 사용할 의미적 표시 위치
+ */
+function createDefaultDisplayPosition(
+  row: NoteRowDefinition,
+): FinalDisplayPosition {
+  return {
+    rowId: row.rowId,
+    centOffset: 0,
+  };
+}
+
+/**
+ * note row에서 MVP 기본 발음 음정을 만든다.
+ * - 인수 : row : 현재 셀의 note row definition
+ * - 반환값 : FinalSoundPitch : audio generator가 사용할 의미적 발음 음정
+ */
+function createDefaultSoundPitch(row: NoteRowDefinition): FinalSoundPitch {
+  return {
+    midi: row.midi,
+    centOffset: 0,
+  };
+}
+
+/**
+ * hold 연결 판정에 사용할 표시/발음 위치 key를 만든다.
+ * - 인수 : display : 현재 셀의 최종 표시 위치
+ * - 인수 : sound : 현재 셀의 최종 발음 음정
+ * - 반환값 : HoldConnectionKey : active note map 조회 key
+ */
+function createHoldConnectionKey(
+  display: FinalDisplayPosition,
+  sound: FinalSoundPitch,
+): HoldConnectionKey {
+  // 표시 행/센트와 발음 midi/센트를 하나의 문자열로 묶어 hold 연결 후보를 조회한다.
+  return [
+    display.rowId,
+    display.centOffset,
+    sound.midi,
+    sound.centOffset,
+  ].join("|");
 }
 
 /**
@@ -223,6 +278,23 @@ function createSourceCellRef(entry: ParsedCellEntry): SourceCellRef {
   return {
     rowId: entry.rowId,
     col: entry.col,
+  };
+}
+
+/**
+ * ParsedNoteCell의 displayText를 NoteEvent 내부 표시 anchor로 복사한다.
+ * - 인수 : entry : 문서 위치가 붙은 parsed cell
+ * - 인수 : parsedCell : parser가 확정한 note 셀 표시 정보
+ * - 반환값 : NoteDisplayTextAnchor : note layer가 시간 위치별로 표시할 텍스트
+ */
+function createNoteDisplayTextAnchor(
+  entry: ParsedCellEntry,
+  parsedCell: ParsedNoteCell,
+): NoteDisplayTextAnchor {
+  return {
+    source: createSourceCellRef(entry),
+    time: createIntegerTimeRange(entry.col, entry.col + 1),
+    text: parsedCell.displayText,
   };
 }
 

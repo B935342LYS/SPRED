@@ -4,10 +4,14 @@
  */
 
 import { loadRuntimeDocument } from "../core/score/create_runtime_document";
+import { buildParsedDocument } from "../core/parse/build_parsed_document";
+import { analyzeDocument } from "../core/analyze/analyze_full";
 import { createCanvasRenderInput } from "./canvas_renderer_adapter";
+import { buildCanvasNoteRenderItems } from "../renderer/canvas_item_builder";
 import { renderCanvasScore } from "../renderer/canvas_score_renderer";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 import type {
+  CanvasAnalyzedRenderInput,
   CanvasLayerTarget,
   CanvasRenderOptions,
   CanvasRenderTarget,
@@ -151,12 +155,22 @@ async function boot(): Promise<void> {
   }
 
   const renderInput = createCanvasRenderInput(loadResult.document);
+  const parsed = buildParsedDocument(loadResult.document);
+  const analysis = analyzeDocument({
+    score: loadResult.document.score,
+    indexes: loadResult.document.indexes,
+    parsed,
+  });
+  const analyzedRenderInput: CanvasAnalyzedRenderInput = {
+    ...renderInput,
+    noteItems: buildCanvasNoteRenderItems(analysis),
+  };
 
   const render = (): void => {
     // CanvasRenderInput과 현재 UI 옵션으로 canvas score를 다시 그린다.
     const result = renderCanvasScore(
       target,
-      renderInput,
+      analyzedRenderInput,
       createRenderOptions(),
     );
     // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
@@ -171,7 +185,7 @@ async function boot(): Promise<void> {
 
   render();
   setStatus(0, "sample auto load: done");
-  setStatus(1, "analysis: not connected");
+  setStatus(1, `analysis: ${analyzedRenderInput.noteItems.length} notes`);
 
   // score 영역이 스크롤될 때 layout label stage의 세로 위치를 함께 이동한다.
   scoreArea.addEventListener("scroll", () => syncLayoutScroll(scoreArea, layoutStage));

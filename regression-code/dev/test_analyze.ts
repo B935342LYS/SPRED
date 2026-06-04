@@ -74,7 +74,7 @@ if (!result.ok) {
   assert(extraTrack !== undefined, "Missing extra track analysis result.");
   assert(optionalTrack?.events.length === 0, "Optional track should have no MVP events.");
   assert(extraTrack?.events.length === 0, "Extra track should have no MVP events.");
-  assert(basicNoteEvents.length === 4, "Basic track should produce 4 merged note events.");
+  assert(basicNoteEvents.length === 6, "Basic track should produce 6 note events.");
 
   const firstEvent = basicNoteEvents[0];
   const secondEvent = basicNoteEvents[1];
@@ -98,6 +98,15 @@ if (!result.ok) {
       "E3 hold sequence should merge into 0..4.",
     );
     assert(firstEvent.sourceCells.length === 4, "E3 merged note should keep 4 source cells.");
+    assert(firstEvent.text === "E3", "E3 merged note should keep display text.");
+    assert(
+      firstEvent.displayTextAnchors.map((anchor) => anchor.text).join(" ") === "E3 - - -",
+      "E3 merged note should keep per-anchor display text.",
+    );
+    assert(
+      firstEvent.displayTextAnchors.map((anchor) => tickToNumber(anchor.time.startTick)).join(",") === "0,1,2,3",
+      "E3 merged note should keep per-anchor start ticks.",
+    );
     assert(firstEvent.sound.midi === 52, "E3 merged note should use MIDI 52.");
     assert(firstEvent.display.rowId === "s1-note-52", "E3 merged note display row mismatch.");
 

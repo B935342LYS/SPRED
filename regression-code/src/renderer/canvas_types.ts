@@ -30,6 +30,15 @@ export type CanvasRenderInput = {
 };
 
 /**
+ * analyzer 결과에서 변환된 표시 item까지 포함하는 renderer 입력 계약.
+ * - 인수 : 없음
+ * - 반환값 : base grid와 note layer 렌더링에 필요한 닫힌 입력 구조
+ */
+export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
+  noteItems: CanvasNoteRenderItem[];
+};
+
+/**
  * renderer 좌표 계산 옵션.
  * - 인수 : 없음
  * - 반환값 : UI 표시 배율과 layout-side padding 설정
@@ -120,8 +129,24 @@ export type CanvasNoteRenderItem = {
   rowId: string;
   startTick: number;
   endTick: number;
+  midi: number;
   text: string;
+  displayTextAnchors: CanvasNoteDisplayTextAnchor[];
   trackId?: string;
+};
+
+/**
+ * note rectangle 위에 시간 위치별로 표시할 텍스트.
+ * - 인수 : 없음
+ * - 반환값 : anchor tick 범위 중심에 표시할 문자열
+ */
+export type CanvasNoteDisplayTextAnchor = {
+  sourceRowId: string;
+  sourceCol: number;
+  sourceSlotIndex?: number;
+  startTick: number;
+  endTick: number;
+  text: string;
 };
 
 /**
