@@ -22,6 +22,7 @@ Primary spec roots:
 - `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
 - `docs/2.0-ui-mvp-spec.md`
 - `docs/2.1-canvas-renderer-module-spec.md`
+- `docs/2.2-ui-state-edit-mode-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -67,6 +68,9 @@ Memo roots:
 `docs/2.1-canvas-renderer-module-spec.md` : `spec`
 - canvas renderer module structure, layer input boundaries, and layout conversion scope
 
+`docs/2.2-ui-state-edit-mode-spec.md` : `spec`
+- UI state structure, edit mode action dispatch, and score mutation flow
+
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
 `docs/1.4-note-string-spec.md` : `reference`
@@ -83,18 +87,20 @@ Read in this order for implementation work:
 1. `docs/1.8-parser-analyzer-pipeline-spec.md`
 2. `docs/1.9-mvp-analyzer-renderer-ui-spec.md`
 3. `docs/2.0-ui-mvp-spec.md`
-4. `docs/2.1-canvas-renderer-module-spec.md`
-5. `docs/1.5-note-cell-parser-spec.md`
-6. `docs/1.6-global-cell-parser-spec.md`
-7. `docs/1.7-analyzer-event-list-spec.md`
-8. `docs/1.3-score-json-format.md`
-9. `docs/1.0-development-spec.md`
+4. `docs/2.2-ui-state-edit-mode-spec.md`
+5. `docs/2.1-canvas-renderer-module-spec.md`
+6. `docs/1.5-note-cell-parser-spec.md`
+7. `docs/1.6-global-cell-parser-spec.md`
+8. `docs/1.7-analyzer-event-list-spec.md`
+9. `docs/1.3-score-json-format.md`
+10. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
 - runtime types and function signatures follow `1.8` first
 - first analyzer / renderer / UI MVP implementation scope follows `1.9` first
 - first UI layout, state, and event-action scope follows `2.0` first
+- UI state, edit mode action dispatch, and score mutation flow follows `2.2` first
 - canvas renderer module structure and layout conversion scope follows `2.1` first
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
@@ -131,6 +137,9 @@ MVP analyzer / renderer / UI:
 UI MVP:
 - `docs/2.0-ui-mvp-spec.md`
 
+UI state / edit mode:
+- `docs/2.2-ui-state-edit-mode-spec.md`
+
 Canvas renderer:
 - `docs/2.1-canvas-renderer-module-spec.md`
 
@@ -149,6 +158,7 @@ Appendix:
 - `1.9-mvp-analyzer-renderer-ui-spec.md`
 - `2.0-ui-mvp-spec.md`
 - `2.1-canvas-renderer-module-spec.md`
+- `2.2-ui-state-edit-mode-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
