@@ -4,19 +4,8 @@
 
 import { columnToX } from "./canvas_coordinate";
 import { colorForLabelMidi } from "./canvas_note_colors";
+import { CANVAS_COLORS } from "./canvas_theme";
 import type { CanvasScoreLayout } from "./canvas_types";
-
-const COLORS = {
-  rollBackground: "#525252",
-  noteRowBackground: "#646464",
-  gridStrong: "rgba(255,255,255,0.18)",
-  gridSoft: "rgba(255,255,255,0.12)",
-  gridVertical: "rgba(0,0,0,0.18)",
-  labelText: "rgba(255,255,255,0.92)",
-  noteLabelText: "rgba(255,255,255,0.95)",
-  labelLine: "rgba(255,255,255,0.18)",
-  boundary: "rgba(255,80,80,0.35)",
-};
 
 /**
  * layout label 영역의 row background, label, playback boundary 표시를 그린다.
@@ -30,7 +19,7 @@ export function drawLayoutGrid(
 ): void {
   // layout label canvas 전체를 지운 뒤 기본 배경색으로 채운다.
   context.clearRect(0, 0, layout.layoutWidth, layout.stageHeight);
-  context.fillStyle = COLORS.rollBackground;
+  context.fillStyle = CANVAS_COLORS.rollBackground;
   context.fillRect(0, 0, layout.layoutWidth, layout.stageHeight);
   context.font = `700 ${layout.layoutFontSize}px Arial, sans-serif`;
   context.textBaseline = "middle";
@@ -39,7 +28,7 @@ export function drawLayoutGrid(
   for (const row of layout.rows) {
     if (row.kind === "note") {
       context.fillStyle = row.midi === undefined
-        ? COLORS.noteRowBackground
+        ? CANVAS_COLORS.noteRowBackground
         : colorForLabelMidi(row.midi);
       context.fillRect(
         getLayoutLabelStartX(layout),
@@ -49,7 +38,7 @@ export function drawLayoutGrid(
       );
     }
 
-    context.strokeStyle = COLORS.labelLine;
+    context.strokeStyle = CANVAS_COLORS.labelLine;
     context.lineWidth = 1;
     context.beginPath();
     context.moveTo(0, row.y + row.height + 0.5);
@@ -58,11 +47,11 @@ export function drawLayoutGrid(
 
     if (row.label !== "") {
       if (row.kind === "note") {
-        context.fillStyle = COLORS.noteLabelText;
+        context.fillStyle = CANVAS_COLORS.noteLabelText;
         context.textAlign = "center";
         context.fillText(row.label, getLayoutLabelCenterX(layout), row.y + row.height / 2);
       } else {
-        context.fillStyle = COLORS.labelText;
+        context.fillStyle = CANVAS_COLORS.labelText;
         context.textAlign = "left";
         context.fillText(
           row.label,
@@ -79,7 +68,7 @@ export function drawLayoutGrid(
   // playback 기준 시각화는 오른쪽 여백 칸 내부에 반투명 배경으로만 표시한다.
   if (layout.layoutRightPaddingWidth > 0) {
     const overlayWidth = layout.layoutRightPaddingWidth / 2;
-    context.fillStyle = COLORS.boundary;
+    context.fillStyle = CANVAS_COLORS.playbackBoundary;
     context.fillRect(
       layout.layoutWidth - overlayWidth,
       0,
@@ -111,7 +100,7 @@ function drawLayoutPaddingColumnLines(
   const leftBoundaryX = layout.layoutLeftPaddingWidth;
   const rightBoundaryX = layout.layoutWidth - layout.layoutRightPaddingWidth;
 
-  context.strokeStyle = COLORS.labelLine;
+  context.strokeStyle = CANVAS_COLORS.labelLine;
   context.lineWidth = 1;
 
   // 왼쪽 여백 칸과 라벨 영역 사이의 윤곽선을 그린다.
@@ -157,12 +146,12 @@ export function drawScoreGrid(
 ): void {
   // score base canvas 전체를 지운 뒤 기본 배경색으로 채운다.
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
-  context.fillStyle = COLORS.rollBackground;
+  context.fillStyle = CANVAS_COLORS.rollBackground;
   context.fillRect(0, 0, layout.stageWidth, layout.stageHeight);
 
   for (const row of layout.rows) {
     if (row.kind === "note") {
-      context.fillStyle = COLORS.noteRowBackground;
+      context.fillStyle = CANVAS_COLORS.noteRowBackground;
       context.fillRect(0, row.y, layout.stageWidth, row.height);
     }
   }
@@ -172,7 +161,7 @@ export function drawScoreGrid(
   // column index를 x 좌표로 변환해 세로 grid line을 그린다.
   for (let column = 0; column <= layout.columnCount; column += 1) {
     const x = columnToX(column, layout);
-    context.strokeStyle = COLORS.gridVertical;
+    context.strokeStyle = CANVAS_COLORS.gridVertical;
     context.beginPath();
     context.moveTo(x + 0.5, 0);
     context.lineTo(x + 0.5, layout.stageHeight);
@@ -180,7 +169,7 @@ export function drawScoreGrid(
   }
 
   for (const row of layout.rows) {
-    context.strokeStyle = COLORS.gridSoft;
+    context.strokeStyle = CANVAS_COLORS.gridSoft;
     context.beginPath();
     context.moveTo(0, row.y + row.height + 0.5);
     context.lineTo(layout.stageWidth, row.y + row.height + 0.5);

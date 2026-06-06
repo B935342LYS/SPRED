@@ -212,8 +212,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the edit-mode driven visual verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild
-- immediate next implementation area is enabling the remaining Default/Long/Gliss/Trem/Pitch modifier UI through `src/app/edit/`
+- current focus is the edit-mode driven visual verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> JSON download/load verification
+- Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation
+- gliss and tuplet analyzer/render connections are the main remaining note-token render work
 
 ## 10. Current Progress Summary
 
@@ -263,13 +264,30 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `src/app/edit/` now separates edit logic into `edit_core.ts`, `edit_default.ts`, `edit_tuplet.ts`, and `edit_apply.ts`
 - `edit_core.ts` returns apply/delete/blocked commands, `edit_default.ts` handles defaultText escaping and note rawText composition, `edit_tuplet.ts` is a placeholder boundary for tuplet draft/finalize, and `edit_apply.ts` applies note cell upsert/delete to `ScoreFile`
 - score pointer coordinate resolution currently uses the graphics UI convention name `hitTestScoreCell()`
+- `main.ts` has been partially modularized into `app_types.ts`, `app_dom.ts`, `app_runtime.ts`, `app_ui_sync.ts`, `app_controller.ts`, `pitch_label.ts`, and `score_hit_test.ts`
+- edit mode now supports Default AUTO sharp/flat, CUSTOM, comment, eraser, long hold, vibrato hold, Gliss input controls, Trem input controls, absolutePitch dropdown, and microPitch normalization
+- CUSTOM defaultText input is limited to 10 characters and escapes parser reserved characters at rawText composition time
+- absolutePitch UI uses a high-to-low sharp-note dropdown instead of direct MIDI number input
+- `@p(0)` and `@m(0)` are omitted from composed rawText because they have no effect
+- tuplet UI now supports On/Off state, slot activation, SELECT ROW slot filling with `@n(midi)`, and Finalize Value preparation for later cell insertion
+- File panel JSON Download/Load and Local Save/Load are connected through `src/infra/score_file_io.ts` and `src/infra/score_local_storage.ts`
+- analyzer track handling now consumes general note cells except gliss, and supports `@p`, `@m`, `@t`, `"-"` hold, and `"~"` vibrato hold as `NoteEvent` data
+- `@p` changes final sound MIDI and renderer note color follows the final sound MIDI
+- `@m` changes final sound cent offset and display cent offset; renderer maps `+100/-100` cent to the adjacent note row center
+- `~` vibrato hold is rendered as a sine wave; consecutive vib segments are merged into one path with one cycle per cell
+- `@t` tremolo is rendered as chop lines using the note row background color
+- layout label rows now carry note MIDI into renderer layout data and the label column is colored with muted pitch-class colors
+- renderer common colors and metrics are centralized in `regression-code/src/renderer/canvas_theme.ts`, while pitch-class palettes remain in `canvas_note_colors.ts`
+- `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
+- `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
 - latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:parse`, `npm run test:analyze`
 
 Deferred planned work:
-- move additional app orchestration out of `main.ts` when the next extraction point is stable, likely `app_runtime.ts` and score-cell hit testing after modifier UI wiring begins
-- enable Default/Long/Gliss/Trem/Pitch modifier UI and compose them through `src/app/edit/edit_core.ts` / `edit_default.ts`
-- extend analyzer and renderer verification from defaultText/`"-"` to `"~"`, gliss, trem, pitch modifier, and tuplet tokens
-- implement JSON download for the current edited `state.document.score`
+- verify the current edit/analyze/render path through JSON download/load round trip with saved local files
+- connect tuplet analyzer and renderer behavior after the current SELECT ROW input path
+- connect gliss analyzer and renderer behavior after tuplet or in a separate focused pass
+- continue moving app orchestration out of `main.ts` when stable extraction points appear
+- connect the center player group to real score metadata and enable Details information editing
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes

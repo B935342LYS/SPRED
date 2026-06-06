@@ -9,12 +9,12 @@ import type {
   CanvasRenderTarget,
   CanvasScoreLayout,
 } from "./canvas_types";
+import { CANVAS_METRICS } from "./canvas_theme";
 
-const BASE_LAYOUT_LABEL_WIDTH = 100;
-const BASE_LAYOUT_PADDING_WIDTH = 21;
-const BASE_LAYOUT_FONT_SIZE = 12;
 const DEFAULT_LAYOUT_WIDTH =
-  BASE_LAYOUT_PADDING_WIDTH + BASE_LAYOUT_LABEL_WIDTH + BASE_LAYOUT_PADDING_WIDTH;
+  CANVAS_METRICS.baseLayoutPaddingWidth +
+  CANVAS_METRICS.baseLayoutLabelWidth +
+  CANVAS_METRICS.baseLayoutPaddingWidth;
 const MAX_CANVAS_BITMAP_DIMENSION = 16_384;
 const MAX_CANVAS_BITMAP_AREA = 67_108_864;
 
@@ -93,10 +93,10 @@ function normalizeCanvasRenderOptions(
     devicePixelRatio,
     columnWidth,
     layoutWidth: DEFAULT_LAYOUT_WIDTH * zoom,
-    layoutLabelWidth: BASE_LAYOUT_LABEL_WIDTH * zoom,
-    layoutLeftPaddingWidth: BASE_LAYOUT_PADDING_WIDTH * zoom,
-    layoutRightPaddingWidth: BASE_LAYOUT_PADDING_WIDTH * zoom,
-    layoutFontSize: BASE_LAYOUT_FONT_SIZE * zoom,
+    layoutLabelWidth: CANVAS_METRICS.baseLayoutLabelWidth * zoom,
+    layoutLeftPaddingWidth: CANVAS_METRICS.baseLayoutPaddingWidth * zoom,
+    layoutRightPaddingWidth: CANVAS_METRICS.baseLayoutPaddingWidth * zoom,
+    layoutFontSize: CANVAS_METRICS.baseLayoutFontSize * zoom,
   };
 }
 

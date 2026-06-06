@@ -7,6 +7,10 @@ import {
   colorForBasicMidi,
   colorForOptionalMidi,
 } from "./canvas_note_colors";
+import {
+  CANVAS_COLORS,
+  CANVAS_METRICS,
+} from "./canvas_theme";
 import type {
   CanvasLayoutRow,
   CanvasNoteLayoutItem,
@@ -14,21 +18,8 @@ import type {
   CanvasScoreLayout,
 } from "./canvas_types";
 
-const NOTE_STYLE = {
-  stroke: "rgba(255,255,255,0.22)",
-  extraStroke: "rgba(255,255,255,0.92)",
-  text: "#000000",
-  extraText: "#ffffff",
-};
 const TRACK_OPTIONAL = "optional";
 const TRACK_EXTRA = "extra";
-const BASE_NOTE_RENDER_HEIGHT = 21;
-const NOTE_INSET_X = 1;
-const MIN_NOTE_WIDTH = 1;
-const MIN_NOTE_HEIGHT = 1;
-const NOTE_ROW_BACKGROUND_COLOR = "#646464";
-const TREMOLO_CHOP_LINE_WIDTH = 2;
-const VIB_WAVE_SAMPLE_COUNT = 48;
 
 /**
  * note render item 목록을 canvas에 그린다.
@@ -98,11 +89,17 @@ function createNoteLayoutItem(
 
   const startX = columnToX(item.startTick, layout);
   const endX = columnToX(item.endTick, layout);
-  const x = startX + NOTE_INSET_X;
-  const height = Math.max(MIN_NOTE_HEIGHT, BASE_NOTE_RENDER_HEIGHT * getLayoutZoom(layout));
+  const x = startX + CANVAS_METRICS.noteInsetX;
+  const height = Math.max(
+    CANVAS_METRICS.minNoteHeight,
+    CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(layout),
+  );
   const centerY = getDisplayCenterY(row, item.displayCentOffset, layout);
   const y = centerY - height / 2;
-  const width = Math.max(MIN_NOTE_WIDTH, endX - startX - NOTE_INSET_X * 2);
+  const width = Math.max(
+    CANVAS_METRICS.minNoteWidth,
+    endX - startX - CANVAS_METRICS.noteInsetX * 2,
+  );
 
   return {
     ...item,
@@ -163,7 +160,9 @@ function drawNoteRectangle(
 ): void {
   context.fillStyle = colorForTrackMidi(item.trackId, item.midi);
   context.strokeStyle =
-    item.trackId === TRACK_EXTRA ? NOTE_STYLE.extraStroke : NOTE_STYLE.stroke;
+    item.trackId === TRACK_EXTRA
+      ? CANVAS_COLORS.extraNoteStroke
+      : CANVAS_COLORS.noteStroke;
   context.lineWidth = 1;
   context.fillRect(item.x, item.y, item.width, item.height);
   context.strokeRect(item.x + 0.5, item.y + 0.5, item.width - 1, item.height - 1);
@@ -189,7 +188,9 @@ function drawNoteText(
 
   context.save();
   context.fillStyle =
-    item.trackId === TRACK_EXTRA ? NOTE_STYLE.extraText : NOTE_STYLE.text;
+    item.trackId === TRACK_EXTRA
+      ? CANVAS_COLORS.extraNoteText
+      : CANVAS_COLORS.noteText;
   context.font = `700 ${fontSize}px Arial, sans-serif`;
   context.textAlign = "center";
   context.textBaseline = "middle";
@@ -253,7 +254,7 @@ function effectSegmentToDrawRange(
   layout: CanvasScoreLayout,
   startTick: number,
   endTick: number,
-  insetX = NOTE_INSET_X,
+  insetX: number = CANVAS_METRICS.noteInsetX,
 ): DrawRange | null {
   const x0 = Math.max(item.x, columnToX(startTick, layout) + insetX);
   const x1 = Math.min(item.x + item.width, columnToX(endTick, layout) - insetX);
@@ -361,8 +362,8 @@ function drawTremChops(
   }
 
   context.save();
-  context.strokeStyle = NOTE_ROW_BACKGROUND_COLOR;
-  context.lineWidth = TREMOLO_CHOP_LINE_WIDTH;
+  context.strokeStyle = CANVAS_COLORS.rollBackground;
+  context.lineWidth = CANVAS_METRICS.tremoloChopLineWidth;
 
   // segment 시작/끝과 division 경계 모두에 세로 chop line을 그려 셀 연결부도 끊어 보이게 한다.
   for (let index = 0; index <= division; index += 1) {
@@ -398,19 +399,19 @@ function drawVibWave(
 
   context.save();
   context.strokeStyle = item.trackId === TRACK_EXTRA
-    ? "rgba(255,255,255,0.92)"
-    : "rgba(0,0,0,0.72)";
+    ? CANVAS_COLORS.extraVibWave
+    : CANVAS_COLORS.vibWave;
   context.lineWidth = 1.5;
   context.beginPath();
 
-  for (let step = 0; step <= VIB_WAVE_SAMPLE_COUNT; step += 1) {
-    const progress = step / VIB_WAVE_SAMPLE_COUNT;
+  for (let step = 0; step <= CANVAS_METRICS.vibWaveSampleCount; step += 1) {
+    const progress = step / CANVAS_METRICS.vibWaveSampleCount;
     const x = x0 + width * progress;
     const y = yCenter + Math.sin(progress * Math.PI * 2 * cycleCount) * amplitude;
 
     if (step === 0) {
       context.moveTo(x, yCenter);
-    } else if (step === VIB_WAVE_SAMPLE_COUNT) {
+    } else if (step === CANVAS_METRICS.vibWaveSampleCount) {
       context.lineTo(x, yCenter);
     } else {
       context.lineTo(x, y);
@@ -453,7 +454,7 @@ function getLayoutZoom(layout: CanvasScoreLayout): number {
  */
 function colorForTrackMidi(trackId: string | undefined, midi: number): string {
   if (trackId === TRACK_EXTRA) {
-    return "#000000";
+    return CANVAS_COLORS.extraNoteFill;
   }
 
   if (trackId === TRACK_OPTIONAL) {

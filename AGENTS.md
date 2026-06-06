@@ -95,6 +95,27 @@ Deprioritized material:
 - Keep parser, analyzer, renderer, and audio-generator boundaries aligned with the active documents.
 - Prefer event-based downstream processing after analyzer output.
 
+## Open Source Reference Policy
+
+- The project should actively use open-source review as an implementation and report-writing aid, especially when a feature overlaps with existing public implementations.
+- Before implementing a complex feature, consider whether relevant open-source projects, libraries, or reference implementations should be reviewed.
+- Candidate reference domains are not limited to music notation. For example:
+  - note/tie/gliss rendering: VexFlow, abcjs, OpenSheetMusicDisplay, MuseScore-related references
+  - timeline or block connection logic: calendar, Gantt, video/audio timeline, block editor, spreadsheet merge-cell, or tilemap/autotiling projects
+  - audio scheduling and synthesis: Web Audio API examples, Tone.js, MIDI libraries
+  - pitch detection or game mode: pitchy, aubiojs, Meyda, or similar browser audio projects
+- Distinguish clearly between:
+  - direct dependency usage
+  - source code copied or adapted into this project
+  - algorithm or architecture idea referenced without code copying
+  - comparison-only review used for report justification
+- Check license compatibility before copying or adapting open-source code.
+- Prefer MIT, Apache-2.0, BSD, or similarly permissive references for direct code reuse.
+- Treat GPL/AGPL/LGPL or unclear-license code as comparison-only unless the user explicitly approves a compatible distribution plan.
+- Do not imply that open-source code was used if it was only compared conceptually.
+- When open-source review influences implementation, record the source, license if relevant, reviewed file or documentation URL, and how it affected the implementation or report.
+- When no suitable open-source reference is found, state that explicitly in the implementation memo or report draft rather than forcing a weak citation.
+
 ## Change Procedure
 
 - Before implementing a new feature or refactor, inspect the relevant active documents first.
@@ -159,6 +180,8 @@ For layout conflicts:
 - When adding a meaningful new implementation file or module, consider adding a corresponding `docs/implementation-memo/` document if the implementation introduces new flow, TypeScript syntax, data structures, or design decisions that will help later review and learning.
 - Implementation memo documents should supplement active specs; they should not redefine storage format, parser/analyzer contracts, or project decisions that belong in active documents.
 - For implementation memo filenames, follow the current numbered English kebab-case pattern such as `1.4-step1-build-score-indexes.md`.
+- If open-source projects or public documentation were reviewed for an implementation, include a short source note in the relevant implementation memo or report draft.
+- Open-source source notes should describe the reference, URL, license status when code reuse is possible, and whether the project used direct code, adapted code, or conceptual comparison only.
 
 ## Verification Rules
 

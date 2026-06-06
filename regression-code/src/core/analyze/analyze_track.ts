@@ -49,6 +49,8 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
 
   // 정렬된 parsed entry를 차례대로 분석하며 새 NoteEvent를 events 배열에 누적한다.
   for (const entry of sortedEntries) {
+    deleteExpiredActiveNotes(activeNotesByConnectionKey, entry.col);
+
     const event = analyzeParsedNoteEntry(
       trackId,
       context,
@@ -66,6 +68,24 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
     events,
   };
 };
+
+/**
+ * 현재 col에서 더 이상 hold 연결 후보가 될 수 없는 active note를 제거한다.
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
+ * - 인수 : col : 현재 분석 중인 cell column
+ * - 반환값 : 없음
+ */
+function deleteExpiredActiveNotes(
+  activeNotesByConnectionKey: ActiveNoteMap,
+  col: number,
+): void {
+  // hold는 바로 왼쪽 tick에 끝난 note에만 연결되므로 endTick이 현재 col보다 작으면 후보가 아니다.
+  for (const [connectionKey, event] of activeNotesByConnectionKey) {
+    if (fractionToNumber(event.time.endTick) < col) {
+      activeNotesByConnectionKey.delete(connectionKey);
+    }
+  }
+}
 
 /**
  * track의 parsed cell entry를 col, rowId 순서로 정렬해 반환한다.
