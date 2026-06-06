@@ -4,6 +4,7 @@ import { analyzeDocument } from "../src/core/analyze/analyze_full";
 import type { NoteEvent } from "../src/core/analyze/types";
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+import type { ScoreFile } from "../src/core/score/types";
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
@@ -37,6 +38,121 @@ function assert(condition: boolean, message: string): void {
   if (!condition) {
     console.error(message);
     process.exitCode = 1;
+  }
+}
+
+/**
+ * score JSON 문자열을 복제 가능한 ScoreFile로 읽는다.
+ * - 인수 : sourceText : fixture JSON 문자열
+ * - 반환값 : ScoreFile : 테스트에서 수정할 score 객체
+ */
+function parseFixtureScore(sourceText: string): ScoreFile {
+  return JSON.parse(sourceText) as ScoreFile;
+}
+
+/**
+ * score 객체를 런타임 문서로 로드하고 analyzer를 실행한다.
+ * - 인수 : score : 테스트용 score 객체
+ * - 반환값 : analyzer 결과와 로드 성공 여부
+ */
+function analyzeFixtureScore(score: ScoreFile):
+  | { ok: true; noteEvents: NoteEvent[] }
+  | { ok: false } {
+  const modifierResult = loadRuntimeDocument(JSON.stringify(score));
+
+  if (!modifierResult.ok) {
+    console.error("Runtime document load failed for modifier score.");
+    console.error(modifierResult.error);
+    return { ok: false };
+  }
+
+  const parsed = buildParsedDocument(modifierResult.document);
+  const analysis = analyzeDocument({
+    score: modifierResult.document.score,
+    indexes: modifierResult.document.indexes,
+    parsed,
+  });
+  const basicTrack = analysis.trackResults.find(
+    (track) => track.trackId === "basic",
+  );
+
+  return {
+    ok: true,
+    noteEvents: getNoteEvents(basicTrack?.events ?? []),
+  };
+}
+
+/**
+ * analyzer modifier 연결 동작을 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testModifierAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in modifier fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  // 기존 기본 fixture와 충돌하지 않는 높은 col에 modifier 전용 셀을 추가한다.
+  basicTrack.cells.push(
+    { rowId: "s1-note-52", col: 20, rawText: "P@p(60)@m(100)" },
+    { rowId: "s1-note-53", col: 22, rawText: "T@t(3)" },
+    { rowId: "s1-note-53", col: 23, rawText: "-" },
+    { rowId: "s1-note-53", col: 24, rawText: "~" },
+  );
+
+  const modifierAnalysis = analyzeFixtureScore(score);
+
+  assert(modifierAnalysis.ok, "Modifier score should analyze.");
+
+  if (!modifierAnalysis.ok) {
+    return;
+  }
+
+  const absoluteMicroEvent = modifierAnalysis.noteEvents.find(
+    (event) => tickToNumber(event.time.startTick) === 20,
+  );
+  const tremVibEvent = modifierAnalysis.noteEvents.find(
+    (event) => tickToNumber(event.time.startTick) === 22,
+  );
+
+  assert(absoluteMicroEvent !== undefined, "Missing @p/@m note event.");
+  assert(tremVibEvent !== undefined, "Missing @t/~ note event.");
+
+  if (absoluteMicroEvent !== undefined) {
+    assert(absoluteMicroEvent.sound.midi === 60, "@p should override sound midi.");
+    assert(absoluteMicroEvent.sound.centOffset === 100, "@m should affect sound cents.");
+    assert(
+      absoluteMicroEvent.display.rowId === "s1-note-52" &&
+        absoluteMicroEvent.display.centOffset === 100,
+      "@m should affect display cent offset while keeping source row.",
+    );
+  }
+
+  if (tremVibEvent !== undefined) {
+    assert(
+      tickToNumber(tremVibEvent.time.startTick) === 22 &&
+        tickToNumber(tremVibEvent.time.endTick) === 25,
+      "@t then hold/vib sequence should merge into 22..25.",
+    );
+    assert(tremVibEvent.effects.length === 3, "Merged @t/~ event should keep 3 effect segments.");
+    assert(
+      tremVibEvent.effects[0]?.trem?.division === 3,
+      "@t should start trem segment with division 3.",
+    );
+    assert(
+      tremVibEvent.effects[1]?.trem?.division === 3,
+      "plain hold should continue previous trem segment.",
+    );
+    assert(
+      tremVibEvent.effects[2]?.vib === true &&
+        tremVibEvent.effects[2]?.trem === null,
+      "~ should create vib segment and stop trem display.",
+    );
   }
 }
 
@@ -153,4 +269,6 @@ if (!result.ok) {
     assert(dynamics.startValue === 100, "MVP dynamics should use value 100.");
     assert(dynamics.endValue === 100, "MVP dynamics should keep value 100.");
   }
+
+  testModifierAnalysis(jsonText);
 }

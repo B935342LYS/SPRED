@@ -5,7 +5,9 @@
 
 import {
   composeDefaultNoteRawText,
+  hasDefaultNoteModifiers,
   isEmptyDefaultText,
+  validateDefaultNoteEditInput,
   type DefaultNoteEditInput,
 } from "./edit_default";
 import {
@@ -53,8 +55,25 @@ export type EditRawTextResult =
  */
 export function composeEditRawText(request: EditRawTextRequest): EditRawTextResult {
   if (request.kind === "default") {
-    // 빈 Default 입력은 기존 cell 삭제 명령으로 취급한다.
-    if (isEmptyDefaultText(request.input.customText)) {
+    const blockedMessage = validateDefaultNoteEditInput(request.input);
+
+    if (blockedMessage !== null) {
+      return {
+        kind: "blocked",
+        message: blockedMessage,
+      };
+    }
+
+    if (request.input.mode === "eraser") {
+      return { kind: "delete" };
+    }
+
+    // 빈 CUSTOM 입력은 modifier도 없을 때만 기존 cell 삭제 명령으로 취급한다.
+    if (
+      request.input.mode === "custom" &&
+      isEmptyDefaultText(request.input.customText) &&
+      !hasDefaultNoteModifiers(request.input)
+    ) {
       return { kind: "delete" };
     }
 

@@ -212,7 +212,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is replacing the temporary score grid with the first canvas base-layer renderer path
+- current focus is the edit-mode driven visual verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild
+- immediate next implementation area is enabling the remaining Default/Long/Gliss/Trem/Pitch modifier UI through `src/app/edit/`
 
 ## 10. Current Progress Summary
 
@@ -238,22 +239,37 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
-- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`
-- current near-term focus is replacing the temporary static score grid with legacy-like canvas layer slots
+- current near-term focus is extending edit-mode rawText composition so remaining note tokens can be rendered and visually verified before audio work
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
 - `regression-code/index.html` and `regression-code/styles/app.css` now contain a static MVP UI shell modeled after legacy `이세계 코드`
-- the UI shell currently includes hover/focus menu groups, center player card, YouTube placeholder, legacy-like edit panel cards, layout label area, temporary score grid, and Info dialog
+- the UI shell currently includes hover/focus menu groups, center player card, YouTube placeholder, legacy-like edit panel cards, layout label area, canvas score layers, and Info dialog
 - renderer/playback specs now keep the layout/score boundary as the playback reference and use layout-side padding columns with a translucent red right-half overlay to emphasize that boundary
 - `docs/2.1-canvas-renderer-module-spec.md` now defines the initial canvas renderer base-layer path around `CanvasRenderInput`, `CanvasScoreLayout`, `canvas_renderer_adapter.ts`, `canvas_types.ts`, `canvas_coordinate.ts`, `canvas_grid_renderer.ts`, and `canvas_score_renderer.ts`
 - renderer score/layout DTO conversion is assigned to `src/app/canvas_renderer_adapter.ts`, while later `AnalysisResult` to canvas item conversion is assigned to renderer-side `canvas_item_builder.ts` to avoid both adapter overreach and draw-layer analyzer coupling
 - `CanvasScoreLayout` now keeps only layout/base renderer coordinates; score-side playback scroll boundary is deferred to the later playback/scroll controller
 - legacy `이세계 코드` rendering flow has been inspected for reference concepts: cumulative coordinate precomputation, DPR canvas sizing, label/score vertical scroll sync, base grid draw order, and range rendering preparation
+- `regression-code/src/renderer/` now contains the first canvas renderer path for layout/base grid and analyzer-driven note layer rendering
+- `regression-code/src/app/canvas_renderer_adapter.ts` converts `RuntimeDocument` layout data into renderer DTOs
+- `regression-code/src/renderer/canvas_item_builder.ts` converts `AnalysisResult` note events into canvas note items
+- analyzer MVP currently creates `NoteEvent` for defaultText and `"-"` hold merge, with `displayTextAnchors` for per-cell text placement
+- note rendering currently displays legacy-like track colors, 21px note rectangle height, black text except extra, and per-cell `displayTextAnchors`
+- the UI shell now uses canvas layers instead of the temporary static score grid
+- the left menu status line has been added for user-facing load/edit/error messages
+- minimal edit mode is implemented for the `basic` track: CUSTOM text input writes note cell rawText, empty input deletes a cell, and edit-mode right click deletes a note cell
+- CUSTOM defaultText input escapes parser reserved characters internally while showing the user-entered characters in the input and rendered score
+- edit-mode mutation currently performs full rebuild: `ScoreFile` mutation -> `createRuntimeDocument()` -> `buildParsedDocument()` -> `analyzeDocument()` -> `buildCanvasNoteRenderItems()` -> `renderCanvasScore()`
+- `src/app/edit/` now separates edit logic into `edit_core.ts`, `edit_default.ts`, `edit_tuplet.ts`, and `edit_apply.ts`
+- `edit_core.ts` returns apply/delete/blocked commands, `edit_default.ts` handles defaultText escaping and note rawText composition, `edit_tuplet.ts` is a placeholder boundary for tuplet draft/finalize, and `edit_apply.ts` applies note cell upsert/delete to `ScoreFile`
+- score pointer coordinate resolution currently uses the graphics UI convention name `hitTestScoreCell()`
+- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:parse`, `npm run test:analyze`
 
 Deferred planned work:
-- implement the first canvas base-layer renderer path in `regression-code/src/app/` and `regression-code/src/renderer/`
-- add a minimal `Vite + TypeScript` web-app build skeleton for `regression-code/`
+- move additional app orchestration out of `main.ts` when the next extraction point is stable, likely `app_runtime.ts` and score-cell hit testing after modifier UI wiring begins
+- enable Default/Long/Gliss/Trem/Pitch modifier UI and compose them through `src/app/edit/edit_core.ts` / `edit_default.ts`
+- extend analyzer and renderer verification from defaultText/`"-"` to `"~"`, gliss, trem, pitch modifier, and tuplet tokens
+- implement JSON download for the current edited `state.document.score`
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes
@@ -267,12 +283,16 @@ Deferred planned work:
 - `1.9` and actual MVP implementation
   - `1.9` intentionally narrows the broad analyzer/renderer/audio goals to default note text, `"-"` hold, minimum renderer, and basic audio/playback
 - `2.0` and actual UI shell
-  - static HTML/CSS UI structure exists, but controls are mostly placeholders and are not yet connected to TypeScript state
-  - current score grid is temporary and should be replaced by canvas layer DOM before renderer implementation
+  - static HTML/CSS UI structure exists and the first edit state path is connected to TypeScript
+  - many controls remain placeholders, but Edit Mode, Default CUSTOM, zoom change, canvas render, and status line are connected
 - `2.1` and actual renderer modules
-  - renderer module boundaries are specified, but `regression-code/src/app/canvas_renderer_adapter.ts` and `regression-code/src/renderer/` have not yet been implemented
+  - renderer module boundaries are implemented for layout/base grid and the first analyzer-driven note layer path
   - `1.9` says renderer consumes `AnalysisResult`; for current implementation this is interpreted as the broad render pipeline, while draw-layer modules consume canvas DTOs and `AnalysisResult` interpretation is isolated to the future `canvas_item_builder.ts`
-  - app/controller adapter converts `RuntimeDocument` to `CanvasRenderInput` only; it does not convert analyzer output into note or marker items
+  - app/controller adapter converts `RuntimeDocument` to `CanvasRenderInput`; analyzer output is converted to note items in renderer-side `canvas_item_builder.ts`
+- `2.2` and actual edit mode implementation
+  - minimal CUSTOM edit, empty-input delete, and right-click delete are implemented
+  - modifier composition beyond defaultText is not yet implemented
+  - tuplet edit module exists as a placeholder boundary only
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation

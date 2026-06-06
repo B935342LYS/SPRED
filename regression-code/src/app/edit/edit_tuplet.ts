@@ -45,9 +45,29 @@ export type TupletRawTextResult =
  * - 반환값 : rawText 또는 아직 finalize할 수 없는 이유
  */
 export function composeTupletRawText(draft: TupletEditDraft): TupletRawTextResult {
-  // tuplet finalize는 slot 위치 지정과 외부 hold 연결 규칙이 필요하므로 후속 단계까지 막아둔다.
+  if (!Number.isInteger(draft.divNum) || draft.divNum < 2) {
+    return {
+      kind: "notReady",
+      message: "Tuplet division must be an integer greater than or equal to 2.",
+    };
+  }
+
+  const slots = Array.from({ length: draft.divNum }, (_, slotIndex) => {
+    const slot = draft.slots.find((candidate) => candidate.slotIndex === slotIndex);
+
+    return slot?.text ?? "";
+  });
+
+  if (slots.length !== draft.divNum) {
+    return {
+      kind: "notReady",
+      message: "Tuplet slot count must match division number.",
+    };
+  }
+
+  // slot 내부 문법은 note parser가 최종 검증하므로 여기서는 tuplet head wrapper만 합성한다.
   return {
-    kind: "notReady",
-    message: `Tuplet edit is not implemented yet. divNum=${draft.divNum}`,
+    kind: "rawText",
+    rawText: `/${draft.divNum}(${slots.join("|")})`,
   };
 }

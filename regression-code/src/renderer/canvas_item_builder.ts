@@ -29,6 +29,7 @@ export function buildCanvasNoteRenderItems(
 
       items.push({
         rowId: event.display.rowId,
+        displayCentOffset: event.display.centOffset,
         startTick: timeFractionToNumber(event.time.startTick),
         endTick: timeFractionToNumber(event.time.endTick),
         midi: event.sound.midi,
@@ -40,6 +41,12 @@ export function buildCanvasNoteRenderItems(
           startTick: timeFractionToNumber(anchor.time.startTick),
           endTick: timeFractionToNumber(anchor.time.endTick),
           text: anchor.text,
+        })),
+        effects: event.effects.map((effect) => ({
+          startTick: timeFractionToNumber(effect.time.startTick),
+          endTick: timeFractionToNumber(effect.time.endTick),
+          vib: effect.vib,
+          tremDivision: effect.trem?.division ?? null,
         })),
         trackId: event.trackId,
       });

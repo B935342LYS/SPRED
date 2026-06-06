@@ -506,7 +506,8 @@ select:disabled {
 }
 
 .default-card input[type="text"] {
-  flex: 1 1 132px;
+  flex: 0 1 92px;
+  max-width: 112px;
 }
 
 .default-card select,
@@ -516,9 +517,36 @@ select:disabled {
   max-width: 104px;
 }
 
+.current-raw-text-preview {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.compact-stack {
+  min-width: 34px;
+}
+
+.compact-stack span {
+  font-size: 10px;
+}
+
+.gliss-id-select {
+  width: 44px;
+  text-align: center;
+}
+
 .pitch-card input[type="number"],
 .number-card input[type="number"] {
   width: 84px;
+}
+
+.pitch-card .absolute-pitch-input,
+.pitch-card .micro-pitch-input {
+  width: 92px;
+}
+
+.pitch-card .absolute-pitch-select {
+  width: 82px;
 }
 
 .tempo-mark-group {
@@ -625,6 +653,12 @@ select:disabled {
   min-width: 0;
   padding: 0 6px;
   font-size: 12px;
+}
+
+.tuplet-slots input.active {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 1px;
 }
 
 .edit-help {

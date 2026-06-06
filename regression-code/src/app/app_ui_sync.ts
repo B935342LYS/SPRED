@@ -1,0 +1,248 @@
+/**
+ * AppState를 DOM과 canvas renderer에 반영하는 동기화 함수를 제공한다.
+ */
+
+import { renderCanvasScore } from "../renderer/canvas_score_renderer";
+import type {
+  CanvasRenderOptions,
+  CanvasRenderResult,
+} from "../renderer/canvas_types";
+import type {
+  AppDom,
+  AppState,
+  UiStatusMessage,
+} from "./app_types";
+import { composeEditRawText } from "./edit/edit_core";
+import { resolveAutoDefaultText } from "./pitch_label";
+
+/**
+ * status footer의 특정 위치 문구를 바꾼다.
+ * - 인수 : index : 바꿀 status span 순서
+ * - 인수 : text : 표시할 문구
+ * - 반환값 : 없음
+ */
+export function setStatus(index: number, text: string): void {
+  const items = document.querySelectorAll(".status-area span");
+  const item = items.item(index);
+
+  if (item !== null) {
+    item.textContent = text;
+  }
+}
+
+/**
+ * busy 상태를 우선하여 왼쪽 상태줄에 표시할 메시지를 고른다.
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : DOM에 표시할 상태 메시지
+ */
+export function getVisibleStatusMessage(state: AppState): UiStatusMessage {
+  if (state.busy.kind !== "idle") {
+    return {
+      level: "info",
+      text: state.busy.message,
+    };
+  }
+
+  return state.statusMessage;
+}
+
+/**
+ * AppState를 왼쪽 user-facing status line에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncLeftStatus(dom: AppDom, state: AppState): void {
+  const message = getVisibleStatusMessage(state);
+
+  // 긴 오류/상태 문구는 한 줄로 줄이고 전체 내용은 title에서 확인할 수 있게 둔다.
+  dom.leftStatusLine.textContent = message.text;
+  dom.leftStatusLine.dataset.level = message.level;
+  dom.leftStatusLine.title = message.text;
+}
+
+/**
+ * Default 카드 상단의 current rawText preview를 현재 edit tool 상태로 갱신한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncCurrentRawTextPreview(dom: AppDom, state: AppState): void {
+  if (state.mode.kind !== "edit") {
+    dom.currentRawTextPreview.textContent = "current: empty";
+    dom.currentRawTextPreview.title = "";
+    return;
+  }
+
+  if (state.mode.tool.kind === "pletExtend") {
+    dom.currentRawTextPreview.textContent = "current: /&";
+    dom.currentRawTextPreview.title = "/&";
+    return;
+  }
+
+  const result = state.mode.tool.kind === "tuplet"
+    ? composeEditRawText({
+        kind: "tuplet",
+        draft: state.mode.tool.draft,
+      })
+    : composeEditRawText({
+        kind: "default",
+        input: resolveAutoDefaultText(
+          state,
+          state.mode.tool.input,
+          state.selection?.rowId ?? null,
+        ),
+      });
+
+  if (result.kind === "blocked") {
+    dom.currentRawTextPreview.textContent = "current: blocked";
+    dom.currentRawTextPreview.title = result.message;
+    return;
+  }
+
+  if (result.kind === "delete") {
+    dom.currentRawTextPreview.textContent = "current: delete";
+    dom.currentRawTextPreview.title = "delete current cell";
+    return;
+  }
+
+  dom.currentRawTextPreview.textContent = `current: ${result.rawText}`;
+  dom.currentRawTextPreview.title = result.rawText;
+}
+
+/**
+ * edit/busy 상태에 따라 최소 구현 대상 UI control을 활성화한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncUiControls(dom: AppDom, state: AppState): void {
+  const isBusy = state.busy.kind !== "idle";
+  const isEditMode = state.mode.kind === "edit";
+  const isPletExtendTool = state.mode.kind === "edit" && state.mode.tool.kind === "pletExtend";
+  const isTupletTool = state.mode.kind === "edit" && state.mode.tool.kind === "tuplet";
+  const isTupletMode = isPletExtendTool || isTupletTool;
+  const isTupletExtendMode = dom.tupletInsertModeSelect.value === "extend";
+  const isNoteComposerMode = dom.defaultModeSelect.value !== "comment" &&
+    dom.defaultModeSelect.value !== "eraser";
+  const activeTupletSlots = Number.parseInt(dom.tupletDivisionSelect.value, 10);
+  const activeTupletSlotIndex = state.mode.kind === "edit" && state.mode.tool.kind === "tuplet"
+    ? state.mode.tool.draft.activeSlotIndex
+    : null;
+
+  // busy 중에는 edit 입력과 score 조작에 영향을 주는 컨트롤을 모두 잠근다.
+  dom.editToggle.disabled = isBusy;
+  dom.defaultModeSelect.disabled = isBusy || !isEditMode;
+  dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";
+  dom.holdTokenSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
+  dom.glissKindSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
+  dom.glissIdSelect.disabled = dom.glissKindSelect.disabled || dom.glissKindSelect.value === "";
+  dom.tremDivisionSelect.disabled = isBusy || !isEditMode || !isNoteComposerMode;
+  dom.absolutePitchSelect.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";
+  dom.microPitchInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "comment" || dom.defaultModeSelect.value === "eraser";
+  dom.tupletModeToggle.disabled = isBusy || !isEditMode;
+  dom.tupletDivisionSelect.disabled = isBusy || !isTupletMode;
+  dom.tupletInsertModeSelect.disabled = isBusy || !isTupletMode;
+  dom.tupletFinalizeButton.disabled = isBusy || !isTupletMode || isTupletExtendMode;
+  dom.tupletSlotInputs.forEach((input, slotIndex) => {
+    input.disabled = isBusy || !isTupletMode || isTupletExtendMode || slotIndex >= activeTupletSlots;
+    input.classList.toggle(
+      "active",
+      isTupletTool && slotIndex === activeTupletSlotIndex,
+    );
+  });
+  dom.zoomInput.disabled = isBusy;
+  dom.tupletModeToggle.textContent = isTupletMode ? "On" : "Off";
+  dom.tupletModeToggle.classList.toggle("on", isTupletMode);
+  dom.tupletModeToggle.classList.toggle("off", !isTupletMode);
+  dom.tupletFinalizeButton.classList.toggle("on", isTupletTool);
+  dom.tupletFinalizeButton.classList.toggle("off", !isTupletTool || isPletExtendTool);
+  dom.jsonLoadButton.disabled = isBusy;
+  dom.jsonDownloadButton.disabled = isBusy;
+  dom.localSaveButton.disabled = isBusy;
+  dom.localLoadButton.disabled = isBusy;
+  syncCurrentRawTextPreview(dom, state);
+}
+
+/**
+ * layout label canvas를 score 영역의 세로 스크롤과 동기화한다.
+ * - 인수 : scoreArea : score canvas scroll container
+ * - 인수 : layoutStage : layout label canvas stage
+ * - 반환값 : 없음
+ */
+export function syncLayoutScroll(
+  scoreArea: HTMLElement,
+  layoutStage: HTMLElement,
+): void {
+  layoutStage.style.transform = `translateY(${-scoreArea.scrollTop}px)`;
+}
+
+/**
+ * 현재 DOM 상태와 UI 옵션으로 renderer option을 만든다.
+ * - 인수 : zoomInput : zoom slider DOM 요소
+ * - 반환값 : renderer 좌표 계산 옵션
+ */
+export function createRenderOptions(zoomInput: HTMLInputElement): CanvasRenderOptions {
+  const zoom = Number(zoomInput.value) / 100;
+
+  return {
+    zoom,
+    devicePixelRatio: window.devicePixelRatio || 1,
+  };
+}
+
+/**
+ * renderer 결과 크기를 CSS 변수에 반영해 scroll container와 canvas style을 맞춘다.
+ * - 인수 : stageWidth : score stage CSS pixel 너비
+ * - 인수 : stageHeight : score stage CSS pixel 높이
+ * - 인수 : layoutWidth : layout label area CSS pixel 너비
+ * - 반환값 : 없음
+ */
+export function updateStageCssVars(
+  stageWidth: number,
+  stageHeight: number,
+  layoutWidth: number,
+): void {
+  document.documentElement.style.setProperty(
+    "--score-stage-width",
+    `${stageWidth}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--score-stage-height",
+    `${stageHeight}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--label-width",
+    `${layoutWidth}px`,
+  );
+}
+
+/**
+ * AppState 안의 renderInput으로 canvas score를 다시 그리고 layout을 상태에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : renderer layout이 반영된 새 상태
+ */
+export function renderApp(dom: AppDom, state: AppState): AppState {
+  // CanvasRenderInput과 현재 UI 옵션으로 canvas score를 다시 그린다.
+  const result: CanvasRenderResult = renderCanvasScore(
+    dom.target,
+    state.renderInput,
+    createRenderOptions(dom.zoomInput),
+  );
+
+  // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
+  updateStageCssVars(
+    result.layout.stageWidth,
+    result.layout.stageHeight,
+    result.layout.layoutWidth,
+  );
+  syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
+  setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+
+  return {
+    ...state,
+    layout: result.layout,
+  };
+}

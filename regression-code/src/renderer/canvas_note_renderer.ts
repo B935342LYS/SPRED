@@ -51,6 +51,8 @@ const BASE_NOTE_RENDER_HEIGHT = 21;
 const NOTE_INSET_X = 1;
 const MIN_NOTE_WIDTH = 1;
 const MIN_NOTE_HEIGHT = 1;
+const VIB_WAVE_STEP_PX = 4;
+const VIB_WAVE_PERIOD_PX = 24;
 
 /**
  * note render item 목록을 canvas에 그린다.
@@ -77,6 +79,7 @@ export function drawScoreNotes(
     }
 
     drawNoteRectangle(context, layoutItem);
+    drawNoteEffects(context, layoutItem, layout);
     drawNoteText(context, layoutItem, layout);
   }
 }
@@ -121,7 +124,8 @@ function createNoteLayoutItem(
   const endX = columnToX(item.endTick, layout);
   const x = startX + NOTE_INSET_X;
   const height = Math.max(MIN_NOTE_HEIGHT, BASE_NOTE_RENDER_HEIGHT * getLayoutZoom(layout));
-  const y = row.y + row.height / 2 - height / 2;
+  const centerY = getDisplayCenterY(row, item.displayCentOffset, layout);
+  const y = centerY - height / 2;
   const width = Math.max(MIN_NOTE_WIDTH, endX - startX - NOTE_INSET_X * 2);
 
   return {
@@ -131,6 +135,44 @@ function createNoteLayoutItem(
     width,
     height,
   };
+}
+
+/**
+ * microPitch centOffset을 note row 중심 y 좌표로 변환한다.
+ * - 인수 : row : 기준 note row layout
+ * - 인수 : centOffset : -100~100 cent 단위 표시 위치 보정값
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : number : 보정이 반영된 note 중심 y 좌표
+ */
+function getDisplayCenterY(
+  row: CanvasLayoutRow,
+  centOffset: number,
+  layout: CanvasScoreLayout,
+): number {
+  const baseCenter = row.y + row.height / 2;
+
+  if (centOffset === 0) {
+    return baseCenter;
+  }
+
+  const noteRows = layout.rows.filter((candidate) => candidate.kind === "note");
+  const rowIndex = noteRows.findIndex((candidate) => candidate.rowId === row.rowId);
+
+  if (rowIndex === -1) {
+    return baseCenter;
+  }
+
+  const direction = centOffset > 0 ? -1 : 1;
+  const targetRow = noteRows[rowIndex + direction];
+
+  if (targetRow !== undefined) {
+    const targetCenter = targetRow.y + targetRow.height / 2;
+
+    return baseCenter + (targetCenter - baseCenter) * (Math.abs(centOffset) / 100);
+  }
+
+  // 악기 범위 끝에서는 이웃 note row 간격을 구할 수 없으므로 현재 row 높이만큼 외삽한다.
+  return baseCenter - Math.sign(centOffset) * row.height * (Math.abs(centOffset) / 100);
 }
 
 /**
@@ -189,6 +231,120 @@ function drawNoteText(
     );
   }
 
+  context.restore();
+}
+
+/**
+ * note effect segment를 note rectangle 위에 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : 없음
+ */
+function drawNoteEffects(
+  context: CanvasRenderingContext2D,
+  item: CanvasNoteLayoutItem,
+  layout: CanvasScoreLayout,
+): void {
+  for (const effect of item.effects) {
+    const x0 = Math.max(item.x, columnToX(effect.startTick, layout) + NOTE_INSET_X);
+    const x1 = Math.min(item.x + item.width, columnToX(effect.endTick, layout) - NOTE_INSET_X);
+
+    if (x1 <= x0) {
+      continue;
+    }
+
+    if (effect.tremDivision !== null) {
+      drawTremChops(context, item, x0, x1, effect.tremDivision);
+    }
+
+    if (effect.vib) {
+      drawVibWave(context, item, x0, x1);
+    }
+  }
+}
+
+/**
+ * tremolo effect를 note rectangle 내부의 chop line으로 표시한다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : x0 : effect segment 시작 x 좌표
+ * - 인수 : x1 : effect segment 끝 x 좌표
+ * - 인수 : division : tremolo 분할 수
+ * - 반환값 : 없음
+ */
+function drawTremChops(
+  context: CanvasRenderingContext2D,
+  item: CanvasNoteLayoutItem,
+  x0: number,
+  x1: number,
+  division: number,
+): void {
+  if (division < 2) {
+    return;
+  }
+
+  context.save();
+  context.strokeStyle = item.trackId === TRACK_EXTRA
+    ? "rgba(255,255,255,0.78)"
+    : "rgba(0,0,0,0.55)";
+  context.lineWidth = 1;
+
+  // division 경계마다 짧은 세로 chop line을 그려 주기적 분할감을 표시한다.
+  for (let index = 1; index < division; index += 1) {
+    const x = x0 + ((x1 - x0) * index) / division;
+
+    context.beginPath();
+    context.moveTo(x + 0.5, item.y + 2);
+    context.lineTo(x + 0.5, item.y + item.height - 2);
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+/**
+ * vibrato hold를 note rectangle 내부의 sine wave로 표시한다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : x0 : wave 시작 x 좌표
+ * - 인수 : x1 : wave 끝 x 좌표
+ * - 반환값 : 없음
+ */
+function drawVibWave(
+  context: CanvasRenderingContext2D,
+  item: CanvasNoteLayoutItem,
+  x0: number,
+  x1: number,
+): void {
+  const width = x1 - x0;
+  const cycles = Math.max(1, Math.round(width / VIB_WAVE_PERIOD_PX));
+  const yCenter = item.y + item.height / 2;
+  const amplitude = Math.max(2, item.height * 0.22);
+  const steps = Math.max(8, Math.ceil(width / VIB_WAVE_STEP_PX));
+
+  context.save();
+  context.strokeStyle = item.trackId === TRACK_EXTRA
+    ? "rgba(255,255,255,0.92)"
+    : "rgba(0,0,0,0.72)";
+  context.lineWidth = 1.5;
+  context.beginPath();
+
+  for (let step = 0; step <= steps; step += 1) {
+    const progress = step / steps;
+    const x = x0 + width * progress;
+    const y = yCenter + Math.sin(progress * Math.PI * 2 * cycles) * amplitude;
+
+    if (step === 0) {
+      context.moveTo(x, yCenter);
+    } else if (step === steps) {
+      context.lineTo(x, yCenter);
+    } else {
+      context.lineTo(x, y);
+    }
+  }
+
+  context.stroke();
   context.restore();
 }
 

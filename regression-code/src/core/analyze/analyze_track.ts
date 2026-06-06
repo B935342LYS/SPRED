@@ -1,7 +1,7 @@
 /**
  * src/core/analyze/analyze_track.ts
- * MVP 범위의 track note event 분석을 수행한다.
- * 현재 구현은 modifier 없는 일반 note와 "-" hold 병합만 처리한다.
+ * track note event 분석을 수행한다.
+ * 일반 note의 hold, absolutePitch, microPitch, vib, trem을 처리한다.
  */
 
 import type {
@@ -17,6 +17,7 @@ import type {
   AnalyzedTrackResult,
   FinalDisplayPosition,
   FinalSoundPitch,
+  NoteEffectSegment,
   NoteEvent,
   NoteDisplayTextAnchor,
   SourceCellRef,
@@ -112,7 +113,7 @@ function analyzeParsedNoteEntry(
 ): NoteEvent | null {
   const parsedCell = entry.parsedCell;
 
-  if (parsedCell.kind !== "note" || !isMvpNoteCell(parsedCell)) {
+  if (parsedCell.kind !== "note" || !isAnalyzableNoteCell(parsedCell)) {
     return null;
   }
 
@@ -123,12 +124,12 @@ function analyzeParsedNoteEntry(
   }
 
   const sourceCell = createSourceCellRef(entry);
-  const display = createDefaultDisplayPosition(row);
-  const sound = createDefaultSoundPitch(row);
+  const display = createDisplayPosition(row, parsedCell);
+  const sound = createSoundPitch(row, parsedCell);
   const connectionKey = createHoldConnectionKey(display, sound);
 
-  // 현재 셀이 "-" hold이면 바로 왼쪽에 이어 붙일 수 있는 기존 NoteEvent를 찾는다.
-  if (parsedCell.hold === "-") {
+  // 현재 셀이 hold이면 바로 왼쪽에 이어 붙일 수 있는 기존 NoteEvent를 찾는다.
+  if (parsedCell.hold !== null) {
     const previousEvent = findConnectablePreviousEvent(
       activeNotesByConnectionKey,
       entry.col,
@@ -142,7 +143,13 @@ function analyzeParsedNoteEntry(
       previousEvent.displayTextAnchors.push(
         createNoteDisplayTextAnchor(entry, parsedCell),
       );
-      previousEvent.effects = [createDefaultEffectSegment(previousEvent.time)];
+      previousEvent.effects.push(
+        createEffectSegmentForCell(
+          parsedCell,
+          createIntegerTimeRange(entry.col, entry.col + 1),
+          previousEvent,
+        ),
+      );
       activeNotesByConnectionKey.set(connectionKey, previousEvent);
       return null;
     }
@@ -161,7 +168,7 @@ function analyzeParsedNoteEntry(
     sourceCells: [sourceCell],
     display,
     sound,
-    effects: [createDefaultEffectSegment(time)],
+    effects: [createEffectSegmentForCell(parsedCell, time, null)],
     glissRole: null,
     tuplet: null,
   };
@@ -171,22 +178,13 @@ function analyzeParsedNoteEntry(
 }
 
 /**
- * 현재 MVP analyzer가 소비할 수 있는 일반 note 셀인지 확인한다.
+ * 현재 analyzer가 note event로 소비할 수 있는 일반 note 셀인지 확인한다.
  * - 인수 : parsedCell : parser가 만든 일반 note 셀
- * - 반환값 : boolean : modifier 없는 default note 또는 "-" hold 여부
+ * - 반환값 : boolean : gliss/tuplet을 제외한 note event 분석 가능 여부
  */
-function isMvpNoteCell(parsedCell: ParsedNoteCell): boolean {
-  // "-" 이외의 hold 토큰은 현재 MVP 분석 범위에서 제외한다.
-  if (parsedCell.hold !== null && parsedCell.hold !== "-") {
-    return false;
-  }
-
-  return (
-    parsedCell.modifiers.gliss === null &&
-    parsedCell.modifiers.trem === null &&
-    parsedCell.modifiers.absolutePitch === null &&
-    parsedCell.modifiers.microPitch === null
-  );
+function isAnalyzableNoteCell(parsedCell: ParsedNoteCell): boolean {
+  // gliss는 별도 GlissEvent 연결 단계에서 처리해야 하므로 이번 단계에서는 제외한다.
+  return parsedCell.modifiers.gliss === null;
 }
 
 /**
@@ -216,24 +214,29 @@ function findConnectablePreviousEvent(
  * - 인수 : row : 현재 셀의 note row definition
  * - 반환값 : FinalDisplayPosition : renderer가 사용할 의미적 표시 위치
  */
-function createDefaultDisplayPosition(
+function createDisplayPosition(
   row: NoteRowDefinition,
+  parsedCell: ParsedNoteCell,
 ): FinalDisplayPosition {
   return {
     rowId: row.rowId,
-    centOffset: 0,
+    centOffset: parsedCell.modifiers.microPitch?.centNum ?? 0,
   };
 }
 
 /**
- * note row에서 MVP 기본 발음 음정을 만든다.
+ * note row와 pitch modifier에서 최종 발음 음정을 만든다.
  * - 인수 : row : 현재 셀의 note row definition
+ * - 인수 : parsedCell : parser가 확정한 note 셀
  * - 반환값 : FinalSoundPitch : audio generator가 사용할 의미적 발음 음정
  */
-function createDefaultSoundPitch(row: NoteRowDefinition): FinalSoundPitch {
+function createSoundPitch(
+  row: NoteRowDefinition,
+  parsedCell: ParsedNoteCell,
+): FinalSoundPitch {
   return {
-    midi: row.midi,
-    centOffset: 0,
+    midi: parsedCell.modifiers.absolutePitch?.midiNum ?? row.midi,
+    centOffset: parsedCell.modifiers.microPitch?.centNum ?? 0,
   };
 }
 
@@ -337,7 +340,7 @@ function fractionToNumber(value: TimeFraction): number {
  * - 인수 : time : note event 시간 범위
  * - 반환값 : vib/trem이 없는 effect segment
  */
-function createDefaultEffectSegment(time: TimeRange) {
+function createDefaultEffectSegment(time: TimeRange): NoteEffectSegment {
   return {
     time: {
       startTick: { ...time.startTick },
@@ -346,6 +349,61 @@ function createDefaultEffectSegment(time: TimeRange) {
     vib: false,
     trem: null,
   };
+}
+
+/**
+ * 현재 셀에 해당하는 effect segment를 만든다.
+ * - 인수 : parsedCell : parser가 확정한 note 셀
+ * - 인수 : time : 현재 셀 하나가 차지하는 시간 범위
+ * - 인수 : previousEvent : hold로 이어 붙는 이전 NoteEvent, 새 note이면 null
+ * - 반환값 : vib/trem 상태가 반영된 effect segment
+ */
+function createEffectSegmentForCell(
+  parsedCell: ParsedNoteCell,
+  time: TimeRange,
+  previousEvent: NoteEvent | null,
+): NoteEffectSegment {
+  const vib = parsedCell.hold === "~";
+
+  if (vib) {
+    return {
+      ...createDefaultEffectSegment(time),
+      vib: true,
+      trem: null,
+    };
+  }
+
+  const explicitTrem = parsedCell.modifiers.trem;
+  const previousTrem = getContinuingTrem(previousEvent);
+
+  return {
+    ...createDefaultEffectSegment(time),
+    trem: explicitTrem !== null
+      ? { division: explicitTrem.divNum }
+      : previousTrem,
+  };
+}
+
+/**
+ * hold로 이어지는 이전 note에서 지속 가능한 trem 상태를 가져온다.
+ * - 인수 : previousEvent : hold 연결 대상 이벤트
+ * - 반환값 : 이어질 trem 정보, 없으면 null
+ */
+function getContinuingTrem(
+  previousEvent: NoteEvent | null,
+): NoteEffectSegment["trem"] {
+  if (previousEvent === null) {
+    return null;
+  }
+
+  const previousSegment = previousEvent.effects.at(-1);
+
+  // vib가 시작된 뒤에는 trem이 끊긴 것으로 보고, 새 @t가 나올 때만 다시 시작한다.
+  if (previousSegment === undefined || previousSegment.vib) {
+    return null;
+  }
+
+  return previousSegment.trem ?? null;
 }
 
 /**

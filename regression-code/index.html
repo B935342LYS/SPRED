@@ -17,8 +17,11 @@
                     <div class="menu-dropdown">
                         <button class="menu-trigger" type="button">File</button>
                         <div class="menu-panel">
-                            <button type="button">JSON Load</button>
-                            <button type="button" disabled>JSON Download</button>
+                            <button type="button" class="json-load-button">JSON Load</button>
+                            <button type="button" class="json-download-button">JSON Download</button>
+                            <button type="button" class="local-save-button">Local Save</button>
+                            <button type="button" class="local-load-button">Local Load</button>
+                            <input class="json-load-input" type="file" accept="application/json,.json" hidden>
                         </div>
                     </div>
                     <div class="menu-dropdown">
@@ -182,28 +185,27 @@
                 <section class="edit-card default-card" aria-label="Default note tools">
                     <div class="edit-card-title-row">
                         <span class="edit-card-title">Default</span>
-                        <span class="preview-pill">current: empty</span>
+                        <span class="preview-pill current-raw-text-preview">current: empty</span>
                     </div>
                     <div class="edit-control-row">
                         <select class="default-mode-select" disabled>
-                            <option value="autoSharp" disabled>AUTO sharp</option>
-                            <option value="autoFlat" disabled>AUTO flat</option>
+                            <option value="autoSharp">AUTO♯</option>
+                            <option value="autoFlat">AUTO♭</option>
                             <option value="custom" selected>CUSTOM</option>
-                            <option value="comment" disabled>comment</option>
-                            <option value="eraser" disabled>ERASER</option>
+                            <option value="comment">comment</option>
+                            <option value="eraser">ERASER</option>
                         </select>
-                        <input class="custom-text-input" type="text" placeholder="custom text" disabled>
+                        <input class="custom-text-input" type="text" maxlength="10" placeholder="custom text" disabled>
                     </div>
                 </section>
 
                 <section class="edit-card narrow-card" aria-label="Long note tools">
                     <div class="edit-card-title">Long</div>
                     <div class="edit-control-row">
-                        <button type="button" class="pill-toggle off" disabled>Off</button>
-                        <select disabled>
-                            <option>(none)</option>
-                            <option>-</option>
-                            <option>~</option>
+                        <select class="hold-token-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="-">-</option>
+                            <option value="~">~</option>
                         </select>
                     </div>
                 </section>
@@ -211,25 +213,54 @@
                 <section class="edit-card narrow-card" aria-label="Glissando tools">
                     <div class="edit-card-title">Gliss.</div>
                     <div class="edit-control-row">
-                        <button type="button" class="pill-toggle off" disabled>Off</button>
-                        <select disabled>
-                            <option>(none)</option>
-                            <option>start</option>
-                            <option>curve</option>
-                            <option>end</option>
+                        <select class="gliss-kind-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="S">start</option>
+                            <option value="M">curve</option>
+                            <option value="E">end</option>
                         </select>
+                        <label class="stacked-field compact-stack">
+                            <span>id</span>
+                            <select class="gliss-id-select" disabled>
+                                <option value="a" selected>a</option>
+                                <option value="b">b</option>
+                                <option value="c">c</option>
+                                <option value="d">d</option>
+                                <option value="e">e</option>
+                                <option value="f">f</option>
+                                <option value="g">g</option>
+                                <option value="h">h</option>
+                                <option value="i">i</option>
+                                <option value="j">j</option>
+                                <option value="k">k</option>
+                                <option value="l">l</option>
+                                <option value="m">m</option>
+                                <option value="n">n</option>
+                                <option value="o">o</option>
+                                <option value="p">p</option>
+                                <option value="q">q</option>
+                                <option value="r">r</option>
+                                <option value="s">s</option>
+                                <option value="t">t</option>
+                                <option value="u">u</option>
+                                <option value="v">v</option>
+                                <option value="w">w</option>
+                                <option value="x">x</option>
+                                <option value="y">y</option>
+                                <option value="z">z</option>
+                            </select>
+                        </label>
                     </div>
                 </section>
 
                 <section class="edit-card narrow-card" aria-label="Tremolo tools">
                     <div class="edit-card-title">Trem.</div>
                     <div class="edit-control-row">
-                        <button type="button" class="pill-toggle off" disabled>Off</button>
-                        <select disabled>
-                            <option>(none)</option>
-                            <option>trem 1</option>
-                            <option>trem 2</option>
-                            <option>trem 3</option>
+                        <select class="trem-division-select" disabled>
+                            <option value="">(none)</option>
+                            <option value="2">trem 2</option>
+                            <option value="3">trem 3</option>
+                            <option value="4">trem 4</option>
                         </select>
                     </div>
                 </section>
@@ -239,16 +270,13 @@
                     <div class="edit-control-row">
                         <label class="stacked-field">
                             <span>absolutePitch</span>
-                            <select disabled>
-                                <option selected>(none)</option>
-                                <option>C</option>
-                                <option>C sharp</option>
-                                <option>D</option>
+                            <select class="absolute-pitch-select" disabled>
+                                <option value="" selected>(none)</option>
                             </select>
                         </label>
                         <label class="stacked-field">
                             <span>microPitch</span>
-                            <input type="number" min="-100" max="100" step="0.1" disabled>
+                            <input class="micro-pitch-input" type="number" min="-100" max="100" step="0.1" disabled>
                         </label>
                     </div>
                 </section>
@@ -256,10 +284,10 @@
                 <section class="edit-card tuplet-card" aria-label="Tuplet tools">
                     <div class="edit-card-title">Tuplet</div>
                     <div class="tuplet-toolbar">
-                        <button type="button" class="pill-toggle off" disabled>Off</button>
+                        <button type="button" class="pill-toggle off tuplet-mode-toggle" disabled>Off</button>
                         <label class="inline-field">
                             plets
-                            <select disabled>
+                            <select class="tuplet-division-select" disabled>
                                 <option>2</option>
                                 <option selected>3</option>
                                 <option>4</option>
@@ -270,23 +298,23 @@
                         </label>
                         <label class="inline-field">
                             Insert Mode
-                            <select disabled>
+                            <select class="tuplet-insert-mode-select" disabled>
                                 <option>SELECT MODE</option>
                                 <option>SELECT ROW</option>
                                 <option>DIRECT INPUT</option>
+                                <option value="extend">EXTEND</option>
                             </select>
                         </label>
-                        <button type="button" disabled>Finalize Value</button>
-                        <button type="button" disabled>Extend</button>
+                        <button type="button" class="pill-toggle off tuplet-finalize-button" disabled>Finalize Value</button>
                     </div>
                     <div class="tuplet-slots" aria-label="Tuplet slot inputs">
-                        <input type="text" placeholder="slot 1" disabled>
-                        <input type="text" placeholder="slot 2" disabled>
-                        <input type="text" placeholder="slot 3" disabled>
-                        <input type="text" placeholder="slot 4" disabled>
-                        <input type="text" placeholder="slot 5" disabled>
-                        <input type="text" placeholder="slot 6" disabled>
-                        <input type="text" placeholder="slot 7" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 1" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 2" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 3" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 4" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 5" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 6" disabled>
+                        <input class="tuplet-slot-input" type="text" placeholder="slot 7" disabled>
                     </div>
                     <div class="edit-help">Select a slot, choose an insert mode, then finalize the tuplet value.</div>
                 </section>

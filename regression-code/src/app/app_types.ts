@@ -1,0 +1,110 @@
+/**
+ * app 계층에서 공유하는 UI runtime 상태 타입을 정의한다.
+ */
+
+import type { AnalysisResult } from "../core/analyze/types";
+import type { ParsedScoreDocument } from "../core/parse/types";
+import type {
+  RuntimeDocument,
+  RowId,
+  TrackId,
+} from "../core/score/types";
+import type {
+  CanvasAnalyzedRenderInput,
+  CanvasRenderTarget,
+  CanvasRowKind,
+  CanvasScoreLayout,
+} from "../renderer/canvas_types";
+import type { DefaultNoteEditInput } from "./edit/edit_default";
+import type { TupletEditDraft } from "./edit/edit_tuplet";
+
+/** 사용자가 볼 수 있는 짧은 상태 메시지의 중요도. */
+export type UiStatusLevel = "info" | "warning" | "error";
+
+/** 왼쪽 메뉴 하단에 표시할 사용자 조작 결과 메시지. */
+export type UiStatusMessage = {
+  level: UiStatusLevel;
+  text: string;
+};
+
+/** 앱이 입력을 받아도 되는지 나타내는 전역 busy 상태. */
+export type AppBusyState =
+  | { kind: "idle" }
+  | { kind: "loadingScore"; message: string }
+  | { kind: "applyingEdit"; message: string }
+  | { kind: "rebuilding"; message: string };
+
+/** edit mode에서 활성화된 도구. */
+export type EditTool =
+  | {
+      kind: "default";
+      input: DefaultNoteEditInput;
+    }
+  | {
+      kind: "pletExtend";
+    }
+  | {
+      kind: "tuplet";
+      draft: TupletEditDraft;
+    };
+
+/** score click을 어떤 의미로 해석할지 결정하는 앱 모드. */
+export type AppMode =
+  | { kind: "view" }
+  | { kind: "edit"; tool: EditTool };
+
+/** score 영역 click을 renderer 좌표에서 score 좌표로 변환한 결과. */
+export type ScoreHit = {
+  rowId: RowId;
+  rowKind: CanvasRowKind;
+  col: number;
+};
+
+/** UI가 현재 선택한 score 위치. */
+export type ScoreSelection = ScoreHit & {
+  trackId: TrackId;
+};
+
+/** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
+export type AppState = {
+  document: RuntimeDocument;
+  parsed: ParsedScoreDocument;
+  analysis: AnalysisResult;
+  renderInput: CanvasAnalyzedRenderInput;
+  activeTrackId: TrackId;
+  mode: AppMode;
+  busy: AppBusyState;
+  statusMessage: UiStatusMessage;
+  selection: ScoreSelection | null;
+  layout: CanvasScoreLayout | null;
+};
+
+/** 앱 진입점에서 제어하는 DOM 요소 묶음. */
+export type AppDom = {
+  scoreArea: HTMLElement;
+  scoreStage: HTMLElement;
+  layoutStage: HTMLElement;
+  target: CanvasRenderTarget;
+  editToggle: HTMLInputElement;
+  defaultModeSelect: HTMLSelectElement;
+  customTextInput: HTMLInputElement;
+  holdTokenSelect: HTMLSelectElement;
+  glissKindSelect: HTMLSelectElement;
+  glissIdSelect: HTMLSelectElement;
+  tremDivisionSelect: HTMLSelectElement;
+  absolutePitchSelect: HTMLSelectElement;
+  microPitchInput: HTMLInputElement;
+  tupletModeToggle: HTMLButtonElement;
+  tupletDivisionSelect: HTMLSelectElement;
+  tupletInsertModeSelect: HTMLSelectElement;
+  tupletFinalizeButton: HTMLButtonElement;
+  tupletSlotInputs: HTMLInputElement[];
+  currentRawTextPreview: HTMLElement;
+  jsonLoadButton: HTMLButtonElement;
+  jsonDownloadButton: HTMLButtonElement;
+  jsonLoadInput: HTMLInputElement;
+  localSaveButton: HTMLButtonElement;
+  localLoadButton: HTMLButtonElement;
+  zoomInput: HTMLInputElement;
+  leftStatusLine: HTMLElement;
+};

@@ -127,11 +127,13 @@ export type CanvasViewport = {
  */
 export type CanvasNoteRenderItem = {
   rowId: string;
+  displayCentOffset: number;
   startTick: number;
   endTick: number;
   midi: number;
   text: string;
   displayTextAnchors: CanvasNoteDisplayTextAnchor[];
+  effects: CanvasNoteEffectSegment[];
   trackId?: string;
 };
 
@@ -147,6 +149,18 @@ export type CanvasNoteDisplayTextAnchor = {
   startTick: number;
   endTick: number;
   text: string;
+};
+
+/**
+ * note rectangle 위에 그릴 시각 효과 구간.
+ * - 인수 : 없음
+ * - 반환값 : vib wave 또는 trem chop 표시용 시간 구간
+ */
+export type CanvasNoteEffectSegment = {
+  startTick: number;
+  endTick: number;
+  vib: boolean;
+  tremDivision: number | null;
 };
 
 /**
