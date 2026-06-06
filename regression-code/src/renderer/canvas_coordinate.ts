@@ -129,6 +129,7 @@ export function buildCanvasScoreLayout(
       rowId: row.rowId,
       kind: row.kind,
       label: row.label,
+      midi: row.midi,
       y,
       height,
     };

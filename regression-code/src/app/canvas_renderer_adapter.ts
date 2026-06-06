@@ -42,6 +42,7 @@ export function createCanvasRenderInput(
           rowId: row.rowId,
           kind: "note",
           label: row.displayLabel,
+          midi: row.midi,
           height: row.height,
         };
       }

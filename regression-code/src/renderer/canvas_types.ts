@@ -16,6 +16,7 @@ export type CanvasSourceRow = {
   kind: CanvasSourceRowKind;
   label: string;
   height: number;
+  midi?: number;
 };
 
 /**
@@ -83,6 +84,7 @@ export type CanvasLayoutRow = {
   rowId: string;
   kind: CanvasRowKind;
   label: string;
+  midi?: number;
   y: number;
   height: number;
 };

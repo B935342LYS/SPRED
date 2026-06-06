@@ -3,6 +3,7 @@
  */
 
 import { columnToX } from "./canvas_coordinate";
+import { colorForLabelMidi } from "./canvas_note_colors";
 import type { CanvasScoreLayout } from "./canvas_types";
 
 const COLORS = {
@@ -12,6 +13,7 @@ const COLORS = {
   gridSoft: "rgba(255,255,255,0.12)",
   gridVertical: "rgba(0,0,0,0.18)",
   labelText: "rgba(255,255,255,0.92)",
+  noteLabelText: "rgba(255,255,255,0.95)",
   labelLine: "rgba(255,255,255,0.18)",
   boundary: "rgba(255,80,80,0.35)",
 };
@@ -36,8 +38,15 @@ export function drawLayoutGrid(
   // layout rows를 순회하며 note row 배경, row 경계선, label 문자열을 그린다.
   for (const row of layout.rows) {
     if (row.kind === "note") {
-      context.fillStyle = COLORS.noteRowBackground;
-      context.fillRect(0, row.y, layout.layoutWidth, row.height);
+      context.fillStyle = row.midi === undefined
+        ? COLORS.noteRowBackground
+        : colorForLabelMidi(row.midi);
+      context.fillRect(
+        getLayoutLabelStartX(layout),
+        row.y,
+        layout.layoutLabelWidth,
+        row.height,
+      );
     }
 
     context.strokeStyle = COLORS.labelLine;
@@ -48,11 +57,12 @@ export function drawLayoutGrid(
     context.stroke();
 
     if (row.label !== "") {
-      context.fillStyle = COLORS.labelText;
       if (row.kind === "note") {
+        context.fillStyle = COLORS.noteLabelText;
         context.textAlign = "center";
         context.fillText(row.label, getLayoutLabelCenterX(layout), row.y + row.height / 2);
       } else {
+        context.fillStyle = COLORS.labelText;
         context.textAlign = "left";
         context.fillText(
           row.label,
@@ -77,6 +87,15 @@ export function drawLayoutGrid(
       layout.stageHeight,
     );
   }
+}
+
+/**
+ * 좌측 여백을 제외한 라벨 영역 시작 x 좌표를 계산한다.
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : number : 라벨 열 시작 x 좌표
+ */
+function getLayoutLabelStartX(layout: CanvasScoreLayout): number {
+  return layout.layoutLeftPaddingWidth;
 }
 
 /**

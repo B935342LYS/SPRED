@@ -3,6 +3,10 @@
  */
 
 import { columnToX } from "./canvas_coordinate";
+import {
+  colorForBasicMidi,
+  colorForOptionalMidi,
+} from "./canvas_note_colors";
 import type {
   CanvasLayoutRow,
   CanvasNoteLayoutItem,
@@ -16,43 +20,15 @@ const NOTE_STYLE = {
   text: "#000000",
   extraText: "#ffffff",
 };
-const NOTE_COLORS: Record<number, { main: string; alt: string }> = {
-  0: { main: "#ff3b30", alt: "#b62a22" },
-  1: { main: "#ff3b30", alt: "#b62a22" },
-  2: { main: "#ff9500", alt: "#b56a00" },
-  3: { main: "#ff9500", alt: "#b56a00" },
-  4: { main: "#ffcc00", alt: "#b89200" },
-  5: { main: "#34c759", alt: "#23873c" },
-  6: { main: "#34c759", alt: "#23873c" },
-  7: { main: "#5ac8fa", alt: "#2a7ea6" },
-  8: { main: "#5ac8fa", alt: "#2a7ea6" },
-  9: { main: "#007aff", alt: "#0052ad" },
-  10: { main: "#007aff", alt: "#0052ad" },
-  11: { main: "#af52de", alt: "#6f3390" },
-};
-const NOTE_COLORS_OPTIONAL: Record<number, { main: string; alt: string }> = {
-  0: { main: "#ff9f99", alt: "#ffc1bd" },
-  1: { main: "#ff9f99", alt: "#ffc1bd" },
-  2: { main: "#ffbf80", alt: "#ffd6a8" },
-  3: { main: "#ffbf80", alt: "#ffd6a8" },
-  4: { main: "#ffe699", alt: "#fff0bf" },
-  5: { main: "#8fe1a6", alt: "#b3edc3" },
-  6: { main: "#8fe1a6", alt: "#b3edc3" },
-  7: { main: "#9fd8f5", alt: "#c3e9fb" },
-  8: { main: "#9fd8f5", alt: "#c3e9fb" },
-  9: { main: "#9fbfff", alt: "#c3d6ff" },
-  10: { main: "#9fbfff", alt: "#c3d6ff" },
-  11: { main: "#d6b0f0", alt: "#e6cff7" },
-};
-const NATURAL_PITCH_CLASSES = new Set([0, 2, 4, 5, 7, 9, 11]);
 const TRACK_OPTIONAL = "optional";
 const TRACK_EXTRA = "extra";
 const BASE_NOTE_RENDER_HEIGHT = 21;
 const NOTE_INSET_X = 1;
 const MIN_NOTE_WIDTH = 1;
 const MIN_NOTE_HEIGHT = 1;
-const VIB_WAVE_STEP_PX = 4;
-const VIB_WAVE_PERIOD_PX = 24;
+const NOTE_ROW_BACKGROUND_COLOR = "#646464";
+const TREMOLO_CHOP_LINE_WIDTH = 2;
+const VIB_WAVE_SAMPLE_COUNT = 48;
 
 /**
  * note render item 목록을 canvas에 그린다.
@@ -209,7 +185,7 @@ function drawNoteText(
     return;
   }
 
-  const fontSize = Math.max(7, Math.min(14, item.height * 0.78));
+  const fontSize = Math.max(7, 14 * getLayoutZoom(layout));
 
   context.save();
   context.fillStyle =
@@ -247,20 +223,120 @@ function drawNoteEffects(
   layout: CanvasScoreLayout,
 ): void {
   for (const effect of item.effects) {
-    const x0 = Math.max(item.x, columnToX(effect.startTick, layout) + NOTE_INSET_X);
-    const x1 = Math.min(item.x + item.width, columnToX(effect.endTick, layout) - NOTE_INSET_X);
+    const range = effectSegmentToDrawRange(item, layout, effect.startTick, effect.endTick, 0);
 
-    if (x1 <= x0) {
+    if (range === null) {
       continue;
     }
 
     if (effect.tremDivision !== null) {
-      drawTremChops(context, item, x0, x1, effect.tremDivision);
+      drawTremChops(context, item, range.x0, range.x1, effect.tremDivision);
+    }
+  }
+
+  // 연속된 "~" hold segment는 레거시처럼 하나의 사인파로 병합해 draw 호출을 줄인다.
+  for (const range of createVibDrawRanges(item, layout)) {
+    drawVibWave(context, item, range.x0, range.x1, range.cycleCount);
+  }
+}
+
+/**
+ * effect segment의 tick 범위를 note rectangle 내부 x 좌표 범위로 변환한다.
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : startTick : effect 시작 tick
+ * - 인수 : endTick : effect 끝 tick
+ * - 반환값 : DrawRange | null : 그릴 수 있는 x 범위 또는 제외 결과
+ */
+function effectSegmentToDrawRange(
+  item: CanvasNoteLayoutItem,
+  layout: CanvasScoreLayout,
+  startTick: number,
+  endTick: number,
+  insetX = NOTE_INSET_X,
+): DrawRange | null {
+  const x0 = Math.max(item.x, columnToX(startTick, layout) + insetX);
+  const x1 = Math.min(item.x + item.width, columnToX(endTick, layout) - insetX);
+
+  if (x1 <= x0) {
+    return null;
+  }
+
+  return { x0, x1 };
+}
+
+/**
+ * note effect 목록에서 연속된 vibrato 구간을 하나의 draw range로 병합한다.
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : DrawRange[] : 사인파를 한 번씩 그릴 x 범위 목록
+ */
+function createVibDrawRanges(
+  item: CanvasNoteLayoutItem,
+  layout: CanvasScoreLayout,
+): VibDrawRange[] {
+  const ranges: VibDrawRange[] = [];
+  let activeStartTick: number | null = null;
+  let activeEndTick: number | null = null;
+
+  // effect segment를 시간 순서로 훑으며 맞닿아 있는 vib 구간만 하나로 합친다.
+  for (const effect of item.effects) {
+    if (!effect.vib) {
+      if (activeStartTick !== null && activeEndTick !== null) {
+        pushVibDrawRange(ranges, item, layout, activeStartTick, activeEndTick);
+        activeStartTick = null;
+        activeEndTick = null;
+      }
+
+      continue;
     }
 
-    if (effect.vib) {
-      drawVibWave(context, item, x0, x1);
+    if (activeStartTick === null || activeEndTick === null) {
+      activeStartTick = effect.startTick;
+      activeEndTick = effect.endTick;
+      continue;
     }
+
+    if (effect.startTick === activeEndTick) {
+      activeEndTick = effect.endTick;
+      continue;
+    }
+
+    pushVibDrawRange(ranges, item, layout, activeStartTick, activeEndTick);
+    activeStartTick = effect.startTick;
+    activeEndTick = effect.endTick;
+  }
+
+  if (activeStartTick !== null && activeEndTick !== null) {
+    pushVibDrawRange(ranges, item, layout, activeStartTick, activeEndTick);
+  }
+
+  return ranges;
+}
+
+/**
+ * tick 기준 vibrato 구간을 x 좌표 범위로 변환해 목록에 추가한다.
+ * - 인수 : ranges : 누적할 draw range 목록
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : startTick : 병합된 vibrato 시작 tick
+ * - 인수 : endTick : 병합된 vibrato 끝 tick
+ * - 반환값 : 없음
+ */
+function pushVibDrawRange(
+  ranges: VibDrawRange[],
+  item: CanvasNoteLayoutItem,
+  layout: CanvasScoreLayout,
+  startTick: number,
+  endTick: number,
+): void {
+  const range = effectSegmentToDrawRange(item, layout, startTick, endTick);
+
+  if (range !== null) {
+    ranges.push({
+      ...range,
+      cycleCount: Math.max(1, endTick - startTick),
+    });
   }
 }
 
@@ -285,18 +361,16 @@ function drawTremChops(
   }
 
   context.save();
-  context.strokeStyle = item.trackId === TRACK_EXTRA
-    ? "rgba(255,255,255,0.78)"
-    : "rgba(0,0,0,0.55)";
-  context.lineWidth = 1;
+  context.strokeStyle = NOTE_ROW_BACKGROUND_COLOR;
+  context.lineWidth = TREMOLO_CHOP_LINE_WIDTH;
 
-  // division 경계마다 짧은 세로 chop line을 그려 주기적 분할감을 표시한다.
-  for (let index = 1; index < division; index += 1) {
+  // segment 시작/끝과 division 경계 모두에 세로 chop line을 그려 셀 연결부도 끊어 보이게 한다.
+  for (let index = 0; index <= division; index += 1) {
     const x = x0 + ((x1 - x0) * index) / division;
 
     context.beginPath();
-    context.moveTo(x + 0.5, item.y + 2);
-    context.lineTo(x + 0.5, item.y + item.height - 2);
+    context.moveTo(x + 0.5, item.y);
+    context.lineTo(x + 0.5, item.y + item.height);
     context.stroke();
   }
 
@@ -316,12 +390,11 @@ function drawVibWave(
   item: CanvasNoteLayoutItem,
   x0: number,
   x1: number,
+  cycleCount: number,
 ): void {
   const width = x1 - x0;
-  const cycles = Math.max(1, Math.round(width / VIB_WAVE_PERIOD_PX));
   const yCenter = item.y + item.height / 2;
   const amplitude = Math.max(2, item.height * 0.22);
-  const steps = Math.max(8, Math.ceil(width / VIB_WAVE_STEP_PX));
 
   context.save();
   context.strokeStyle = item.trackId === TRACK_EXTRA
@@ -330,14 +403,14 @@ function drawVibWave(
   context.lineWidth = 1.5;
   context.beginPath();
 
-  for (let step = 0; step <= steps; step += 1) {
-    const progress = step / steps;
+  for (let step = 0; step <= VIB_WAVE_SAMPLE_COUNT; step += 1) {
+    const progress = step / VIB_WAVE_SAMPLE_COUNT;
     const x = x0 + width * progress;
-    const y = yCenter + Math.sin(progress * Math.PI * 2 * cycles) * amplitude;
+    const y = yCenter + Math.sin(progress * Math.PI * 2 * cycleCount) * amplitude;
 
     if (step === 0) {
       context.moveTo(x, yCenter);
-    } else if (step === steps) {
+    } else if (step === VIB_WAVE_SAMPLE_COUNT) {
       context.lineTo(x, yCenter);
     } else {
       context.lineTo(x, y);
@@ -384,34 +457,23 @@ function colorForTrackMidi(trackId: string | undefined, midi: number): string {
   }
 
   if (trackId === TRACK_OPTIONAL) {
-    return colorForMidi(midi, NOTE_COLORS_OPTIONAL);
+    return colorForOptionalMidi(midi);
   }
 
-  return colorForMidi(midi, NOTE_COLORS);
+  return colorForBasicMidi(midi);
 }
 
 /**
- * midi pitch class를 legacy 팔레트 색상으로 변환한다.
- * - 인수 : midi : note 발음 midi 번호
- * - 인수 : palette : basic 또는 optional track 팔레트
- * - 반환값 : string : natural/accidental 구분이 반영된 색상
+ * renderer 내부 effect draw x 좌표 범위.
  */
-function colorForMidi(
-  midi: number,
-  palette: Record<number, { main: string; alt: string }>,
-): string {
-  const pitchClass = getPitchClass(midi);
-  const color = palette[pitchClass];
-
-  // 자연음은 main 색, 변화음은 같은 계열의 alt 색으로 표시한다.
-  return NATURAL_PITCH_CLASSES.has(pitchClass) ? color.main : color.alt;
-}
+type DrawRange = {
+  x0: number;
+  x1: number;
+};
 
 /**
- * midi 값을 0-11 pitch class로 정규화한다.
- * - 인수 : midi : note 발음 midi 번호
- * - 반환값 : number : 0-11 범위의 pitch class
+ * renderer 내부 vibrato draw x 좌표 범위와 사인파 주기 수.
  */
-function getPitchClass(midi: number): number {
-  return ((midi % 12) + 12) % 12;
-}
+type VibDrawRange = DrawRange & {
+  cycleCount: number;
+};
