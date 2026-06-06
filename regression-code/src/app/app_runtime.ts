@@ -89,25 +89,25 @@ export function createInitialState(document: RuntimeDocument): AppState {
 /**
  * active track의 note cell에 rawText를 적용하고 full rebuild 산출물을 만든다.
  * - 인수 : state : 현재 앱 상태
- * - 인수 : selection : 사용자가 click한 score 좌표와 track
+ * - 인수 : editTarget : 이번 rawText 편집을 적용할 score 좌표와 track
  * - 인수 : rawText : parser가 읽을 note cell rawText
  * - 반환값 : full rebuild가 반영된 앱 상태
  */
 export function applyRawTextToScore(
   state: AppState,
-  selection: ScoreSelection,
+  editTarget: ScoreSelection,
   rawText: string,
 ): AppState {
   const applyResult = applyNoteCellRawText(
     state.document.score,
-    selection,
+    editTarget,
     rawText,
   );
 
   if (!applyResult.ok) {
     return {
       ...state,
-      selection,
+      selection: editTarget,
       statusMessage: {
         level: applyResult.level,
         text: applyResult.message,
@@ -124,12 +124,12 @@ export function applyRawTextToScore(
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
-    selection,
+    selection: editTarget,
     statusMessage: {
       level: "info",
       text: applyResult.isDelete
-        ? `Cleared ${selection.trackId} ${selection.rowId}:${selection.col}`
-        : `Applied ${selection.trackId} ${selection.rowId}:${selection.col}`,
+        ? `Cleared ${editTarget.trackId} ${editTarget.rowId}:${editTarget.col}`
+        : `Applied ${editTarget.trackId} ${editTarget.rowId}:${editTarget.col}`,
     },
   };
 }
