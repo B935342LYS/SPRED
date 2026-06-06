@@ -37,6 +37,8 @@ export type CanvasRenderInput = {
  */
 export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
   noteItems: CanvasNoteRenderItem[];
+  muteItems: CanvasMuteRenderItem[];
+  markerItems: CanvasMarkerItem[];
 };
 
 /**
@@ -178,6 +180,19 @@ export type CanvasNoteLayoutItem = CanvasNoteRenderItem & {
 };
 
 /**
+ * analyzer mute event에서 변환될 텍스트 표시 item.
+ * - 인수 : 없음
+ * - 반환값 : tick/row 기준 mute 텍스트 표시 정보
+ */
+export type CanvasMuteRenderItem = {
+  rowId: string;
+  startTick: number;
+  endTick: number;
+  text: string;
+  trackId?: string;
+};
+
+/**
  * marker layer가 후속 단계에서 소비할 표시 item.
  * - 인수 : 없음
  * - 반환값 : beat/bar 또는 gliss marker 표시 정보
@@ -189,10 +204,21 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "gliss";
-      startX: number;
-      startY: number;
-      endX: number;
-      endY: number;
+      startRowId: string;
+      startCentOffset: number;
+      startTick: number;
+      endRowId: string;
+      endCentOffset: number;
+      endTick: number;
+      trackId?: string;
+    }
+  | {
+      kind: "glissOrphanAnchor";
+      rowId: string;
+      centOffset: number;
+      tick: number;
+      role: "start" | "mid" | "end";
+      trackId?: string;
     };
 
 /**

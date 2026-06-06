@@ -11,7 +11,11 @@ import type {
   RuntimeDocument,
   ScoreFile,
 } from "../core/score/types";
-import { buildCanvasNoteRenderItems } from "../renderer/canvas_item_builder";
+import {
+  buildCanvasMarkerItems,
+  buildCanvasMuteRenderItems,
+  buildCanvasNoteRenderItems,
+} from "../renderer/canvas_item_builder";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
 import { createCanvasRenderInput } from "./canvas_renderer_adapter";
 import { applyNoteCellRawText } from "./edit/edit_apply";
@@ -57,6 +61,8 @@ export function buildRuntimeArtifacts(document: RuntimeDocument): {
     renderInput: {
       ...renderInput,
       noteItems: buildCanvasNoteRenderItems(analysis),
+      muteItems: buildCanvasMuteRenderItems(analysis),
+      markerItems: buildCanvasMarkerItems(analysis),
     },
   };
 }

@@ -271,7 +271,7 @@ async function boot(): Promise<void> {
         : { kind: "view" },
       statusMessage: {
         level: "info",
-        text: dom.editToggle.checked ? "Edit mode: CUSTOM" : "View mode",
+        text: dom.editToggle.checked ? "Edit mode: AUTO♯" : "View mode",
       },
     };
     syncLeftStatus(dom, state);

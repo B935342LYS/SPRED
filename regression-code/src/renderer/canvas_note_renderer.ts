@@ -13,6 +13,7 @@ import {
 } from "./canvas_theme";
 import type {
   CanvasLayoutRow,
+  CanvasMuteRenderItem,
   CanvasNoteLayoutItem,
   CanvasNoteRenderItem,
   CanvasScoreLayout,
@@ -32,6 +33,7 @@ export function drawScoreNotes(
   context: CanvasRenderingContext2D,
   layout: CanvasScoreLayout,
   items: CanvasNoteRenderItem[],
+  muteItems: CanvasMuteRenderItem[] = [],
 ): void {
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
 
@@ -48,6 +50,11 @@ export function drawScoreNotes(
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
     drawNoteText(context, layoutItem, layout);
+  }
+
+  // mute item은 발음 사각형 없이 흰색 텍스트만 note layer 위에 표시한다.
+  for (const item of muteItems) {
+    drawMuteText(context, layout, rowById, item);
   }
 }
 
@@ -208,6 +215,39 @@ function drawNoteText(
     );
   }
 
+  context.restore();
+}
+
+/**
+ * mute event 텍스트를 셀 중앙에 표시한다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : rowById : layout row 조회 Map
+ * - 인수 : item : mute 텍스트 표시 item
+ * - 반환값 : 없음
+ */
+function drawMuteText(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  rowById: Map<string, CanvasLayoutRow>,
+  item: CanvasMuteRenderItem,
+): void {
+  const row = rowById.get(item.rowId);
+
+  if (row === undefined || row.kind !== "note" || item.text === "") {
+    return;
+  }
+
+  context.save();
+  context.fillStyle = CANVAS_COLORS.muteText;
+  context.font = `${CANVAS_METRICS.muteTextFontSizePx}px Arial, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(
+    item.text,
+    getTextAnchorCenterX(item.startTick, item.endTick, layout),
+    row.y + row.height / 2,
+  );
   context.restore();
 }
 

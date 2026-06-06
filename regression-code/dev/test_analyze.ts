@@ -1,10 +1,18 @@
 import { readFileSync } from "node:fs";
 
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
-import type { NoteEvent } from "../src/core/analyze/types";
+import type {
+  GlissEvent,
+  MuteEvent,
+  NoteEvent,
+} from "../src/core/analyze/types";
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import type { ScoreFile } from "../src/core/score/types";
+import {
+  buildCanvasMarkerItems,
+  buildCanvasMuteRenderItems,
+} from "../src/renderer/canvas_item_builder";
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
@@ -26,6 +34,24 @@ function tickToNumber(value: { numerator: number; denominator: number }): number
  */
 function getNoteEvents(events: Array<{ eventKind: string }>): NoteEvent[] {
   return events.filter((event): event is NoteEvent => event.eventKind === "note");
+}
+
+/**
+ * analyzer event 목록에서 GlissEvent만 고른다.
+ * - 인수 : events : analyzer event 목록
+ * - 반환값 : GlissEvent[] : gliss event만 모은 배열
+ */
+function getGlissEvents(events: Array<{ eventKind: string }>): GlissEvent[] {
+  return events.filter((event): event is GlissEvent => event.eventKind === "gliss");
+}
+
+/**
+ * analyzer event 목록에서 MuteEvent만 고른다.
+ * - 인수 : events : analyzer event 목록
+ * - 반환값 : MuteEvent[] : mute event만 모은 배열
+ */
+function getMuteEvents(events: Array<{ eventKind: string }>): MuteEvent[] {
+  return events.filter((event): event is MuteEvent => event.eventKind === "mute");
 }
 
 /**
@@ -56,7 +82,12 @@ function parseFixtureScore(sourceText: string): ScoreFile {
  * - 반환값 : analyzer 결과와 로드 성공 여부
  */
 function analyzeFixtureScore(score: ScoreFile):
-  | { ok: true; noteEvents: NoteEvent[] }
+  | {
+      ok: true;
+      noteEvents: NoteEvent[];
+      glissEvents: GlissEvent[];
+      muteEvents: MuteEvent[];
+    }
   | { ok: false } {
   const modifierResult = loadRuntimeDocument(JSON.stringify(score));
 
@@ -79,6 +110,8 @@ function analyzeFixtureScore(score: ScoreFile):
   return {
     ok: true,
     noteEvents: getNoteEvents(basicTrack?.events ?? []),
+    glissEvents: getGlissEvents(basicTrack?.events ?? []),
+    muteEvents: getMuteEvents(basicTrack?.events ?? []),
   };
 }
 
@@ -154,6 +187,173 @@ function testModifierAnalysis(sourceText: string): void {
       "~ should create vib segment and stop trem display.",
     );
   }
+}
+
+/**
+ * mute analyzer와 renderer text DTO 변환을 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testMuteAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in mute fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  basicTrack.cells.push(
+    { rowId: "s1-note-60", col: 26, rawText: "//memo" },
+  );
+
+  const muteAnalysis = analyzeFixtureScore(score);
+
+  assert(muteAnalysis.ok, "Mute score should analyze.");
+
+  if (!muteAnalysis.ok) {
+    return;
+  }
+
+  assert(muteAnalysis.muteEvents.length === 1, "Mute cell should create one MuteEvent.");
+
+  const muteEvent = muteAnalysis.muteEvents[0];
+
+  assert(muteEvent !== undefined, "Missing mute event.");
+
+  if (muteEvent !== undefined) {
+    assert(muteEvent.text === "memo", "MuteEvent should keep display text without // prefix.");
+    assert(muteEvent.display.rowId === "s1-note-60", "MuteEvent display row mismatch.");
+    assert(
+      tickToNumber(muteEvent.time.startTick) === 26 &&
+        tickToNumber(muteEvent.time.endTick) === 27,
+      "MuteEvent should occupy one cell tick.",
+    );
+  }
+
+  const muteItems = buildCanvasMuteRenderItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: muteAnalysis.muteEvents,
+      },
+    ],
+    analysisIssues: [],
+  });
+
+  assert(muteItems.length === 1, "MuteEvent should convert to one mute render item.");
+  assert(
+    muteItems[0]?.rowId === "s1-note-60" &&
+      muteItems[0].startTick === 26 &&
+      muteItems[0].endTick === 27 &&
+      muteItems[0].text === "memo",
+    "Mute render item should keep row, tick range, and text.",
+  );
+}
+
+/**
+ * gliss analyzer와 renderer marker DTO 변환을 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testGlissAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in gliss fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  // gliss S-M-E anchor와 동일 열 중복 mid를 배치해 빈칸 건너뛰기와 mid 중복 제한을 검증한다.
+  basicTrack.cells.push(
+    { rowId: "s1-note-60", col: 30, rawText: "C4@g(a,S)" },
+    { rowId: "s1-note-64", col: 32, rawText: "E4@g(a,M)" },
+    { rowId: "s1-note-62", col: 32, rawText: "D4@g(a,M)" },
+    { rowId: "s1-note-67", col: 34, rawText: "G4@g(a,E)" },
+    { rowId: "s1-note-69", col: 36, rawText: "A4@g(b,S)" },
+    { rowId: "s1-note-71", col: 38, rawText: "B4@g(c,M)" },
+    { rowId: "s1-note-72", col: 40, rawText: "C5@g(d,E)" },
+  );
+
+  const glissAnalysis = analyzeFixtureScore(score);
+
+  assert(glissAnalysis.ok, "Gliss score should analyze.");
+
+  if (!glissAnalysis.ok) {
+    return;
+  }
+
+  assert(glissAnalysis.glissEvents.length === 2, "S-M-E gliss chain should create two gliss segments.");
+
+  const firstGliss = glissAnalysis.glissEvents[0];
+  const secondGliss = glissAnalysis.glissEvents[1];
+
+  assert(firstGliss !== undefined, "Missing first gliss segment.");
+  assert(secondGliss !== undefined, "Missing second gliss segment.");
+
+  if (firstGliss !== undefined && secondGliss !== undefined) {
+    assert(firstGliss.glissId === "a", "First gliss id should be preserved.");
+    assert(firstGliss.fromKind === "start", "First gliss should start from S anchor.");
+    assert(firstGliss.toKind === "mid", "First gliss should connect to M anchor.");
+    assert(firstGliss.startDisplay.rowId === "s1-note-60", "First gliss start display row mismatch.");
+    assert(firstGliss.endDisplay.rowId === "s1-note-64", "Duplicate mid anchors should keep the upper display row.");
+    assert(
+      tickToNumber(firstGliss.time.startTick) === 30 &&
+        tickToNumber(firstGliss.time.endTick) === 33,
+      "First gliss should span from start anchor tick to mid anchor release.",
+    );
+
+    assert(secondGliss.fromKind === "mid", "Second gliss should start from M anchor.");
+    assert(secondGliss.toKind === "end", "Second gliss should connect to E anchor.");
+    assert(secondGliss.startDisplay.rowId === "s1-note-64", "Second gliss start display row mismatch.");
+    assert(secondGliss.endDisplay.rowId === "s1-note-67", "Second gliss end display row mismatch.");
+  }
+
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          ...glissAnalysis.noteEvents,
+          ...glissAnalysis.glissEvents,
+        ],
+      },
+    ],
+    analysisIssues: [],
+  });
+
+  assert(markerItems.length === 6, "Gliss events and orphan anchors should convert to six marker items.");
+  assert(
+    markerItems[0]?.kind === "gliss" &&
+      markerItems[0].startRowId === "s1-note-60" &&
+      markerItems[0].endRowId === "s1-note-64" &&
+      markerItems[0].startTick === 30 &&
+      markerItems[0].endTick === 32,
+    "First gliss marker item should keep analyzer display endpoints.",
+  );
+
+  const orphanItems = markerItems.filter((item) => item.kind === "glissOrphanAnchor");
+
+  assert(orphanItems.length === 4, "Unconnected gliss anchors should create four orphan marker items.");
+  assert(
+    orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-69" && item.role === "start"),
+    "Standalone start anchor should create a right-side orphan marker.",
+  );
+  assert(
+    orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-71" && item.role === "mid"),
+    "Standalone mid anchor should create a both-side orphan marker.",
+  );
+  assert(
+    orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-72" && item.role === "end"),
+    "Standalone end anchor should create a left-side orphan marker.",
+  );
 }
 
 if (!result.ok) {
@@ -271,4 +471,6 @@ if (!result.ok) {
   }
 
   testModifierAnalysis(jsonText);
+  testMuteAnalysis(jsonText);
+  testGlissAnalysis(jsonText);
 }

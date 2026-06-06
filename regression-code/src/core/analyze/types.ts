@@ -93,6 +93,7 @@ export type NoteEvent = AnalyzedEventBase & {
   sound: FinalSoundPitch;
   effects: NoteEffectSegment[];
   glissRole?: GlissAnchorRole | null;
+  glissAnchors: NoteGlissAnchor[];
   tuplet?: TupletMembership | null;
 };
 
@@ -123,6 +124,13 @@ export type TremInfo = {
 export type GlissAnchorRole = {
   glissId: string;
   role: "start" | "mid" | "end";
+};
+
+/** NoteEvent 내부에서 원본 셀 단위 gliss anchor를 추적하는 정보. */
+export type NoteGlissAnchor = GlissAnchorRole & {
+  source: SourceCellRef;
+  time: TimeRange;
+  display: FinalDisplayPosition;
 };
 
 /** note/rest 이벤트가 tuplet group 안의 slot에서 온 경우의 소속 정보. */

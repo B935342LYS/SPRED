@@ -7,30 +7,18 @@ import {
   resizeCanvasLayers,
 } from "./canvas_coordinate";
 import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
+import { drawScoreMarkers } from "./canvas_marker_renderer";
 import { drawScoreNotes } from "./canvas_note_renderer";
 import type {
   CanvasAnalyzedRenderInput,
+  CanvasMarkerItem,
+  CanvasMuteRenderItem,
   CanvasRenderInput,
   CanvasRenderOptions,
   CanvasRenderResult,
   CanvasRenderTarget,
   CanvasNoteRenderItem,
 } from "./canvas_types";
-
-/**
- * 비어 있는 overlay layer를 CSS pixel 좌표 기준으로 지운다.
- * - 인수 : context : overlay canvas 2D context
- * - 인수 : width : CSS pixel 기준 너비
- * - 인수 : height : CSS pixel 기준 높이
- * - 반환값 : 없음
- */
-function clearLayer(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-): void {
-  context.clearRect(0, 0, width, height);
-}
 
 /**
  * CanvasRenderInput을 실제 canvas layer에 그린다.
@@ -46,16 +34,33 @@ export function renderCanvasScore(
 ): CanvasRenderResult {
   const layout = buildCanvasScoreLayout(input, options);
   const noteItems = getNoteItems(input);
+  const muteItems = getMuteItems(input);
+  const markerItems = getMarkerItems(input);
 
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
   drawScoreGrid(target.base.context, layout);
-  drawScoreNotes(target.note.context, layout, noteItems);
-  clearLayer(target.marker.context, layout.stageWidth, layout.stageHeight);
+  drawScoreMarkers(target.marker.context, layout, markerItems);
+  drawScoreNotes(target.note.context, layout, noteItems, muteItems);
 
   return {
     layout,
   };
+}
+
+/**
+ * renderer 입력에서 mute item 목록을 꺼낸다.
+ * - 인수 : input : base-only 또는 analyzer 연결 renderer 입력
+ * - 반환값 : CanvasMuteRenderItem[] : note layer가 텍스트로 그릴 item 목록
+ */
+function getMuteItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasMuteRenderItem[] {
+  if ("muteItems" in input) {
+    return input.muteItems;
+  }
+
+  return [];
 }
 
 /**
@@ -68,6 +73,21 @@ function getNoteItems(
 ): CanvasNoteRenderItem[] {
   if ("noteItems" in input) {
     return input.noteItems;
+  }
+
+  return [];
+}
+
+/**
+ * renderer 입력에서 marker item 목록을 꺼낸다.
+ * - 인수 : input : base-only 또는 analyzer 연결 renderer 입력
+ * - 반환값 : CanvasMarkerItem[] : marker layer가 그릴 item 목록
+ */
+function getMarkerItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasMarkerItem[] {
+  if ("markerItems" in input) {
+    return input.markerItems;
   }
 
   return [];

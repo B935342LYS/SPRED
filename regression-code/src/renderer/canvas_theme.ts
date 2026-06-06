@@ -20,9 +20,12 @@ export const CANVAS_COLORS = {
   extraNoteStroke: "rgba(255,255,255,0.92)",
   noteText: "#000000",
   extraNoteText: "#ffffff",
+  muteText: "#ffffff",
   extraNoteFill: "#000000",
   vibWave: "rgba(0,0,0,0.72)",
   extraVibWave: "rgba(255,255,255,0.92)",
+  glissLine: "rgba(255,255,255,0.92)",
+  extraGlissLine: "rgba(255,255,255,0.96)",
 } as const;
 
 /**
@@ -39,5 +42,7 @@ export const CANVAS_METRICS = {
   minNoteWidth: 1,
   minNoteHeight: 1,
   tremoloChopLineWidth: 2,
+  glissLineWidth: 2,
+  muteTextFontSizePx: 21,
   vibWaveSampleCount: 48,
 } as const;
