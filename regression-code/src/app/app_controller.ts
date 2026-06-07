@@ -17,6 +17,7 @@ import type {
 } from "./edit/edit_default";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
 import { resolveAutoDefaultText } from "./pitch_label";
+import { parseNoteCell } from "../core/parse/parse_note_cell";
 
 /**
  * DOM의 edit panel 입력값을 일반 note rawText 합성 입력으로 읽는다.
@@ -288,6 +289,80 @@ export function setActiveTupletSlotText(
     statusMessage: {
       level: "info",
       text: `Tuplet slot ${activeSlotIndex + 1} updated.`,
+    },
+  };
+}
+
+/**
+ * tuplet head 설치 대상 좌표를 첫 slot의 @n(midi) 위치로 보정한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : hit : 사용자가 클릭한 score 좌표
+ * - 인수 : rawText : draft에서 합성된 tuplet rawText
+ * - 반환값 : 보정된 hit 또는 blocked reason
+ */
+export function resolveTupletHeadPlacementHit(
+  state: AppState,
+  hit: ScoreHit,
+  rawText: string,
+):
+  | {
+      kind: "hit";
+      hit: ScoreHit;
+    }
+  | {
+      kind: "blocked";
+      message: string;
+    } {
+  const clickedRow = state.document.indexes.rowById.get(hit.rowId);
+
+  if (clickedRow?.type !== "note") {
+    return {
+      kind: "blocked",
+      message: "Tuplet head placement requires a note row.",
+    };
+  }
+
+  const parsedCell = parseNoteCell({
+    trackId: state.activeTrackId,
+    rawText,
+    rowId: hit.rowId,
+    col: hit.col,
+  });
+
+  if (parsedCell.kind !== "pletHead") {
+    return {
+      kind: "blocked",
+      message: "Tuplet value is not a valid head cell.",
+    };
+  }
+
+  const firstSlot = parsedCell.slots.find((slot) => slot.slotIndex === 0);
+  const firstSlotMidi = firstSlot?.note?.position.midiNum;
+
+  if (firstSlotMidi === undefined) {
+    return {
+      kind: "blocked",
+      message: "Tuplet first slot must select a note row before placement.",
+    };
+  }
+
+  const placementRowId = state.document.indexes.noteRowIdByStringMidi.get(
+    `${clickedRow.stringId}|${firstSlotMidi}`,
+  );
+
+  if (placementRowId === undefined) {
+    return {
+      kind: "blocked",
+      message: "Tuplet first slot row is outside the selected string range.",
+    };
+  }
+
+  return {
+    kind: "hit",
+    hit: {
+      ...hit,
+      rowId: placementRowId,
+      rowKind: "note",
     },
   };
 }

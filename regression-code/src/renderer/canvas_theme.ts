@@ -26,6 +26,8 @@ export const CANVAS_COLORS = {
   extraVibWave: "rgba(255,255,255,0.92)",
   glissLine: "rgba(255,255,255,0.92)",
   extraGlissLine: "rgba(255,255,255,0.96)",
+  tupletContainer: "rgba(190,220,255,0.95)",
+  tupletLabel: "rgba(255,255,255,0.96)",
 } as const;
 
 /**
@@ -44,5 +46,7 @@ export const CANVAS_METRICS = {
   tremoloChopLineWidth: 2,
   glissLineWidth: 2,
   muteTextFontSizePx: 21,
+  tupletContainerLineWidth: 1,
+  tupletLabelFontSizePx: 10,
   vibWaveSampleCount: 48,
 } as const;

@@ -5,6 +5,9 @@ import type {
   GlissEvent,
   MuteEvent,
   NoteEvent,
+  RestEvent,
+  TupletExtendGroupEvent,
+  TupletGroupEvent,
 } from "../src/core/analyze/types";
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
@@ -55,6 +58,35 @@ function getMuteEvents(events: Array<{ eventKind: string }>): MuteEvent[] {
 }
 
 /**
+ * analyzer event 목록에서 RestEvent만 고른다.
+ * - 인수 : events : analyzer event 목록
+ * - 반환값 : RestEvent[] : rest event만 모은 배열
+ */
+function getRestEvents(events: Array<{ eventKind: string }>): RestEvent[] {
+  return events.filter((event): event is RestEvent => event.eventKind === "rest");
+}
+
+/**
+ * analyzer event 목록에서 TupletGroupEvent만 고른다.
+ * - 인수 : events : analyzer event 목록
+ * - 반환값 : TupletGroupEvent[] : tuplet group event만 모은 배열
+ */
+function getTupletGroupEvents(events: Array<{ eventKind: string }>): TupletGroupEvent[] {
+  return events.filter((event): event is TupletGroupEvent => event.eventKind === "tupletGroup");
+}
+
+/**
+ * analyzer event 목록에서 TupletExtendGroupEvent만 고른다.
+ * - 인수 : events : analyzer event 목록
+ * - 반환값 : TupletExtendGroupEvent[] : orphan extend group event만 모은 배열
+ */
+function getTupletExtendGroupEvents(
+  events: Array<{ eventKind: string }>,
+): TupletExtendGroupEvent[] {
+  return events.filter((event): event is TupletExtendGroupEvent => event.eventKind === "tupletExtendGroup");
+}
+
+/**
  * 조건이 거짓이면 테스트 실패 상태를 기록한다.
  * - 인수 : condition : 통과 조건
  * - 인수 : message : 실패 시 출력할 메시지
@@ -65,6 +97,17 @@ function assert(condition: boolean, message: string): void {
     console.error(message);
     process.exitCode = 1;
   }
+}
+
+/**
+ * number 값이 허용 오차 안에서 같은지 검증한다.
+ * - 인수 : actual : 실제 값
+ * - 인수 : expected : 기대 값
+ * - 인수 : message : 실패 시 출력할 메시지
+ * - 반환값 : 없음
+ */
+function assertApproximately(actual: number, expected: number, message: string): void {
+  assert(Math.abs(actual - expected) < 0.000001, message);
 }
 
 /**
@@ -87,6 +130,9 @@ function analyzeFixtureScore(score: ScoreFile):
       noteEvents: NoteEvent[];
       glissEvents: GlissEvent[];
       muteEvents: MuteEvent[];
+      restEvents: RestEvent[];
+      tupletGroupEvents: TupletGroupEvent[];
+      tupletExtendGroupEvents: TupletExtendGroupEvent[];
     }
   | { ok: false } {
   const modifierResult = loadRuntimeDocument(JSON.stringify(score));
@@ -112,6 +158,9 @@ function analyzeFixtureScore(score: ScoreFile):
     noteEvents: getNoteEvents(basicTrack?.events ?? []),
     glissEvents: getGlissEvents(basicTrack?.events ?? []),
     muteEvents: getMuteEvents(basicTrack?.events ?? []),
+    restEvents: getRestEvents(basicTrack?.events ?? []),
+    tupletGroupEvents: getTupletGroupEvents(basicTrack?.events ?? []),
+    tupletExtendGroupEvents: getTupletExtendGroupEvents(basicTrack?.events ?? []),
   };
 }
 
@@ -271,13 +320,16 @@ function testGlissAnalysis(sourceText: string): void {
 
   // gliss S-M-E anchor와 동일 열 중복 mid를 배치해 빈칸 건너뛰기와 mid 중복 제한을 검증한다.
   basicTrack.cells.push(
-    { rowId: "s1-note-60", col: 30, rawText: "C4@g(a,S)" },
+    { rowId: "s1-note-60", col: 30, rawText: "C4@g(a,S)@t(3)" },
     { rowId: "s1-note-64", col: 32, rawText: "E4@g(a,M)" },
     { rowId: "s1-note-62", col: 32, rawText: "D4@g(a,M)" },
     { rowId: "s1-note-67", col: 34, rawText: "G4@g(a,E)" },
     { rowId: "s1-note-69", col: 36, rawText: "A4@g(b,S)" },
     { rowId: "s1-note-71", col: 38, rawText: "B4@g(c,M)" },
     { rowId: "s1-note-72", col: 40, rawText: "C5@g(d,E)" },
+    { rowId: "s1-note-60", col: 70, rawText: "C4@g(e,S)" },
+    { rowId: "s1-note-62", col: 72, rawText: "D4@g(e,M)@t(3)" },
+    { rowId: "s1-note-64", col: 74, rawText: "E4@g(e,E)" },
   );
 
   const glissAnalysis = analyzeFixtureScore(score);
@@ -288,7 +340,7 @@ function testGlissAnalysis(sourceText: string): void {
     return;
   }
 
-  assert(glissAnalysis.glissEvents.length === 2, "S-M-E gliss chain should create two gliss segments.");
+  assert(glissAnalysis.glissEvents.length === 4, "S-M-E gliss chains should create four gliss segments.");
 
   const firstGliss = glissAnalysis.glissEvents[0];
   const secondGliss = glissAnalysis.glissEvents[1];
@@ -329,19 +381,38 @@ function testGlissAnalysis(sourceText: string): void {
     analysisIssues: [],
   });
 
-  assert(markerItems.length === 6, "Gliss events and orphan anchors should convert to six marker items.");
+  assert(markerItems.length === 7, "Gliss events and orphan anchors should convert to seven marker items.");
   assert(
     markerItems[0]?.kind === "gliss" &&
       markerItems[0].startRowId === "s1-note-60" &&
       markerItems[0].endRowId === "s1-note-64" &&
-      markerItems[0].startTick === 30 &&
-      markerItems[0].endTick === 32,
+      markerItems[0].startTick === 30.5 &&
+      markerItems[0].endTick === 32.5 &&
+      markerItems[0].hasTrem,
     "First gliss marker item should keep analyzer display endpoints.",
+  );
+  assert(
+    markerItems[1]?.kind === "gliss" && !markerItems[1].hasTrem,
+    "Gliss marker should use dashed style only when trem overlaps its segment.",
+  );
+
+  const midTremMarkers = markerItems.filter(
+    (item) => item.kind === "gliss" && item.startTick >= 70,
+  );
+
+  assert(midTremMarkers.length === 2, "Mid-trem gliss chain should create two marker items.");
+  assert(
+    midTremMarkers[0]?.kind === "gliss" && !midTremMarkers[0].hasTrem,
+    "Trem on a mid anchor should not dash the incoming gliss segment.",
+  );
+  assert(
+    midTremMarkers[1]?.kind === "gliss" && midTremMarkers[1].hasTrem,
+    "Trem on a mid anchor should dash only the outgoing right gliss segment.",
   );
 
   const orphanItems = markerItems.filter((item) => item.kind === "glissOrphanAnchor");
 
-  assert(orphanItems.length === 4, "Unconnected gliss anchors should create four orphan marker items.");
+  assert(orphanItems.length === 3, "Unconnected gliss anchors should create three orphan marker items.");
   assert(
     orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-69" && item.role === "start"),
     "Standalone start anchor should create a right-side orphan marker.",
@@ -354,6 +425,323 @@ function testGlissAnalysis(sourceText: string): void {
     orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-72" && item.role === "end"),
     "Standalone end anchor should create a left-side orphan marker.",
   );
+}
+
+/**
+ * tuplet analyzer가 group, slot note/rest, 유리수 tick을 생성하는지 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testTupletAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in tuplet fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  // head + /& 두 칸 길이에 3개 slot을 배치해 2/3 tick 단위 slot 시간을 검증한다.
+  basicTrack.cells.push(
+    { rowId: "s1-note-60", col: 42, rawText: "/3(C@n(60)||E@t(3)@n(64))" },
+    { rowId: "s1-note-60", col: 43, rawText: "/&" },
+  );
+
+  const tupletAnalysis = analyzeFixtureScore(score);
+
+  assert(tupletAnalysis.ok, "Tuplet score should analyze.");
+
+  if (!tupletAnalysis.ok) {
+    return;
+  }
+
+  assert(tupletAnalysis.tupletGroupEvents.length === 1, "Tuplet head should create one group event.");
+
+  const groupEvent = tupletAnalysis.tupletGroupEvents[0];
+
+  assert(groupEvent !== undefined, "Missing tuplet group event.");
+
+  if (groupEvent !== undefined) {
+    assert(groupEvent.groupId === "basic:tuplet:s1-note-60:42", "Tuplet group id should be stable.");
+    assert(groupEvent.divNum === 3, "Tuplet division should be preserved.");
+    assert(groupEvent.extendCells.length === 1, "Tuplet group should include one extend cell.");
+    assert(
+      tickToNumber(groupEvent.time.startTick) === 42 &&
+        tickToNumber(groupEvent.time.endTick) === 44,
+      "Tuplet group should span head and extend columns.",
+    );
+    assert(
+      groupEvent.slots.map((slot) => slot.parsedKind).join(",") === "note,rest,note",
+      "Tuplet group should record note/rest/note slot kinds.",
+    );
+  }
+
+  const tupletNotes = tupletAnalysis.noteEvents.filter(
+    (event) => event.tuplet?.groupId === "basic:tuplet:s1-note-60:42",
+  );
+  const tupletRests = tupletAnalysis.restEvents.filter(
+    (event) => event.tuplet?.groupId === "basic:tuplet:s1-note-60:42",
+  );
+
+  assert(tupletNotes.length === 2, "Tuplet should create two slot note events.");
+  assert(tupletRests.length === 1, "Tuplet empty slot should create one rest event.");
+
+  const firstSlotNote = tupletNotes.find((event) => event.tuplet?.slotIndex === 0);
+  const lastSlotNote = tupletNotes.find((event) => event.tuplet?.slotIndex === 2);
+  const restSlot = tupletRests[0];
+
+  assert(firstSlotNote !== undefined, "Missing first tuplet slot note.");
+  assert(lastSlotNote !== undefined, "Missing last tuplet slot note.");
+  assert(restSlot !== undefined, "Missing tuplet rest slot.");
+
+  if (firstSlotNote !== undefined) {
+    assert(firstSlotNote.display.rowId === "s1-note-60", "First tuplet slot should map @n(60) to C4 row.");
+    assert(firstSlotNote.sourceCells[0]?.slotIndex === 0, "First tuplet slot source should keep slotIndex 0.");
+    assert(
+      tickToNumber(firstSlotNote.time.startTick) === 42 &&
+        tickToNumber(firstSlotNote.time.endTick) === 42 + 2 / 3,
+      "First tuplet slot should occupy 42..42+2/3.",
+    );
+  }
+
+  if (restSlot !== undefined) {
+    assert(restSlot.display === null, "Tuplet rest slot should not have display position.");
+    assert(restSlot.sourceCells[0]?.slotIndex === 1, "Rest tuplet slot source should keep slotIndex 1.");
+    assert(
+      tickToNumber(restSlot.time.startTick) === 42 + 2 / 3 &&
+        tickToNumber(restSlot.time.endTick) === 43 + 1 / 3,
+      "Rest tuplet slot should occupy 42+2/3..43+1/3.",
+    );
+  }
+
+  if (lastSlotNote !== undefined) {
+    assert(lastSlotNote.display.rowId === "s1-note-64", "Last tuplet slot should map @n(64) to E4 row.");
+    assert(lastSlotNote.effects[0]?.trem?.division === 3, "Tuplet slot note should preserve @t(3).");
+    assert(lastSlotNote.sourceCells[0]?.slotIndex === 2, "Last tuplet slot source should keep slotIndex 2.");
+    assert(
+      tickToNumber(lastSlotNote.time.startTick) === 43 + 1 / 3 &&
+        tickToNumber(lastSlotNote.time.endTick) === 44,
+      "Last tuplet slot should occupy 43+1/3..44.",
+    );
+  }
+
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          ...tupletAnalysis.noteEvents,
+          ...tupletAnalysis.restEvents,
+          ...tupletAnalysis.tupletGroupEvents,
+        ],
+      },
+    ],
+    analysisIssues: [],
+  });
+  const tupletMarker = markerItems.find((item) => item.kind === "tupletContainer");
+
+  assert(tupletMarker !== undefined, "Tuplet group should convert to one container marker item.");
+
+  if (tupletMarker !== undefined && tupletMarker.kind === "tupletContainer") {
+    assert(tupletMarker.rowId === "s1-note-60", "Tuplet container should use head cell row.");
+    assert(tupletMarker.startTick === 42 && tupletMarker.endTick === 44, "Tuplet container should keep group span.");
+    assert(tupletMarker.divNum === 3, "Tuplet container should keep division label value.");
+  }
+}
+
+/**
+ * tuplet container가 head cell row가 아니라 첫 slot 위치 row에 표시되는지 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testTupletContainerPlacementAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in tuplet placement fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  basicTrack.cells.push(
+    { rowId: "s1-note-67", col: 48, rawText: "/3(C@n(60)|D@n(62)|E@n(64))" },
+  );
+
+  const placementAnalysis = analyzeFixtureScore(score);
+
+  assert(placementAnalysis.ok, "Tuplet placement score should analyze.");
+
+  if (!placementAnalysis.ok) {
+    return;
+  }
+
+  const groupEvent = placementAnalysis.tupletGroupEvents[0];
+
+  assert(groupEvent !== undefined, "Missing placement tuplet group event.");
+
+  if (groupEvent !== undefined) {
+    assert(groupEvent.headCell.rowId === "s1-note-67", "Tuplet source head row should keep stored cell row.");
+    assert(groupEvent.containerRowId === "s1-note-60", "Tuplet container row should follow first slot @n row.");
+  }
+
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: placementAnalysis.tupletGroupEvents,
+      },
+    ],
+    analysisIssues: [],
+  });
+  const tupletMarker = markerItems.find((item) => item.kind === "tupletContainer");
+
+  assert(tupletMarker !== undefined, "Tuplet placement group should convert to a container marker.");
+
+  if (tupletMarker !== undefined && tupletMarker.kind === "tupletContainer") {
+    assert(tupletMarker.rowId === "s1-note-60", "Tuplet marker should draw at first slot row.");
+  }
+}
+
+/**
+ * head가 삭제되고 extend만 남은 tuplet 잔여 구간 표시 이벤트를 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testTupletExtendOnlyAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in tuplet extend fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  basicTrack.cells.push(
+    { rowId: "s1-note-60", col: 52, rawText: "/&" },
+    { rowId: "s1-note-60", col: 53, rawText: "/&" },
+  );
+
+  const extendAnalysis = analyzeFixtureScore(score);
+
+  assert(extendAnalysis.ok, "Tuplet extend-only score should analyze.");
+
+  if (!extendAnalysis.ok) {
+    return;
+  }
+
+  assert(
+    extendAnalysis.tupletExtendGroupEvents.length === 1,
+    "Consecutive orphan extend cells should create one extend group event.",
+  );
+
+  const extendGroup = extendAnalysis.tupletExtendGroupEvents[0];
+
+  assert(extendGroup !== undefined, "Missing tuplet extend group event.");
+
+  if (extendGroup !== undefined) {
+    assert(extendGroup.rowId === "s1-note-60", "Tuplet extend group should keep extend row.");
+    assert(
+      tickToNumber(extendGroup.time.startTick) === 52 &&
+        tickToNumber(extendGroup.time.endTick) === 54,
+      "Tuplet extend group should span consecutive extend columns.",
+    );
+  }
+
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: extendAnalysis.tupletExtendGroupEvents,
+      },
+    ],
+    analysisIssues: [],
+  });
+  const extendMarker = markerItems.find((item) => item.kind === "tupletContainer");
+
+  assert(extendMarker !== undefined, "Tuplet extend group should convert to a container marker.");
+
+  if (extendMarker !== undefined && extendMarker.kind === "tupletContainer") {
+    assert(extendMarker.rowId === "s1-note-60", "Tuplet extend marker should keep extend row.");
+    assert(extendMarker.startTick === 52 && extendMarker.endTick === 54, "Tuplet extend marker span mismatch.");
+    assert(extendMarker.divNum === null, "Tuplet extend marker should not draw a division label.");
+  }
+}
+
+/**
+ * tuplet slot 내부 gliss anchor가 slot 중심 tick으로 marker 변환되는지 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testTupletGlissAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+  const basicTrack = score.tracks.find((track) => track.trackId === "basic");
+
+  assert(basicTrack !== undefined, "Missing basic track in tuplet gliss fixture.");
+
+  if (basicTrack === undefined) {
+    return;
+  }
+
+  basicTrack.cells.push(
+    { rowId: "s1-note-60", col: 56, rawText: "/3(C@g(t,S)@n(60)|D@g(t,M)@n(62)|E@g(t,E)@n(64))" },
+  );
+
+  const glissAnalysis = analyzeFixtureScore(score);
+
+  assert(glissAnalysis.ok, "Tuplet gliss score should analyze.");
+
+  if (!glissAnalysis.ok) {
+    return;
+  }
+
+  assert(glissAnalysis.glissEvents.length === 2, "Tuplet S-M-E should create two gliss segments.");
+
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          ...glissAnalysis.noteEvents,
+          ...glissAnalysis.glissEvents,
+        ],
+      },
+    ],
+    analysisIssues: [],
+  });
+  const glissMarkers = markerItems.filter((item) => item.kind === "gliss");
+
+  assert(glissMarkers.length === 2, "Tuplet gliss events should convert to two gliss marker items.");
+
+  const firstMarker = glissMarkers[0];
+  const secondMarker = glissMarkers[1];
+
+  assert(firstMarker !== undefined, "Missing first tuplet gliss marker.");
+  assert(secondMarker !== undefined, "Missing second tuplet gliss marker.");
+
+  if (firstMarker !== undefined && firstMarker.kind === "gliss") {
+    assertApproximately(firstMarker.startTick, 56 + 1 / 6, "First tuplet gliss should start at slot 0 center.");
+    assertApproximately(firstMarker.endTick, 56 + 1 / 2, "First tuplet gliss should end at slot 1 center.");
+    assert(firstMarker.startRowId === "s1-note-60", "First tuplet gliss start row mismatch.");
+    assert(firstMarker.endRowId === "s1-note-62", "First tuplet gliss end row mismatch.");
+  }
+
+  if (secondMarker !== undefined && secondMarker.kind === "gliss") {
+    assertApproximately(secondMarker.startTick, 56 + 1 / 2, "Second tuplet gliss should start at slot 1 center.");
+    assertApproximately(secondMarker.endTick, 56 + 5 / 6, "Second tuplet gliss should end at slot 2 center.");
+    assert(secondMarker.startRowId === "s1-note-62", "Second tuplet gliss start row mismatch.");
+    assert(secondMarker.endRowId === "s1-note-64", "Second tuplet gliss end row mismatch.");
+  }
 }
 
 if (!result.ok) {
@@ -473,4 +861,8 @@ if (!result.ok) {
   testModifierAnalysis(jsonText);
   testMuteAnalysis(jsonText);
   testGlissAnalysis(jsonText);
+  testTupletAnalysis(jsonText);
+  testTupletContainerPlacementAnalysis(jsonText);
+  testTupletExtendOnlyAnalysis(jsonText);
+  testTupletGlissAnalysis(jsonText);
 }

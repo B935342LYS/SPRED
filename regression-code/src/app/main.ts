@@ -15,6 +15,7 @@ import {
   composeTupletSlotTextFromRow,
   handleScoreClick,
   readDefaultNoteEditInput,
+  resolveTupletHeadPlacementHit,
   setActiveTupletSlotText,
   syncDefaultEditToolFromDom,
   syncTupletEditToolFromDom,
@@ -473,9 +474,29 @@ async function boot(): Promise<void> {
       return;
     }
 
+    let targetHit = hit;
+
+    if (state.mode.tool.kind === "tuplet" && editRawText.kind === "apply") {
+      const placementResult = resolveTupletHeadPlacementHit(state, hit, editRawText.rawText);
+
+      if (placementResult.kind === "blocked") {
+        state = {
+          ...state,
+          statusMessage: {
+            level: "warning",
+            text: placementResult.message,
+          },
+        };
+        syncLeftStatus(dom, state);
+        return;
+      }
+
+      targetHit = placementResult.hit;
+    }
+
     // edit_core가 합성한 적용/삭제 명령을 score mutation 경계로 넘긴다.
     applyScoreTextEdit(
-      hit,
+      targetHit,
       editRawText.kind === "delete" ? "" : editRawText.rawText,
     );
   });

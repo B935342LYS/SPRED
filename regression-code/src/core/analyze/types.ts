@@ -34,7 +34,8 @@ export type AnalyzedEvent =
   | RestEvent
   | MuteEvent
   | GlissEvent
-  | TupletGroupEvent;
+  | TupletGroupEvent
+  | TupletExtendGroupEvent;
 
 /** analyzer 이벤트 종류. */
 export type AnalyzedEventKind =
@@ -42,7 +43,8 @@ export type AnalyzedEventKind =
   | "rest"
   | "mute"
   | "gliss"
-  | "tupletGroup";
+  | "tupletGroup"
+  | "tupletExtendGroup";
 
 /** 모든 analyzer 이벤트가 공유하는 필드. */
 export type AnalyzedEventBase = {
@@ -163,6 +165,8 @@ export type GlissEvent = AnalyzedEventBase & {
   startSound: FinalSoundPitch;
   endSound: FinalSoundPitch;
   glissId: string;
+  startAnchorTick: TimeFraction;
+  endAnchorTick: TimeFraction;
   fromKind: "start" | "mid";
   toKind: "mid" | "end";
   startAttach: "attack" | "legato";
@@ -175,8 +179,17 @@ export type TupletGroupEvent = AnalyzedEventBase & {
   groupId: string;
   divNum: number;
   headCell: SourceCellRef;
+  containerRowId: RowId;
   extendCells: SourceCellRef[];
   slots: TupletSlotInfo[];
+};
+
+/** head가 없는 pletExtend 연속 구간. 편집 시 삭제 대상 범위를 표시하는 보조 이벤트이다. */
+export type TupletExtendGroupEvent = AnalyzedEventBase & {
+  eventKind: "tupletExtendGroup";
+  groupId: string;
+  rowId: RowId;
+  extendCells: SourceCellRef[];
 };
 
 /** tuplet group 내부 slot의 분석 상태. */

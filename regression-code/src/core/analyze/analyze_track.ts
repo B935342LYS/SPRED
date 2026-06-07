@@ -7,12 +7,17 @@
 import type {
   NoteRowDefinition,
   RowDefinition,
+  RowId,
   TrackId,
 } from "../score/types";
 import type {
   ParsedCellEntry,
+  ParsedGliss,
   ParsedMuteCell,
   ParsedNoteCell,
+  ParsedPletHeadCell,
+  ParsedPletSlotNote,
+  ParsedTrem,
 } from "../parse/types";
 import type {
   AnalyzeContext,
@@ -27,9 +32,12 @@ import type {
   NoteEffectSegment,
   NoteEvent,
   NoteDisplayTextAnchor,
+  RestEvent,
   SourceCellRef,
   TimeFraction,
   TimeRange,
+  TupletExtendGroupEvent,
+  TupletMembership,
 } from "./types";
 
 type HoldConnectionKey = string;
@@ -65,6 +73,7 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
   const events: AnalyzedEvent[] = [];
   const glissAnchors: GlissAnchor[] = [];
   const activeNotesByConnectionKey: ActiveNoteMap = new Map();
+  const consumedPletExtendCellKeys = new Set<string>();
 
   // 정렬된 parsed entry를 차례대로 분석하며 새 NoteEvent를 events 배열에 누적한다.
   for (const entry of sortedEntries) {
@@ -74,15 +83,18 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
       trackId,
       context,
       entry,
+      cellsByCol,
       activeNotesByConnectionKey,
       glissAnchors,
+      consumedPletExtendCellKeys,
     );
 
     if (event !== null) {
-      events.push(event);
+      events.push(...event);
     }
   }
 
+  events.push(...createOrphanTupletExtendGroupEvents(trackId, cellsByCol, consumedPletExtendCellKeys));
   events.push(...createGlissEvents(trackId, glissAnchors, rowOrderById));
 
   return {
@@ -169,13 +181,30 @@ function analyzeParsedEntry(
   trackId: TrackId,
   context: AnalyzeContext,
   entry: ParsedCellEntry,
+  cellsByCol: Map<number, ParsedCellEntry[]>,
   activeNotesByConnectionKey: ActiveNoteMap,
   glissAnchors: GlissAnchor[],
-): NoteEvent | MuteEvent | null {
+  consumedPletExtendCellKeys: Set<string>,
+): AnalyzedEvent[] | null {
   const parsedCell = entry.parsedCell;
 
   if (parsedCell.kind === "mute") {
-    return analyzeParsedMuteEntry(trackId, context, entry, parsedCell);
+    const muteEvent = analyzeParsedMuteEntry(trackId, context, entry, parsedCell);
+
+    return muteEvent === null ? null : [muteEvent];
+  }
+
+  if (parsedCell.kind === "pletHead") {
+    return analyzeParsedPletHeadEntry(
+      trackId,
+      context,
+      entry,
+      parsedCell,
+      cellsByCol,
+      activeNotesByConnectionKey,
+      glissAnchors,
+      consumedPletExtendCellKeys,
+    );
   }
 
   if (parsedCell.kind !== "note") {
@@ -241,7 +270,7 @@ function analyzeParsedEntry(
 
   appendGlissAnchorIfNeeded(glissAnchors, event, sourceCell, time, parsedCell);
   activeNotesByConnectionKey.set(connectionKey, event);
-  return event;
+  return [event];
 }
 
 /**
@@ -281,6 +310,402 @@ function analyzeParsedMuteEntry(
 }
 
 /**
+ * 단일 pletHead entry를 TupletGroupEvent와 slot note/rest 이벤트로 변환한다.
+ * - 인수 : trackId : 분석 대상 track
+ * - 인수 : context : score/index/parsed 문맥
+ * - 인수 : entry : pletHead 위치가 붙은 parsed cell
+ * - 인수 : parsedCell : parser가 확정한 pletHead 셀
+ * - 인수 : cellsByCol : 같은 track의 col별 parsed entry map
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
+ * - 인수 : glissAnchors : gliss 연결 후보를 누적할 목록
+ * - 반환값 : TupletGroupEvent와 slot 이벤트 목록
+ */
+function analyzeParsedPletHeadEntry(
+  trackId: TrackId,
+  context: AnalyzeContext,
+  entry: ParsedCellEntry,
+  parsedCell: ParsedPletHeadCell,
+  cellsByCol: Map<number, ParsedCellEntry[]>,
+  activeNotesByConnectionKey: ActiveNoteMap,
+  glissAnchors: GlissAnchor[],
+  consumedPletExtendCellKeys: Set<string>,
+): AnalyzedEvent[] {
+  const headRow = asNoteRow(context.indexes.rowById.get(entry.rowId));
+
+  if (headRow === null) {
+    return [];
+  }
+
+  const groupId = createTupletGroupId(trackId, entry);
+  const sourceCell = createSourceCellRef(entry);
+  const extendCells = collectPletExtendSourceCells(entry, cellsByCol, consumedPletExtendCellKeys);
+  const groupLength = 1 + extendCells.length;
+  const groupTime = createIntegerTimeRange(entry.col, entry.col + groupLength);
+  const containerRowId = resolveTupletContainerRowId(context, headRow, parsedCell) ?? sourceCell.rowId;
+  const slotEvents: Array<NoteEvent | RestEvent> = [];
+  const slots = parsedCell.slots.map((slot) => {
+    const slotTime = createTupletSlotTimeRange(
+      entry.col,
+      groupLength,
+      parsedCell.divNum,
+      slot.slotIndex,
+    );
+    const slotSource = {
+      ...sourceCell,
+      slotIndex: slot.slotIndex,
+    };
+    const membership: TupletMembership = {
+      groupId,
+      slotIndex: slot.slotIndex,
+      divNum: parsedCell.divNum,
+    };
+
+    if (slot.isRest || slot.note === null) {
+      slotEvents.push(createTupletRestEvent(trackId, slotSource, slotTime, membership));
+      return {
+        slotIndex: slot.slotIndex,
+        parsedKind: "rest" as const,
+      };
+    }
+
+    const event = analyzeTupletSlotNote(
+      trackId,
+      context,
+      headRow,
+      slot.note,
+      slotSource,
+      slotTime,
+      membership,
+      activeNotesByConnectionKey,
+      glissAnchors,
+    );
+
+    if (event === null) {
+      slotEvents.push(createTupletRestEvent(trackId, slotSource, slotTime, membership));
+      return {
+        slotIndex: slot.slotIndex,
+        parsedKind: "invalid" as const,
+      };
+    }
+
+    if (event !== "merged") {
+      slotEvents.push(event);
+    }
+
+    return {
+      slotIndex: slot.slotIndex,
+      parsedKind: "note" as const,
+    };
+  });
+
+  return [
+    ...slotEvents,
+    {
+      eventKind: "tupletGroup",
+      trackId,
+      time: groupTime,
+      sourceCells: [
+        sourceCell,
+        ...extendCells,
+      ],
+      groupId,
+      divNum: parsedCell.divNum,
+      headCell: sourceCell,
+      containerRowId,
+      extendCells,
+      slots,
+    },
+  ];
+}
+
+/**
+ * tuplet 점선 컨테이너를 표시할 rowId를 첫 slot의 @n(midi) 기준으로 찾는다.
+ * - 인수 : context : score/index/parsed 문맥
+ * - 인수 : headRow : pletHead가 놓인 note row
+ * - 인수 : parsedCell : parser가 확정한 pletHead 셀
+ * - 반환값 : 첫 slot 위치 rowId, 찾지 못하면 null
+ */
+function resolveTupletContainerRowId(
+  context: AnalyzeContext,
+  headRow: NoteRowDefinition,
+  parsedCell: ParsedPletHeadCell,
+): RowId | null {
+  const firstSlot = parsedCell.slots.find((slot) => slot.slotIndex === 0);
+  const firstSlotMidi = firstSlot?.note?.position.midiNum;
+
+  if (firstSlotMidi === undefined) {
+    return null;
+  }
+
+  return context.indexes.noteRowIdByStringMidi.get(
+    `${headRow.stringId}|${firstSlotMidi}`,
+  ) ?? null;
+}
+
+/**
+ * pletHead 오른쪽의 연속된 pletExtend source cell 목록을 찾는다.
+ * - 인수 : entry : pletHead 위치가 붙은 parsed cell
+ * - 인수 : cellsByCol : 같은 track의 col별 parsed entry map
+ * - 반환값 : SourceCellRef[] : head와 같은 row에서 오른쪽으로 연속된 extend cell 목록
+ */
+function collectPletExtendSourceCells(
+  entry: ParsedCellEntry,
+  cellsByCol: Map<number, ParsedCellEntry[]>,
+  consumedPletExtendCellKeys: Set<string>,
+): SourceCellRef[] {
+  const extendCells: SourceCellRef[] = [];
+  let col = entry.col + 1;
+
+  // head 오른쪽에 같은 row의 /&가 연속되는 동안 tuplet group 길이에 포함한다.
+  while (true) {
+    const extendEntry = cellsByCol.get(col)?.find((candidate) =>
+      candidate.rowId === entry.rowId &&
+      candidate.parsedCell.kind === "pletExtend"
+    );
+
+    if (extendEntry === undefined) {
+      break;
+    }
+
+    consumedPletExtendCellKeys.add(createCellKey(extendEntry.rowId, extendEntry.col));
+    extendCells.push(createSourceCellRef(extendEntry));
+    col += 1;
+  }
+
+  return extendCells;
+}
+
+/**
+ * head에 소비되지 않은 pletExtend 연속 구간을 보조 이벤트로 만든다.
+ * - 인수 : trackId : 분석 대상 track
+ * - 인수 : cellsByCol : 같은 track의 col별 parsed entry map
+ * - 인수 : consumedPletExtendCellKeys : 정상 tuplet group에 포함된 extend cell key 집합
+ * - 반환값 : TupletExtendGroupEvent[] : head가 지워진 extend-only 표시 구간 목록
+ */
+function createOrphanTupletExtendGroupEvents(
+  trackId: TrackId,
+  cellsByCol: Map<number, ParsedCellEntry[]>,
+  consumedPletExtendCellKeys: Set<string>,
+): TupletExtendGroupEvent[] {
+  const extendEntries = collectOrphanPletExtendEntries(cellsByCol, consumedPletExtendCellKeys);
+  const events: TupletExtendGroupEvent[] = [];
+  let activeRun: ParsedCellEntry[] = [];
+
+  // row와 col이 연속된 /& 묶음을 하나의 삭제 보조 표시 구간으로 만든다.
+  for (const entry of extendEntries) {
+    const previousEntry = activeRun.at(-1);
+
+    if (
+      previousEntry !== undefined &&
+      previousEntry.rowId === entry.rowId &&
+      previousEntry.col + 1 === entry.col
+    ) {
+      activeRun.push(entry);
+      continue;
+    }
+
+    pushOrphanTupletExtendRun(events, trackId, activeRun);
+    activeRun = [entry];
+  }
+
+  pushOrphanTupletExtendRun(events, trackId, activeRun);
+
+  return events;
+}
+
+/**
+ * 정상 tuplet group에 포함되지 않은 pletExtend entry를 정렬해 모은다.
+ * - 인수 : cellsByCol : 같은 track의 col별 parsed entry map
+ * - 인수 : consumedPletExtendCellKeys : 정상 tuplet group에 포함된 extend cell key 집합
+ * - 반환값 : ParsedCellEntry[] : rowId와 col 기준으로 정렬된 orphan extend entry 목록
+ */
+function collectOrphanPletExtendEntries(
+  cellsByCol: Map<number, ParsedCellEntry[]>,
+  consumedPletExtendCellKeys: Set<string>,
+): ParsedCellEntry[] {
+  const entries: ParsedCellEntry[] = [];
+
+  // parsed map을 순회하며 head에 붙지 않은 /&만 후보로 모은다.
+  for (const colEntries of cellsByCol.values()) {
+    for (const entry of colEntries) {
+      if (
+        entry.parsedCell.kind === "pletExtend" &&
+        !consumedPletExtendCellKeys.has(createCellKey(entry.rowId, entry.col))
+      ) {
+        entries.push(entry);
+      }
+    }
+  }
+
+  return entries.sort((left, right) => {
+    if (left.rowId !== right.rowId) {
+      return left.rowId.localeCompare(right.rowId);
+    }
+
+    return left.col - right.col;
+  });
+}
+
+/**
+ * pletExtend 연속 구간을 TupletExtendGroupEvent로 변환해 목록에 추가한다.
+ * - 인수 : events : 누적할 TupletExtendGroupEvent 목록
+ * - 인수 : trackId : 분석 대상 track
+ * - 인수 : run : 같은 row에서 col이 연속된 pletExtend entry 목록
+ * - 반환값 : 없음
+ */
+function pushOrphanTupletExtendRun(
+  events: TupletExtendGroupEvent[],
+  trackId: TrackId,
+  run: ParsedCellEntry[],
+): void {
+  if (run.length === 0) {
+    return;
+  }
+
+  const firstEntry = run[0];
+  const lastEntry = run.at(-1);
+
+  if (firstEntry === undefined || lastEntry === undefined) {
+    return;
+  }
+
+  const extendCells = run.map((entry) => createSourceCellRef(entry));
+
+  events.push({
+    eventKind: "tupletExtendGroup",
+    trackId,
+    time: createIntegerTimeRange(firstEntry.col, lastEntry.col + 1),
+    sourceCells: extendCells,
+    groupId: createTupletExtendGroupId(trackId, firstEntry),
+    rowId: firstEntry.rowId,
+    extendCells,
+  });
+}
+
+/**
+ * tuplet slot note를 NoteEvent로 변환하거나 이전 event에 hold로 병합한다.
+ * - 인수 : trackId : 분석 대상 track
+ * - 인수 : context : score/index/parsed 문맥
+ * - 인수 : headRow : pletHead가 놓인 note row
+ * - 인수 : slotNote : parser가 확정한 slot note
+ * - 인수 : sourceCell : slot source 참조
+ * - 인수 : time : slot이 차지하는 유리수 tick 범위
+ * - 인수 : membership : slot의 tuplet 소속 정보
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
+ * - 인수 : glissAnchors : gliss 연결 후보를 누적할 목록
+ * - 반환값 : 새 NoteEvent, 병합 결과, 또는 row 매핑 실패 시 null
+ */
+function analyzeTupletSlotNote(
+  trackId: TrackId,
+  context: AnalyzeContext,
+  headRow: NoteRowDefinition,
+  slotNote: ParsedPletSlotNote,
+  sourceCell: SourceCellRef,
+  time: TimeRange,
+  membership: TupletMembership,
+  activeNotesByConnectionKey: ActiveNoteMap,
+  glissAnchors: GlissAnchor[],
+): NoteEvent | "merged" | null {
+  const displayRowId = context.indexes.noteRowIdByStringMidi.get(
+    `${headRow.stringId}|${slotNote.position.midiNum}`,
+  );
+
+  if (displayRowId === undefined) {
+    return null;
+  }
+
+  const displayRow = asNoteRow(context.indexes.rowById.get(displayRowId));
+
+  if (displayRow === null) {
+    return null;
+  }
+
+  const display = createDisplayPositionFromValues(
+    displayRow.rowId,
+    slotNote.modifiers.microPitch?.centNum ?? 0,
+  );
+  const sound = createSoundPitchFromValues(
+    displayRow.midi,
+    slotNote.modifiers.absolutePitch?.midiNum ?? null,
+    slotNote.modifiers.microPitch?.centNum ?? 0,
+  );
+  const connectionKey = createHoldConnectionKey(display, sound);
+
+  if (slotNote.hold !== null) {
+    const previousEvent = findConnectablePreviousEventAtTick(
+      activeNotesByConnectionKey,
+      fractionToNumber(time.startTick),
+      connectionKey,
+    );
+
+    if (previousEvent !== null) {
+      previousEvent.time.endTick = cloneTimeFraction(time.endTick);
+      previousEvent.sourceCells.push(sourceCell);
+      previousEvent.displayTextAnchors.push(
+        createNoteDisplayTextAnchorFromValues(sourceCell, time, slotNote.displayText),
+      );
+      previousEvent.effects.push(
+        createEffectSegmentForValues(
+          slotNote.hold,
+          slotNote.modifiers.trem ?? null,
+          time,
+          previousEvent,
+        ),
+      );
+      appendGlissAnchorFromValues(glissAnchors, previousEvent, sourceCell, time, slotNote.modifiers.gliss);
+      activeNotesByConnectionKey.set(connectionKey, previousEvent);
+      return "merged";
+    }
+  }
+
+  const event: NoteEvent = {
+    eventKind: "note",
+    eventId: createTupletNoteEventId(trackId, sourceCell),
+    text: slotNote.displayText,
+    displayTextAnchors: [createNoteDisplayTextAnchorFromValues(sourceCell, time, slotNote.displayText)],
+    trackId,
+    time: cloneTimeRange(time),
+    sourceCells: [sourceCell],
+    display,
+    sound,
+    effects: [
+      createEffectSegmentForValues(slotNote.hold, slotNote.modifiers.trem ?? null, time, null),
+    ],
+    glissRole: null,
+    glissAnchors: [],
+    tuplet: membership,
+  };
+
+  appendGlissAnchorFromValues(glissAnchors, event, sourceCell, time, slotNote.modifiers.gliss);
+  activeNotesByConnectionKey.set(connectionKey, event);
+  return event;
+}
+
+/**
+ * tuplet rest slot을 RestEvent로 만든다.
+ * - 인수 : trackId : 분석 대상 track
+ * - 인수 : sourceCell : slot source 참조
+ * - 인수 : time : rest slot이 차지하는 유리수 tick 범위
+ * - 인수 : membership : slot의 tuplet 소속 정보
+ * - 반환값 : RestEvent : 시간 점유용 rest event
+ */
+function createTupletRestEvent(
+  trackId: TrackId,
+  sourceCell: SourceCellRef,
+  time: TimeRange,
+  membership: TupletMembership,
+): RestEvent {
+  return {
+    eventKind: "rest",
+    trackId,
+    time: cloneTimeRange(time),
+    sourceCells: [sourceCell],
+    display: null,
+    tuplet: membership,
+  };
+}
+
+/**
  * parsed note의 gliss modifier를 NoteEvent와 별도 anchor 목록에 반영한다.
  * - 인수 : glissAnchors : gliss 연결 후보 누적 목록
  * - 인수 : event : modifier가 붙은 note가 속한 NoteEvent
@@ -298,6 +723,48 @@ function appendGlissAnchorIfNeeded(
 ): void {
   const gliss = parsedCell.modifiers.gliss;
 
+  if (gliss === null) {
+    return;
+  }
+
+  const role = toGlissAnchorRole(gliss.glissKind);
+
+  event.glissRole = {
+    glissId: gliss.id,
+    role,
+  };
+  event.glissAnchors.push({
+    glissId: gliss.id,
+    role,
+    source: { ...sourceCell },
+    time: cloneTimeRange(time),
+    display: { ...event.display },
+  });
+  glissAnchors.push({
+    glissId: gliss.id,
+    role,
+    event,
+    source: sourceCell,
+    time,
+  });
+}
+
+/**
+ * parsed gliss 값을 NoteEvent와 별도 anchor 목록에 반영한다.
+ * - 인수 : glissAnchors : gliss 연결 후보 누적 목록
+ * - 인수 : event : modifier가 붙은 note가 속한 NoteEvent
+ * - 인수 : sourceCell : modifier가 붙은 원본 셀 또는 slot 참조
+ * - 인수 : time : modifier가 붙은 원본 셀 또는 slot의 시간 범위
+ * - 인수 : gliss : parser가 확정한 gliss modifier
+ * - 반환값 : 없음
+ */
+function appendGlissAnchorFromValues(
+  glissAnchors: GlissAnchor[],
+  event: NoteEvent,
+  sourceCell: SourceCellRef,
+  time: TimeRange,
+  gliss: ParsedGliss | null,
+): void {
   if (gliss === null) {
     return;
   }
@@ -410,6 +877,8 @@ function createGlissEvent(
     startSound: { ...startAnchor.event.sound },
     endSound: { ...endAnchor.event.sound },
     glissId: startAnchor.glissId,
+    startAnchorTick: createTimeRangeCenterTick(startAnchor.time),
+    endAnchorTick: createTimeRangeCenterTick(endAnchor.time),
     fromKind: toGlissFromKind(startAnchor),
     toKind: endAnchor.role === "mid" ? "mid" : "end",
     startAttach: isAnchorInsideMergedEvent(startAnchor) ? "legato" : "attack",
@@ -465,7 +934,7 @@ function filterDuplicateMidAnchors(anchors: GlissAnchor[]): GlissAnchor[] {
       continue;
     }
 
-    const key = `${anchor.glissId}|${anchor.source.col}`;
+    const key = `${anchor.glissId}|${anchor.source.col}|${anchor.source.slotIndex ?? ""}`;
 
     if (seenMidKey.has(key)) {
       continue;
@@ -511,7 +980,14 @@ function compareRowOrder(
  * - 반환값 : string : gliss event id
  */
 function createGlissEventId(trackId: TrackId, startAnchor: GlissAnchor): string {
-  return `${trackId}:gliss:${startAnchor.glissId}:${startAnchor.source.rowId}:${startAnchor.source.col}`;
+  return [
+    trackId,
+    "gliss",
+    startAnchor.glissId,
+    startAnchor.source.rowId,
+    startAnchor.source.col,
+    startAnchor.source.slotIndex ?? "",
+  ].join(":");
 }
 
 /**
@@ -544,6 +1020,7 @@ function sortAnalyzedEvents(events: AnalyzedEvent[]): AnalyzedEvent[] {
     mute: 0,
     gliss: 1,
     tupletGroup: 2,
+    tupletExtendGroup: 2,
   } as const;
 
   return events.sort((left, right) => {
@@ -614,6 +1091,28 @@ function findConnectablePreviousEvent(
 }
 
 /**
+ * 특정 tick에서 바로 이어지는 기존 NoteEvent를 찾는다.
+ * - 인수 : activeNotesByConnectionKey : hold 연결 기준별 마지막 note event map
+ * - 인수 : startTick : 현재 slot 또는 cell의 시작 tick
+ * - 인수 : connectionKey : 현재 slot 또는 cell의 표시/발음 위치 기준 key
+ * - 반환값 : 연결 가능한 이전 NoteEvent 또는 null
+ */
+function findConnectablePreviousEventAtTick(
+  activeNotesByConnectionKey: ActiveNoteMap,
+  startTick: number,
+  connectionKey: HoldConnectionKey,
+): NoteEvent | null {
+  const event = activeNotesByConnectionKey.get(connectionKey);
+
+  // tuplet slot은 유리수 tick에서 시작될 수 있으므로 col 대신 number tick 값으로 비교한다.
+  if (event !== undefined && fractionToNumber(event.time.endTick) === startTick) {
+    return event;
+  }
+
+  return null;
+}
+
+/**
  * note row에서 MVP 기본 표시 위치를 만든다.
  * - 인수 : row : 현재 셀의 note row definition
  * - 반환값 : FinalDisplayPosition : renderer가 사용할 의미적 표시 위치
@@ -622,9 +1121,25 @@ function createDisplayPosition(
   row: NoteRowDefinition,
   parsedCell: ParsedNoteCell,
 ): FinalDisplayPosition {
+  return createDisplayPositionFromValues(
+    row.rowId,
+    parsedCell.modifiers.microPitch?.centNum ?? 0,
+  );
+}
+
+/**
+ * rowId와 cent offset에서 최종 표시 위치를 만든다.
+ * - 인수 : rowId : renderer가 배치 기준으로 사용할 note row id
+ * - 인수 : centOffset : 표시 위치의 cent 단위 보정
+ * - 반환값 : FinalDisplayPosition : renderer가 사용할 의미적 표시 위치
+ */
+function createDisplayPositionFromValues(
+  rowId: RowId,
+  centOffset: number,
+): FinalDisplayPosition {
   return {
-    rowId: row.rowId,
-    centOffset: parsedCell.modifiers.microPitch?.centNum ?? 0,
+    rowId,
+    centOffset,
   };
 }
 
@@ -638,9 +1153,28 @@ function createSoundPitch(
   row: NoteRowDefinition,
   parsedCell: ParsedNoteCell,
 ): FinalSoundPitch {
+  return createSoundPitchFromValues(
+    row.midi,
+    parsedCell.modifiers.absolutePitch?.midiNum ?? null,
+    parsedCell.modifiers.microPitch?.centNum ?? 0,
+  );
+}
+
+/**
+ * row MIDI와 pitch modifier 값에서 최종 발음 음정을 만든다.
+ * - 인수 : rowMidi : 표시 row의 기본 MIDI 번호
+ * - 인수 : absoluteMidi : 직접 지정된 발음 MIDI 번호. 없으면 null
+ * - 인수 : centOffset : 발음 음정의 cent 단위 보정
+ * - 반환값 : FinalSoundPitch : audio generator가 사용할 의미적 발음 음정
+ */
+function createSoundPitchFromValues(
+  rowMidi: number,
+  absoluteMidi: number | null,
+  centOffset: number,
+): FinalSoundPitch {
   return {
-    midi: parsedCell.modifiers.absolutePitch?.midiNum ?? row.midi,
-    centOffset: parsedCell.modifiers.microPitch?.centNum ?? 0,
+    midi: absoluteMidi ?? rowMidi,
+    centOffset,
   };
 }
 
@@ -700,10 +1234,29 @@ function createNoteDisplayTextAnchor(
   time: TimeRange,
   parsedCell: ParsedNoteCell,
 ): NoteDisplayTextAnchor {
+  return createNoteDisplayTextAnchorFromValues(
+    sourceCell,
+    time,
+    parsedCell.displayText,
+  );
+}
+
+/**
+ * 표시 문자열 값을 NoteEvent 내부 표시 anchor로 복사한다.
+ * - 인수 : sourceCell : 원본 셀 또는 slot 참조
+ * - 인수 : time : 표시 anchor가 차지하는 시간 범위
+ * - 인수 : text : renderer가 표시할 문자열
+ * - 반환값 : NoteDisplayTextAnchor : note layer가 시간 위치별로 표시할 텍스트
+ */
+function createNoteDisplayTextAnchorFromValues(
+  sourceCell: SourceCellRef,
+  time: TimeRange,
+  text: string,
+): NoteDisplayTextAnchor {
   return {
     source: { ...sourceCell },
     time: cloneTimeRange(time),
-    text: parsedCell.displayText,
+    text,
   };
 }
 
@@ -733,6 +1286,32 @@ function createIntegerTimeRange(startTick: number, endTick: number): TimeRange {
 }
 
 /**
+ * tuplet group의 slot 하나가 차지하는 유리수 tick 범위를 만든다.
+ * - 인수 : startCol : pletHead가 놓인 시작 col
+ * - 인수 : groupLength : head와 연속 extend를 합친 정수 tick 길이
+ * - 인수 : divNum : tuplet slot 분할 수
+ * - 인수 : slotIndex : 0부터 시작하는 slot 순서
+ * - 반환값 : TimeRange : slot 하나의 유리수 tick 범위
+ */
+function createTupletSlotTimeRange(
+  startCol: number,
+  groupLength: number,
+  divNum: number,
+  slotIndex: number,
+): TimeRange {
+  return {
+    startTick: {
+      numerator: startCol * divNum + slotIndex * groupLength,
+      denominator: divNum,
+    },
+    endTick: {
+      numerator: startCol * divNum + (slotIndex + 1) * groupLength,
+      denominator: divNum,
+    },
+  };
+}
+
+/**
  * TimeRange를 얕은 공유 없이 복사한다.
  * - 인수 : time : 복사할 시간 범위
  * - 반환값 : TimeRange : start/end fraction이 복제된 시간 범위
@@ -753,6 +1332,23 @@ function cloneTimeFraction(value: TimeFraction): TimeFraction {
   return {
     numerator: value.numerator,
     denominator: value.denominator,
+  };
+}
+
+/**
+ * TimeRange의 중심 tick을 TimeFraction으로 만든다.
+ * - 인수 : time : 중심 tick을 계산할 시간 범위
+ * - 반환값 : TimeFraction : start/end의 산술 중심 tick
+ */
+function createTimeRangeCenterTick(time: TimeRange): TimeFraction {
+  const startDenominator = time.startTick.denominator;
+  const endDenominator = time.endTick.denominator;
+
+  return {
+    numerator:
+      time.startTick.numerator * endDenominator +
+      time.endTick.numerator * startDenominator,
+    denominator: startDenominator * endDenominator * 2,
   };
 }
 
@@ -790,7 +1386,29 @@ function createEffectSegmentForCell(
   time: TimeRange,
   previousEvent: NoteEvent | null,
 ): NoteEffectSegment {
-  const vib = parsedCell.hold === "~";
+  return createEffectSegmentForValues(
+    parsedCell.hold,
+    parsedCell.modifiers.trem,
+    time,
+    previousEvent,
+  );
+}
+
+/**
+ * hold와 trem 값에서 현재 시간 구간의 effect segment를 만든다.
+ * - 인수 : hold : 현재 cell 또는 slot의 hold 표식
+ * - 인수 : explicitTrem : 현재 cell 또는 slot의 trem modifier
+ * - 인수 : time : 현재 구간이 차지하는 시간 범위
+ * - 인수 : previousEvent : hold로 이어 붙는 이전 NoteEvent, 새 note이면 null
+ * - 반환값 : vib/trem 상태가 반영된 effect segment
+ */
+function createEffectSegmentForValues(
+  hold: ParsedNoteCell["hold"],
+  explicitTrem: ParsedTrem | null,
+  time: TimeRange,
+  previousEvent: NoteEvent | null,
+): NoteEffectSegment {
+  const vib = hold === "~";
 
   if (vib) {
     return {
@@ -800,7 +1418,6 @@ function createEffectSegmentForCell(
     };
   }
 
-  const explicitTrem = parsedCell.modifiers.trem;
   const previousTrem = getContinuingTrem(previousEvent);
 
   return {
@@ -841,4 +1458,44 @@ function getContinuingTrem(
  */
 function createNoteEventId(trackId: TrackId, sourceCell: SourceCellRef): string {
   return `${trackId}:note:${sourceCell.rowId}:${sourceCell.col}`;
+}
+
+/**
+ * tuplet group의 안정적인 group id를 만든다.
+ * - 인수 : trackId : 이벤트가 속한 track
+ * - 인수 : entry : tuplet head parsed entry
+ * - 반환값 : string : tuplet group id
+ */
+function createTupletGroupId(trackId: TrackId, entry: ParsedCellEntry): string {
+  return `${trackId}:tuplet:${entry.rowId}:${entry.col}`;
+}
+
+/**
+ * tuplet slot note의 안정적인 event id를 만든다.
+ * - 인수 : trackId : 이벤트가 속한 track
+ * - 인수 : sourceCell : slot source 참조
+ * - 반환값 : string : MVP tuplet note event id
+ */
+function createTupletNoteEventId(trackId: TrackId, sourceCell: SourceCellRef): string {
+  return `${trackId}:note:${sourceCell.rowId}:${sourceCell.col}:slot:${sourceCell.slotIndex ?? 0}`;
+}
+
+/**
+ * orphan pletExtend group의 안정적인 id를 만든다.
+ * - 인수 : trackId : 이벤트가 속한 track
+ * - 인수 : entry : extend run의 첫 parsed entry
+ * - 반환값 : string : tuplet extend group id
+ */
+function createTupletExtendGroupId(trackId: TrackId, entry: ParsedCellEntry): string {
+  return `${trackId}:tuplet-extend:${entry.rowId}:${entry.col}`;
+}
+
+/**
+ * row/col source cell key를 만든다.
+ * - 인수 : rowId : 원본 cell rowId
+ * - 인수 : col : 원본 cell col
+ * - 반환값 : string : set 조회용 cell key
+ */
+function createCellKey(rowId: RowId, col: number): string {
+  return `${rowId}|${col}`;
 }

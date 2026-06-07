@@ -14,6 +14,8 @@ import type {
 } from "./canvas_types";
 
 const TRACK_EXTRA = "extra";
+const GLISS_TREM_LINE_DASH = [6, 4] as const;
+const TUPLET_CONTAINER_LINE_DASH = [4, 3] as const;
 
 /**
  * marker render item 목록을 canvas에 그린다.
@@ -37,6 +39,28 @@ export function drawScoreMarkers(
       drawGlissMarker(context, layout, rowById, item);
     } else if (item.kind === "glissOrphanAnchor") {
       drawGlissOrphanAnchorMarker(context, layout, rowById, item);
+    }
+  }
+}
+
+/**
+ * note layer 위에 올라와야 하는 marker item 목록을 canvas에 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : items : marker 표시 item 목록
+ * - 반환값 : 없음
+ */
+export function drawScoreOverlayMarkers(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  items: CanvasMarkerItem[],
+): void {
+  const rowById = createLayoutRowMap(layout);
+
+  // marker canvas의 z-index로 해결할 수 없는 note 위 보조 도형만 note layer 후처리로 그린다.
+  for (const item of items) {
+    if (item.kind === "tupletContainer") {
+      drawTupletContainerMarker(context, layout, rowById, item);
     }
   }
 }
@@ -96,6 +120,9 @@ function drawGlissMarker(
     : CANVAS_COLORS.glissLine;
   context.lineWidth = CANVAS_METRICS.glissLineWidth;
   context.lineCap = "round";
+  if (item.hasTrem) {
+    context.setLineDash([...GLISS_TREM_LINE_DASH]);
+  }
   context.beginPath();
   context.moveTo(startX, startY);
   context.lineTo(endX, endY);
@@ -146,6 +173,96 @@ function drawGlissOrphanAnchorMarker(
 }
 
 /**
+ * tuplet group의 head row 위치에 점선 컨테이너와 분할 숫자 라벨을 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : rowById : layout row 조회 Map
+ * - 인수 : item : tuplet container marker item
+ * - 반환값 : 없음
+ */
+function drawTupletContainerMarker(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  rowById: Map<string, CanvasLayoutRow>,
+  item: Extract<CanvasMarkerItem, { kind: "tupletContainer" }>,
+): void {
+  const row = rowById.get(item.rowId);
+
+  if (row === undefined || row.kind !== "note" || item.endTick <= item.startTick) {
+    return;
+  }
+
+  const x = columnToX(item.startTick, layout);
+  const height = Math.max(
+    CANVAS_METRICS.minNoteHeight,
+    CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(layout),
+  );
+  const y = row.y + row.height / 2 - height / 2;
+  const width = columnToX(item.endTick, layout) - x;
+
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+
+  context.save();
+  context.globalAlpha = item.trackId === TRACK_EXTRA ? 1 : 0.95;
+  context.strokeStyle = CANVAS_COLORS.tupletContainer;
+  context.lineWidth = CANVAS_METRICS.tupletContainerLineWidth;
+  context.setLineDash([...TUPLET_CONTAINER_LINE_DASH]);
+  context.strokeRect(
+    x + 0.5,
+    y + 0.5,
+    Math.max(0, width - 1),
+    Math.max(0, height - 1),
+  );
+  context.setLineDash([]);
+  drawTupletDivNumLabel(context, x, y, width, height, item.divNum, layout);
+  context.restore();
+}
+
+/**
+ * tuplet container 중앙에 작은 분할 숫자 라벨을 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : x : container 왼쪽 x 좌표
+ * - 인수 : y : container 위쪽 y 좌표
+ * - 인수 : width : container 너비
+ * - 인수 : height : container 높이
+ * - 인수 : divNum : 표시할 tuplet 분할 수
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : 없음
+ */
+function drawTupletDivNumLabel(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  divNum: number | null,
+  layout: CanvasScoreLayout,
+): void {
+  if (divNum === null) {
+    return;
+  }
+
+  const label = String(divNum);
+
+  if (label === "") {
+    return;
+  }
+
+  const fontSize = Math.max(
+    7,
+    CANVAS_METRICS.tupletLabelFontSizePx * getLayoutZoom(layout),
+  );
+
+  context.fillStyle = CANVAS_COLORS.tupletLabel;
+  context.font = `700 ${fontSize}px Arial, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(label, x + width / 2, y + height / 2);
+}
+
+/**
  * orphan anchor role에 따라 짧은 선의 x 범위를 만든다.
  * - 인수 : anchorX : anchor cell 중심 x 좌표
  * - 인수 : role : start/mid/end gliss 역할
@@ -184,7 +301,7 @@ function createOrphanAnchorRanges(
  * - 반환값 : number : marker layer x 좌표
  */
 function getAnchorX(tick: number, layout: CanvasScoreLayout): number {
-  return columnToX(tick, layout) + layout.columnWidth / 2;
+  return columnToX(tick, layout);
 }
 
 /**
@@ -223,4 +340,13 @@ function getDisplayCenterY(
 
   // 악기 범위 끝에서는 이웃 note row 간격을 구할 수 없으므로 현재 row 높이만큼 외삽한다.
   return baseCenter - Math.sign(centOffset) * row.height * (Math.abs(centOffset) / 100);
+}
+
+/**
+ * layout font size에서 현재 layout zoom을 계산한다.
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : number : 기준 font size 대비 확대 배율
+ */
+function getLayoutZoom(layout: CanvasScoreLayout): number {
+  return layout.layoutFontSize / 12;
 }

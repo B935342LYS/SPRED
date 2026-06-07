@@ -7,7 +7,10 @@ import {
   resizeCanvasLayers,
 } from "./canvas_coordinate";
 import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
-import { drawScoreMarkers } from "./canvas_marker_renderer";
+import {
+  drawScoreMarkers,
+  drawScoreOverlayMarkers,
+} from "./canvas_marker_renderer";
 import { drawScoreNotes } from "./canvas_note_renderer";
 import type {
   CanvasAnalyzedRenderInput,
@@ -42,6 +45,7 @@ export function renderCanvasScore(
   drawScoreGrid(target.base.context, layout);
   drawScoreMarkers(target.marker.context, layout, markerItems);
   drawScoreNotes(target.note.context, layout, noteItems, muteItems);
+  drawScoreOverlayMarkers(target.note.context, layout, markerItems);
 
   return {
     layout,

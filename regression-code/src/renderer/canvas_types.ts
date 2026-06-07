@@ -210,6 +210,7 @@ export type CanvasMarkerItem =
       endRowId: string;
       endCentOffset: number;
       endTick: number;
+      hasTrem: boolean;
       trackId?: string;
     }
   | {
@@ -218,6 +219,14 @@ export type CanvasMarkerItem =
       centOffset: number;
       tick: number;
       role: "start" | "mid" | "end";
+      trackId?: string;
+    }
+  | {
+      kind: "tupletContainer";
+      rowId: string;
+      startTick: number;
+      endTick: number;
+      divNum: number | null;
       trackId?: string;
     };
 

@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
+
+import { resolveTupletHeadPlacementHit } from "../src/app/app_controller";
+import { createInitialState } from "../src/app/app_runtime";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
+import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 
 /**
  * 조건이 거짓이면 테스트 실패 상태를 기록한다.
@@ -129,6 +134,10 @@ const tupletResult = composeEditRawText({
   },
 });
 
+const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
+const jsonText = readFileSync(fixtureUrl, "utf8");
+const loadResult = loadRuntimeDocument(jsonText);
+
 assert(
   allTokenResult.kind === "apply" &&
     allTokenResult.rawText === "-C#4@g(b,S)@t(3)@p(61)@m(-12.5)",
@@ -166,5 +175,27 @@ assert(
     tupletResult.rawText === "/3(C4@n(60)||-@n(60))",
   "Tuplet draft should compose pletHead rawText.",
 );
+
+assert(loadResult.ok, "Runtime document should load for tuplet placement test.");
+
+if (loadResult.ok && tupletResult.kind === "apply") {
+  const placementState = createInitialState(loadResult.document);
+  const placementResult = resolveTupletHeadPlacementHit(
+    placementState,
+    {
+      rowId: "s1-note-67",
+      rowKind: "note",
+      col: 12,
+    },
+    tupletResult.rawText,
+  );
+
+  assert(placementResult.kind === "hit", "Tuplet placement should resolve first slot row.");
+
+  if (placementResult.kind === "hit") {
+    assert(placementResult.hit.rowId === "s1-note-60", "Tuplet placement hit should use first slot @n row.");
+    assert(placementResult.hit.col === 12, "Tuplet placement hit should keep clicked column.");
+  }
+}
 
 console.log("Edit composer test completed.");
