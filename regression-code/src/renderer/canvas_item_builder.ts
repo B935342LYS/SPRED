@@ -85,12 +85,24 @@ function getNoteDisplayShape(event: NoteEvent): CanvasNoteRenderItem["displaySha
   if (
     event.tuplet !== null &&
     event.tuplet !== undefined &&
-    event.glissAnchors.some((anchor) => anchor.role === "start" || anchor.role === "mid")
+    event.glissAnchors.some((anchor) =>
+      (anchor.role === "start" || anchor.role === "mid") &&
+      timeRangeToDuration(anchor.time) >= 1
+    )
   ) {
     return "anchorSquare";
   }
 
   return "rect";
+}
+
+/**
+ * TimeRange 길이를 renderer tick number로 계산한다.
+ * - 인수 : time : 길이를 계산할 analyzer 시간 범위
+ * - 반환값 : endTick - startTick 값
+ */
+function timeRangeToDuration(time: TimeRange): number {
+  return timeFractionToNumber(time.endTick) - timeFractionToNumber(time.startTick);
 }
 
 /**

@@ -913,7 +913,11 @@ function createGlissEvent(
  */
 function createGlissAnchorTick(anchor: GlissAnchor): TimeFraction {
   if (anchor.source.slotIndex !== undefined) {
-    return cloneTimeFraction(anchor.time.startTick);
+    if (fractionToNumber(anchor.time.endTick) - fractionToNumber(anchor.time.startTick) < 1) {
+      return createTimeRangeCenterTick(anchor.time);
+    }
+
+    return addHalfTick(anchor.time.startTick);
   }
 
   return createTimeRangeCenterTick(anchor.time);
@@ -1403,6 +1407,18 @@ function createTimeRangeCenterTick(time: TimeRange): TimeFraction {
       time.startTick.numerator * endDenominator +
       time.endTick.numerator * startDenominator,
     denominator: startDenominator * endDenominator * 2,
+  };
+}
+
+/**
+ * TimeFraction에 0.5 tick을 더한다.
+ * - 인수 : value : 기준 시간 분수
+ * - 반환값 : 기준 시간보다 반 tick 뒤의 TimeFraction
+ */
+function addHalfTick(value: TimeFraction): TimeFraction {
+  return {
+    numerator: value.numerator * 2 + value.denominator,
+    denominator: value.denominator * 2,
   };
 }
 

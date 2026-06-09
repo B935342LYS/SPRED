@@ -103,7 +103,7 @@ function createNoteLayoutItem(
   const centerY = getDisplayCenterY(row, item.displayCentOffset, layout);
   const y = centerY - height / 2;
   const x = item.displayShape === "anchorSquare"
-    ? startX - height / 2
+    ? startX + layout.columnWidth / 2 - height / 2
     : startX + CANVAS_METRICS.noteInsetX;
   const width = item.displayShape === "anchorSquare"
     ? height
