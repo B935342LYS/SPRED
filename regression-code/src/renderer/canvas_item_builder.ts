@@ -124,8 +124,6 @@ export function buildCanvasMarkerItems(
 ): CanvasMarkerItem[] {
   const items: CanvasMarkerItem[] = [];
   const connectedGlissAnchorKeys = new Set<string>();
-  const connectedMidAnchorKeys = new Set<string>();
-  const seenMidAnchorKeys = new Set<string>();
   const noteEvents = collectNoteEvents(analysis);
 
   // trackResults를 순회하며 관계 이벤트인 GlissEvent를 marker item으로 변환하고 연결된 anchor를 기록한다.
@@ -158,9 +156,6 @@ export function buildCanvasMarkerItems(
       event.sourceCells.forEach((source) => {
         connectedGlissAnchorKeys.add(createGlissAnchorKey(event.trackId, event.glissId, source));
       });
-      collectConnectedMidAnchorKeys(event).forEach((key) => {
-        connectedMidAnchorKeys.add(key);
-      });
       items.push({
         kind: "gliss",
         startRowId: event.startDisplay.rowId,
@@ -183,20 +178,6 @@ export function buildCanvasMarkerItems(
       }
 
       for (const anchor of event.glissAnchors) {
-        if (anchor.role === "mid") {
-          const midKey = createMidAnchorUniquenessKey(
-            event.trackId,
-            anchor.glissId,
-            anchor.source,
-          );
-
-          if (connectedMidAnchorKeys.has(midKey) || seenMidAnchorKeys.has(midKey)) {
-            continue;
-          }
-
-          seenMidAnchorKeys.add(midKey);
-        }
-
         const key = createGlissAnchorKey(event.trackId, anchor.glissId, anchor.source);
 
         if (connectedGlissAnchorKeys.has(key)) {
@@ -232,27 +213,6 @@ export function buildCanvasMarkerItems(
     }
     return getMarkerSortTrackId(left).localeCompare(getMarkerSortTrackId(right));
   });
-}
-
-/**
- * 연결된 GlissEvent 안에서 mid 역할을 하는 anchor key를 수집한다.
- * - 인수 : event : 연결 완료된 gliss segment
- * - 반환값 : string[] : 같은 col/id 중복 mid orphan 표시를 막기 위한 key 목록
- */
-function collectConnectedMidAnchorKeys(event: GlissEvent): string[] {
-  const keys: string[] = [];
-  const startSource = event.sourceCells[0];
-  const endSource = event.sourceCells[1];
-
-  if (event.fromKind === "mid" && startSource !== undefined) {
-    keys.push(createMidAnchorUniquenessKey(event.trackId, event.glissId, startSource));
-  }
-
-  if (event.toKind === "mid" && endSource !== undefined) {
-    keys.push(createMidAnchorUniquenessKey(event.trackId, event.glissId, endSource));
-  }
-
-  return keys;
 }
 
 /**
@@ -366,21 +326,6 @@ function createGlissAnchorKey(
   source: SourceCellRef,
 ): string {
   return `${trackId}|${glissId}|${source.rowId}|${source.col}|${source.slotIndex ?? ""}`;
-}
-
-/**
- * 동일 tick/slot의 중복 mid anchor 판정 key를 만든다.
- * - 인수 : trackId : anchor가 속한 track
- * - 인수 : glissId : gliss 연결 id
- * - 인수 : source : 원본 셀 또는 tuplet slot 참조
- * - 반환값 : 같은 col의 일반 mid와 같은 slot의 tuplet mid를 구분하는 key
- */
-function createMidAnchorUniquenessKey(
-  trackId: string,
-  glissId: string,
-  source: SourceCellRef,
-): string {
-  return `${trackId}|${glissId}|${source.col}|${source.slotIndex ?? ""}`;
 }
 
 /**

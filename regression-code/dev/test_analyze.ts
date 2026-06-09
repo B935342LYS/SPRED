@@ -330,6 +330,13 @@ function testGlissAnalysis(sourceText: string): void {
     { rowId: "s1-note-60", col: 70, rawText: "C4@g(e,S)" },
     { rowId: "s1-note-62", col: 72, rawText: "D4@g(e,M)@t(3)" },
     { rowId: "s1-note-64", col: 74, rawText: "E4@g(e,E)" },
+    { rowId: "s1-note-60", col: 82, rawText: "C4@g(f,S)" },
+    { rowId: "s1-note-64", col: 82, rawText: "E4@g(f,S)" },
+    { rowId: "s1-note-67", col: 84, rawText: "G4@g(f,E)" },
+    { rowId: "s1-note-60", col: 90, rawText: "C4@g(h,S)" },
+    { rowId: "s1-note-64", col: 92, rawText: "E4@g(h,E)" },
+    { rowId: "s1-note-64", col: 93, rawText: "-" },
+    { rowId: "s1-note-64", col: 94, rawText: "-" },
   );
 
   const glissAnalysis = analyzeFixtureScore(score);
@@ -340,7 +347,7 @@ function testGlissAnalysis(sourceText: string): void {
     return;
   }
 
-  assert(glissAnalysis.glissEvents.length === 4, "S-M-E gliss chains should create four gliss segments.");
+  assert(glissAnalysis.glissEvents.length === 6, "S-M-E gliss chains should create six gliss segments.");
 
   const firstGliss = glissAnalysis.glissEvents[0];
   const secondGliss = glissAnalysis.glissEvents[1];
@@ -366,6 +373,32 @@ function testGlissAnalysis(sourceText: string): void {
     assert(secondGliss.endDisplay.rowId === "s1-note-67", "Second gliss end display row mismatch.");
   }
 
+  const duplicateStartGliss = glissAnalysis.glissEvents.find((event) => event.glissId === "f");
+
+  assert(duplicateStartGliss !== undefined, "Duplicate start fixture should create one gliss segment.");
+
+  if (duplicateStartGliss !== undefined) {
+    assert(
+      duplicateStartGliss.startDisplay.rowId === "s1-note-64",
+      "Duplicate start anchors should keep the upper display row.",
+    );
+    assert(
+      duplicateStartGliss.endDisplay.rowId === "s1-note-67",
+      "Duplicate start gliss should connect to the following end anchor.",
+    );
+  }
+
+  const heldEndGliss = glissAnalysis.glissEvents.find((event) => event.glissId === "h");
+
+  assert(heldEndGliss !== undefined, "Held end anchor fixture should create one gliss segment.");
+
+  if (heldEndGliss !== undefined) {
+    assert(
+      tickToNumber(heldEndGliss.endAnchorTick) === 92.5,
+      "Gliss end anchor should stay at the first end cell center even when held.",
+    );
+  }
+
   const markerItems = buildCanvasMarkerItems({
     timingTimeline: [],
     dynamicsTimeline: [],
@@ -381,23 +414,27 @@ function testGlissAnalysis(sourceText: string): void {
     analysisIssues: [],
   });
 
-  assert(markerItems.length === 7, "Gliss events and orphan anchors should convert to seven marker items.");
+  assert(markerItems.length === 11, "Gliss events and orphan anchors should convert to eleven marker items.");
+  const glissMarkerItems = markerItems.filter((item) => item.kind === "gliss");
+  const firstConnectedMarker = glissMarkerItems[0];
+  const secondConnectedMarker = glissMarkerItems[1];
+
   assert(
-    markerItems[0]?.kind === "gliss" &&
-      markerItems[0].startRowId === "s1-note-60" &&
-      markerItems[0].endRowId === "s1-note-64" &&
-      markerItems[0].startTick === 30.5 &&
-      markerItems[0].endTick === 32.5 &&
-      markerItems[0].hasTrem,
+    firstConnectedMarker?.kind === "gliss" &&
+      firstConnectedMarker.startRowId === "s1-note-60" &&
+      firstConnectedMarker.endRowId === "s1-note-64" &&
+      firstConnectedMarker.startTick === 30.5 &&
+      firstConnectedMarker.endTick === 32.5 &&
+      firstConnectedMarker.hasTrem,
     "First gliss marker item should keep analyzer display endpoints.",
   );
   assert(
-    markerItems[1]?.kind === "gliss" && !markerItems[1].hasTrem,
+    secondConnectedMarker?.kind === "gliss" && !secondConnectedMarker.hasTrem,
     "Gliss marker should use dashed style only when trem overlaps its segment.",
   );
 
   const midTremMarkers = markerItems.filter(
-    (item) => item.kind === "gliss" && item.startTick >= 70,
+    (item) => item.kind === "gliss" && item.startTick >= 70 && item.startTick < 80,
   );
 
   assert(midTremMarkers.length === 2, "Mid-trem gliss chain should create two marker items.");
@@ -410,9 +447,22 @@ function testGlissAnalysis(sourceText: string): void {
     "Trem on a mid anchor should dash only the outgoing right gliss segment.",
   );
 
+  const heldEndMarker = glissMarkerItems.find(
+    (item) => item.kind === "gliss" && item.startTick === 90.5,
+  );
+
+  assert(heldEndMarker !== undefined, "Held end gliss should convert to one marker item.");
+
+  if (heldEndMarker !== undefined && heldEndMarker.kind === "gliss") {
+    assert(
+      heldEndMarker.endTick === 92.5,
+      "Gliss marker should end at the first end cell center instead of the held rectangle center.",
+    );
+  }
+
   const orphanItems = markerItems.filter((item) => item.kind === "glissOrphanAnchor");
 
-  assert(orphanItems.length === 3, "Unconnected gliss anchors should create three orphan marker items.");
+  assert(orphanItems.length === 5, "Unconnected gliss anchors should create five orphan marker items.");
   assert(
     orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-69" && item.role === "start"),
     "Standalone start anchor should create a right-side orphan marker.",
@@ -424,6 +474,14 @@ function testGlissAnalysis(sourceText: string): void {
   assert(
     orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-72" && item.role === "end"),
     "Standalone end anchor should create a left-side orphan marker.",
+  );
+  assert(
+    orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-62" && item.role === "mid"),
+    "Duplicate mid anchor excluded from connection should remain visible as an orphan marker.",
+  );
+  assert(
+    orphanItems.some((item) => item.kind === "glissOrphanAnchor" && item.rowId === "s1-note-60" && item.role === "start"),
+    "Duplicate start anchor excluded from connection should remain visible as an orphan marker.",
   );
 }
 

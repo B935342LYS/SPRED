@@ -744,8 +744,8 @@ function appendGlissAnchorIfNeeded(
     glissId: gliss.id,
     role,
     event,
-    source: sourceCell,
-    time,
+    source: { ...sourceCell },
+    time: cloneTimeRange(time),
   });
 }
 
@@ -786,8 +786,8 @@ function appendGlissAnchorFromValues(
     glissId: gliss.id,
     role,
     event,
-    source: sourceCell,
-    time,
+    source: { ...sourceCell },
+    time: cloneTimeRange(time),
   });
 }
 
@@ -821,7 +821,7 @@ function createGlissEvents(
 ): GlissEvent[] {
   const glissEvents: GlissEvent[] = [];
   const lastConnectableAnchorById = new Map<string, GlissAnchor>();
-  const sortedAnchors = filterDuplicateMidAnchors(
+  const sortedAnchors = filterDuplicateGlissAnchors(
     [...anchors].sort((left, right) => compareGlissAnchors(left, right, rowOrderById)),
   );
 
@@ -919,32 +919,41 @@ function compareGlissAnchors(
 }
 
 /**
- * 동일 col에 같은 glissId의 mid anchor가 여러 개 있으면 위쪽 하나만 남긴다.
+ * 동일 col에 같은 glissId와 role의 anchor가 여러 개 있으면 위쪽 하나만 남긴다.
  * - 인수 : anchors : 시간과 표시 행 순서로 정렬된 gliss anchor 목록
- * - 반환값 : GlissAnchor[] : 동일 col/id mid 중복이 제거된 anchor 목록
+ * - 반환값 : GlissAnchor[] : 동일 col/id/role 중복이 제거된 anchor 목록
  */
-function filterDuplicateMidAnchors(anchors: GlissAnchor[]): GlissAnchor[] {
+function filterDuplicateGlissAnchors(anchors: GlissAnchor[]): GlissAnchor[] {
   const filteredAnchors: GlissAnchor[] = [];
-  const seenMidKey = new Set<string>();
+  const seenAnchorKey = new Set<string>();
 
-  // 동일 열의 같은 id mid는 수직 gliss segment를 만들 수 없으므로 첫 anchor만 유지한다.
+  // 동일 열의 같은 id/role anchor는 수직 gliss segment를 만들 수 없으므로 첫 anchor만 유지한다.
   for (const anchor of anchors) {
-    if (anchor.role !== "mid") {
-      filteredAnchors.push(anchor);
+    const key = createGlissAnchorUniquenessKey(anchor);
+
+    if (seenAnchorKey.has(key)) {
       continue;
     }
 
-    const key = `${anchor.glissId}|${anchor.source.col}|${anchor.source.slotIndex ?? ""}`;
-
-    if (seenMidKey.has(key)) {
-      continue;
-    }
-
-    seenMidKey.add(key);
+    seenAnchorKey.add(key);
     filteredAnchors.push(anchor);
   }
 
   return filteredAnchors;
+}
+
+/**
+ * 중복 gliss anchor 판정에 사용할 key를 만든다.
+ * - 인수 : anchor : 중복 판정 대상 gliss anchor
+ * - 반환값 : string : 같은 id/role/col/slotIndex를 묶는 key
+ */
+function createGlissAnchorUniquenessKey(anchor: GlissAnchor): string {
+  return [
+    anchor.glissId,
+    anchor.role,
+    anchor.source.col,
+    anchor.source.slotIndex ?? "",
+  ].join("|");
 }
 
 /**
