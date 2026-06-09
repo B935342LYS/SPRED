@@ -23,6 +23,7 @@ Primary spec roots:
 - `docs/2.0-ui-mvp-spec.md`
 - `docs/2.1-canvas-renderer-module-spec.md`
 - `docs/2.2-ui-state-edit-mode-spec.md`
+- `docs/2.3-audio-playback-module-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -71,6 +72,9 @@ Memo roots:
 `docs/2.2-ui-state-edit-mode-spec.md` : `spec`
 - UI state structure, edit mode action dispatch, and score mutation flow
 
+`docs/2.3-audio-playback-module-spec.md` : `spec`
+- audio generator, playback controller, scheduler, and Web Audio backend module structure
+
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
 `docs/1.4-note-string-spec.md` : `reference`
@@ -89,11 +93,12 @@ Read in this order for implementation work:
 3. `docs/2.0-ui-mvp-spec.md`
 4. `docs/2.2-ui-state-edit-mode-spec.md`
 5. `docs/2.1-canvas-renderer-module-spec.md`
-6. `docs/1.5-note-cell-parser-spec.md`
-7. `docs/1.6-global-cell-parser-spec.md`
-8. `docs/1.7-analyzer-event-list-spec.md`
-9. `docs/1.3-score-json-format.md`
-10. `docs/1.0-development-spec.md`
+6. `docs/2.3-audio-playback-module-spec.md`
+7. `docs/1.5-note-cell-parser-spec.md`
+8. `docs/1.6-global-cell-parser-spec.md`
+9. `docs/1.7-analyzer-event-list-spec.md`
+10. `docs/1.3-score-json-format.md`
+11. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -102,6 +107,7 @@ Interpretation rules:
 - first UI layout, state, and event-action scope follows `2.0` first
 - UI state, edit mode action dispatch, and score mutation flow follows `2.2` first
 - canvas renderer module structure and layout conversion scope follows `2.1` first
+- audio generator, playback controller, scheduler, and Web Audio backend module structure follows `2.3` first
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -143,6 +149,9 @@ UI state / edit mode:
 Canvas renderer:
 - `docs/2.1-canvas-renderer-module-spec.md`
 
+Audio playback:
+- `docs/2.3-audio-playback-module-spec.md`
+
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
@@ -159,6 +168,7 @@ Appendix:
 - `2.0-ui-mvp-spec.md`
 - `2.1-canvas-renderer-module-spec.md`
 - `2.2-ui-state-edit-mode-spec.md`
+- `2.3-audio-playback-module-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -214,7 +224,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
 - current focus is the edit-mode driven visual verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> JSON download/load verification
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation
-- gliss and tuplet analyzer/render connections are the main remaining note-token render work
+- gliss, mute, trem/vib, and tuplet analyzer/render connections have first-pass implementations and are being visually tuned before audio work
 
 ## 10. Current Progress Summary
 
@@ -240,7 +250,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
-- current near-term focus is extending edit-mode rawText composition so remaining note tokens can be rendered and visually verified before audio work
+- current near-term focus is stabilizing complex analyzer-renderer token flows before audio work
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
@@ -274,18 +284,25 @@ If memo content is explicitly adopted by the user for implementation order or st
 - analyzer track handling now consumes general note cells except gliss, and supports `@p`, `@m`, `@t`, `"-"` hold, and `"~"` vibrato hold as `NoteEvent` data
 - `@p` changes final sound MIDI and renderer note color follows the final sound MIDI
 - `@m` changes final sound cent offset and display cent offset; renderer maps `+100/-100` cent to the adjacent note row center
-- `~` vibrato hold is rendered as a sine wave; consecutive vib segments are merged into one path with one cycle per cell
+- `~` vibrato hold is rendered as a sine wave; immediate `F4 ~ ~` style head notes are included in vib segments, consecutive vib segments are merged into one path, and renderer sampling/stroke coordinates are tuned for smoother display
 - `@t` tremolo is rendered as chop lines using the note row background color
 - layout label rows now carry note MIDI into renderer layout data and the label column is colored with muted pitch-class colors
 - renderer common colors and metrics are centralized in `regression-code/src/renderer/canvas_theme.ts`, while pitch-class palettes remain in `canvas_note_colors.ts`
+- gliss analyzer/render now supports connected S/M/E segments, orphan anchor markers, duplicate same-column anchor filtering, trem+gliss dashed outgoing segments, and tuplet slot anchor coordinates
+- tuplet analyzer/render now supports `/n(...)` head plus `/&` group spans, slot note/rest events, extend-only containers, first-slot based placement, dotted 21px containers, and slot gliss display rules
+- long tuplet slot gliss start/mid notes use `anchorSquare` display while short slots and end anchors keep normal rectangles; long slot text is left-aligned in the renderer
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
+- `docs/implementation-memo/1.17-step2-gliss-mute-marker-rendering.md` records gliss, mute, trem+gliss, and vibrato renderer decisions
+- `docs/implementation-memo/1.18-step3-tuplet-analyzer-first-pass.md` records tuplet analyzer/render first-pass decisions
+- `docs/implementation-memo/1.19-step4-audio-open-source-survey.md` records audio open-source survey and adoption candidates
+- `docs/2.3-audio-playback-module-spec.md` defines the planned audio generator, playback controller, lookahead scheduler, and Web Audio backend structure before implementation
 - latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:parse`, `npm run test:analyze`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- connect tuplet analyzer and renderer behavior after the current SELECT ROW input path
-- connect gliss analyzer and renderer behavior after tuplet or in a separate focused pass
+- connect gliss pitch ramp, vibrato modulation, trem division, and tuplet timing to the audio generator
+- continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
 - connect the center player group to real score metadata and enable Details information editing
 - define a production build path that strips or minifies comments for GitHub Pages deployment
@@ -297,7 +314,7 @@ Deferred planned work:
 - `1.3` and `1.8`
   - `1.3` covers storage format, `1.8` covers runtime interfaces
 - `1.7` and actual code implementation
-  - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures, but analyzer algorithms remain unimplemented
+  - analyzer type contracts now include `sourceCells`, partial analysis, and cache structures; note/gliss/mute/tuplet event algorithms are partially implemented in `regression-code/src/core/analyze/`
 - `1.9` and actual MVP implementation
   - `1.9` intentionally narrows the broad analyzer/renderer/audio goals to default note text, `"-"` hold, minimum renderer, and basic audio/playback
 - `2.0` and actual UI shell
@@ -308,9 +325,8 @@ Deferred planned work:
   - `1.9` says renderer consumes `AnalysisResult`; for current implementation this is interpreted as the broad render pipeline, while draw-layer modules consume canvas DTOs and `AnalysisResult` interpretation is isolated to the future `canvas_item_builder.ts`
   - app/controller adapter converts `RuntimeDocument` to `CanvasRenderInput`; analyzer output is converted to note items in renderer-side `canvas_item_builder.ts`
 - `2.2` and actual edit mode implementation
-  - minimal CUSTOM edit, empty-input delete, and right-click delete are implemented
-  - modifier composition beyond defaultText is not yet implemented
-  - tuplet edit module exists as a placeholder boundary only
+  - minimal CUSTOM edit, empty-input delete, right-click delete, modifier composition, and tuplet draft/finalize support are partially implemented
+  - mobile edit mode and advanced edit UX are still out of initial scope
 - `1.0` and current implementation state
   - `1.0` keeps long-term stage goals, current-state tracking belongs here in `HARNESS`
 - `1.0-roadmap` and actual first-stage implementation

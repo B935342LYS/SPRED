@@ -3,9 +3,7 @@
  * sample RuntimeDocument를 로드하고 DOM event를 app 상태 갱신 흐름에 연결한다.
  */
 
-import { loadRuntimeDocument } from "../core/score/create_runtime_document";
 import type {
-  AppState,
   ScoreHit,
   ScoreSelection,
 } from "./app_types";
@@ -21,8 +19,8 @@ import {
   syncTupletEditToolFromDom,
 } from "./app_controller";
 import {
-  applyRawTextToScore,
-  createInitialState,
+  applyRawTextEditToState,
+  loadScoreTextAsInitialState,
 } from "./app_runtime";
 import { composeEditRawText } from "./edit/edit_core";
 import {
@@ -59,13 +57,13 @@ async function boot(): Promise<void> {
 
   populateAbsolutePitchOptions(dom.absolutePitchSelect);
 
-  const loadResult = loadRuntimeDocument(sampleScoreJson);
+  const sampleLoadResult = loadScoreTextAsInitialState(sampleScoreJson, "sample score");
 
-  if (!loadResult.ok) {
-    throw new Error(loadResult.error.message);
+  if (!sampleLoadResult.ok) {
+    throw new Error(sampleLoadResult.message);
   }
 
-  let state = createInitialState(loadResult.document);
+  let state = sampleLoadResult.state;
 
   const render = (): void => {
     state = renderApp(dom, state);
@@ -86,29 +84,8 @@ async function boot(): Promise<void> {
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
 
-    try {
-      const actionState: AppState = {
-        ...state,
-        busy: { kind: "idle" },
-      };
-
-      // rawText를 직접 적용해 좌클릭 입력과 우클릭 삭제가 같은 full rebuild 경로를 사용한다.
-      state = {
-        ...applyRawTextToScore(actionState, selection, rawText),
-        busy: { kind: "idle" },
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Unknown edit error.";
-
-      state = {
-        ...state,
-        busy: { kind: "idle" },
-        statusMessage: {
-          level: "error",
-          text: message,
-        },
-      };
-    }
+    // rawText를 직접 적용해 좌클릭 입력과 우클릭 삭제가 같은 full rebuild 경로를 사용한다.
+    state = applyRawTextEditToState(state, selection, rawText);
 
     render();
   };
@@ -121,7 +98,7 @@ async function boot(): Promise<void> {
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
 
-    const nextLoadResult = loadRuntimeDocument(jsonText);
+    const nextLoadResult = loadScoreTextAsInitialState(jsonText, sourceLabel);
 
     if (!nextLoadResult.ok) {
       state = {
@@ -129,7 +106,7 @@ async function boot(): Promise<void> {
         busy: { kind: "idle" },
         statusMessage: {
           level: "error",
-          text: nextLoadResult.error.message,
+          text: nextLoadResult.message,
         },
       };
       syncLeftStatus(dom, state);
@@ -139,11 +116,8 @@ async function boot(): Promise<void> {
 
     dom.editToggle.checked = false;
     state = {
-      ...createInitialState(nextLoadResult.document),
-      statusMessage: {
-        level: "info",
-        text: `${sourceLabel} loaded.`,
-      },
+      ...nextLoadResult.state,
+      busy: { kind: "idle" },
     };
     render();
   };

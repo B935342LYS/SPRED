@@ -41,11 +41,12 @@ When implementation guidance conflicts, use this priority order:
 4. `docs/2.0-ui-mvp-spec.md`
 5. `docs/2.2-ui-state-edit-mode-spec.md`
 6. `docs/2.1-canvas-renderer-module-spec.md`
-7. `docs/1.5-note-cell-parser-spec.md`
-8. `docs/1.6-global-cell-parser-spec.md`
-9. `docs/1.7-analyzer-event-list-spec.md`
-10. `docs/1.3-score-json-format.md`
-11. `docs/1.0-development-spec.md`
+7. `docs/2.3-audio-playback-module-spec.md`
+8. `docs/1.5-note-cell-parser-spec.md`
+9. `docs/1.6-global-cell-parser-spec.md`
+10. `docs/1.7-analyzer-event-list-spec.md`
+11. `docs/1.3-score-json-format.md`
+12. `docs/1.0-development-spec.md`
 
 Background/reference documents:
 

@@ -6,7 +6,10 @@ import { analyzeDocument } from "../core/analyze/analyze_full";
 import type { AnalysisResult } from "../core/analyze/types";
 import { buildParsedDocument } from "../core/parse/build_parsed_document";
 import type { ParsedScoreDocument } from "../core/parse/types";
-import { createRuntimeDocument } from "../core/score/create_runtime_document";
+import {
+  createRuntimeDocument,
+  loadRuntimeDocument,
+} from "../core/score/create_runtime_document";
 import type {
   RuntimeDocument,
   ScoreFile,
@@ -93,6 +96,45 @@ export function createInitialState(document: RuntimeDocument): AppState {
 }
 
 /**
+ * JSON 문자열을 RuntimeDocument로 로드한 뒤 AppState 초기값으로 변환한다.
+ * - 인수 : jsonText : ScoreFile JSON 문자열
+ * - 인수 : sourceLabel : 사용자 상태 메시지에 표시할 로드 출처
+ * - 반환값 : 로드 성공 시 새 AppState, 실패 시 기존 상태에 표시할 오류 메시지
+ */
+export function loadScoreTextAsInitialState(
+  jsonText: string,
+  sourceLabel: string,
+):
+  | {
+      ok: true;
+      state: AppState;
+    }
+  | {
+      ok: false;
+      message: string;
+    } {
+  const loadResult = loadRuntimeDocument(jsonText);
+
+  if (!loadResult.ok) {
+    return {
+      ok: false,
+      message: loadResult.error.message,
+    };
+  }
+
+  return {
+    ok: true,
+    state: {
+      ...createInitialState(loadResult.document),
+      statusMessage: {
+        level: "info",
+        text: `${sourceLabel} loaded.`,
+      },
+    },
+  };
+}
+
+/**
  * active track의 note cell에 rawText를 적용하고 full rebuild 산출물을 만든다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : editTarget : 이번 rawText 편집을 적용할 score 좌표와 track
@@ -138,4 +180,40 @@ export function applyRawTextToScore(
         : `Applied ${editTarget.trackId} ${editTarget.rowId}:${editTarget.col}`,
     },
   };
+}
+
+/**
+ * edit 적용 전후 busy/status 전환을 포함해 rawText full rebuild를 실행한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : editTarget : rawText 편집을 적용할 score 좌표와 track
+ * - 인수 : rawText : parser가 읽을 note cell rawText
+ * - 반환값 : 성공/실패 상태 메시지가 반영된 앱 상태
+ */
+export function applyRawTextEditToState(
+  state: AppState,
+  editTarget: ScoreSelection,
+  rawText: string,
+): AppState {
+  const actionState: AppState = {
+    ...state,
+    busy: { kind: "idle" },
+  };
+
+  try {
+    return {
+      ...applyRawTextToScore(actionState, editTarget, rawText),
+      busy: { kind: "idle" },
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown edit error.";
+
+    return {
+      ...state,
+      busy: { kind: "idle" },
+      statusMessage: {
+        level: "error",
+        text: message,
+      },
+    };
+  }
 }
