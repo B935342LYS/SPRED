@@ -136,6 +136,7 @@ export type CanvasNoteRenderItem = {
   endTick: number;
   midi: number;
   text: string;
+  displayShape: "rect" | "anchorSquare";
   displayTextAnchors: CanvasNoteDisplayTextAnchor[];
   effects: CanvasNoteEffectSegment[];
   trackId?: string;

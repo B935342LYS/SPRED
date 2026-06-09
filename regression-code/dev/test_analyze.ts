@@ -15,6 +15,7 @@ import type { ScoreFile } from "../src/core/score/types";
 import {
   buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
+  buildCanvasNoteRenderItems,
 } from "../src/renderer/canvas_item_builder";
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
@@ -735,7 +736,7 @@ function testTupletExtendOnlyAnalysis(sourceText: string): void {
 }
 
 /**
- * tuplet slot 내부 gliss anchor가 slot 중심 tick으로 marker 변환되는지 검증한다.
+ * tuplet slot 내부 gliss anchor가 slot 시작 tick으로 marker 변환되고 note item은 정사각형 표시가 되는지 검증한다.
  * - 인수 : sourceText : 기본 fixture JSON 문자열
  * - 반환값 : 없음
  */
@@ -777,9 +778,25 @@ function testTupletGlissAnalysis(sourceText: string): void {
     ],
     analysisIssues: [],
   });
+  const noteItems = buildCanvasNoteRenderItems({
+    timingTimeline: [],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: glissAnalysis.noteEvents,
+      },
+    ],
+    analysisIssues: [],
+  });
   const glissMarkers = markerItems.filter((item) => item.kind === "gliss");
+  const tupletGlissNoteItems = noteItems.filter((item) => item.displayShape === "anchorSquare");
 
   assert(glissMarkers.length === 2, "Tuplet gliss events should convert to two gliss marker items.");
+  assert(
+    tupletGlissNoteItems.length === 2,
+    "Tuplet gliss start/mid slot notes should convert to two anchor-square note items.",
+  );
 
   const firstMarker = glissMarkers[0];
   const secondMarker = glissMarkers[1];
@@ -788,18 +805,43 @@ function testTupletGlissAnalysis(sourceText: string): void {
   assert(secondMarker !== undefined, "Missing second tuplet gliss marker.");
 
   if (firstMarker !== undefined && firstMarker.kind === "gliss") {
-    assertApproximately(firstMarker.startTick, 56 + 1 / 6, "First tuplet gliss should start at slot 0 center.");
-    assertApproximately(firstMarker.endTick, 56 + 1 / 2, "First tuplet gliss should end at slot 1 center.");
+    assertApproximately(firstMarker.startTick, 56, "First tuplet gliss should start at slot 0 start.");
+    assertApproximately(firstMarker.endTick, 56 + 1 / 3, "First tuplet gliss should end at slot 1 start.");
     assert(firstMarker.startRowId === "s1-note-60", "First tuplet gliss start row mismatch.");
     assert(firstMarker.endRowId === "s1-note-62", "First tuplet gliss end row mismatch.");
   }
 
   if (secondMarker !== undefined && secondMarker.kind === "gliss") {
-    assertApproximately(secondMarker.startTick, 56 + 1 / 2, "Second tuplet gliss should start at slot 1 center.");
-    assertApproximately(secondMarker.endTick, 56 + 5 / 6, "Second tuplet gliss should end at slot 2 center.");
+    assertApproximately(secondMarker.startTick, 56 + 1 / 3, "Second tuplet gliss should start at slot 1 start.");
+    assertApproximately(secondMarker.endTick, 56 + 2 / 3, "Second tuplet gliss should end at slot 2 start.");
     assert(secondMarker.startRowId === "s1-note-62", "Second tuplet gliss start row mismatch.");
     assert(secondMarker.endRowId === "s1-note-64", "Second tuplet gliss end row mismatch.");
   }
+
+  assert(
+    tupletGlissNoteItems.some((item) =>
+      item.rowId === "s1-note-60" &&
+      item.startTick === 56 &&
+      item.displayShape === "anchorSquare"
+    ),
+    "Tuplet gliss start note square should be placed at slot 0 start.",
+  );
+  assert(
+    tupletGlissNoteItems.some((item) =>
+      item.rowId === "s1-note-62" &&
+      Math.abs(item.startTick - (56 + 1 / 3)) < 0.000001 &&
+      item.displayShape === "anchorSquare"
+    ),
+    "Tuplet gliss mid note square should be placed at slot 1 start.",
+  );
+  assert(
+    noteItems.some((item) =>
+      item.rowId === "s1-note-64" &&
+      Math.abs(item.startTick - (56 + 2 / 3)) < 0.000001 &&
+      item.displayShape === "rect"
+    ),
+    "Tuplet gliss end note should keep the normal rectangle shape.",
+  );
 }
 
 if (!result.ok) {

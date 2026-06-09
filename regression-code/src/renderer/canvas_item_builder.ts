@@ -44,6 +44,7 @@ export function buildCanvasNoteRenderItems(
         endTick: timeFractionToNumber(event.time.endTick),
         midi: event.sound.midi,
         text: event.text,
+        displayShape: getNoteDisplayShape(event),
         displayTextAnchors: event.displayTextAnchors.map((anchor) => ({
           sourceRowId: anchor.source.rowId,
           sourceCol: anchor.source.col,
@@ -73,6 +74,23 @@ export function buildCanvasNoteRenderItems(
     }
     return (left.trackId ?? "").localeCompare(right.trackId ?? "");
   });
+}
+
+/**
+ * note event의 renderer 표시 형태를 결정한다.
+ * - 인수 : event : analyzer가 확정한 note event
+ * - 반환값 : 일반 사각형 또는 tuplet gliss용 시작점 정사각형 표시 형태
+ */
+function getNoteDisplayShape(event: NoteEvent): CanvasNoteRenderItem["displayShape"] {
+  if (
+    event.tuplet !== null &&
+    event.tuplet !== undefined &&
+    event.glissAnchors.some((anchor) => anchor.role === "start" || anchor.role === "mid")
+  ) {
+    return "anchorSquare";
+  }
+
+  return "rect";
 }
 
 /**

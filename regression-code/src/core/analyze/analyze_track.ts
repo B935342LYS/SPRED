@@ -897,13 +897,26 @@ function createGlissEvent(
     startSound: { ...startAnchor.event.sound },
     endSound: { ...endAnchor.event.sound },
     glissId: startAnchor.glissId,
-    startAnchorTick: createTimeRangeCenterTick(startAnchor.time),
-    endAnchorTick: createTimeRangeCenterTick(endAnchor.time),
+    startAnchorTick: createGlissAnchorTick(startAnchor),
+    endAnchorTick: createGlissAnchorTick(endAnchor),
     fromKind: toGlissFromKind(startAnchor),
     toKind: endAnchor.role === "mid" ? "mid" : "end",
     startAttach: isAnchorInsideMergedEvent(startAnchor) ? "legato" : "attack",
     endAttach: isAnchorBeforeMergedEventEnd(endAnchor) ? "holdContinue" : "release",
   };
+}
+
+/**
+ * gliss anchor의 시각 기준 tick을 만든다.
+ * - 인수 : anchor : gliss anchor 정보
+ * - 반환값 : tuplet slot anchor는 slot 시작 tick, 일반 cell anchor는 cell 중심 tick
+ */
+function createGlissAnchorTick(anchor: GlissAnchor): TimeFraction {
+  if (anchor.source.slotIndex !== undefined) {
+    return cloneTimeFraction(anchor.time.startTick);
+  }
+
+  return createTimeRangeCenterTick(anchor.time);
 }
 
 /**

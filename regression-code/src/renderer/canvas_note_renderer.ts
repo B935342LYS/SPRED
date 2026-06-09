@@ -96,17 +96,21 @@ function createNoteLayoutItem(
 
   const startX = columnToX(item.startTick, layout);
   const endX = columnToX(item.endTick, layout);
-  const x = startX + CANVAS_METRICS.noteInsetX;
   const height = Math.max(
     CANVAS_METRICS.minNoteHeight,
     CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(layout),
   );
   const centerY = getDisplayCenterY(row, item.displayCentOffset, layout);
   const y = centerY - height / 2;
-  const width = Math.max(
-    CANVAS_METRICS.minNoteWidth,
-    endX - startX - CANVAS_METRICS.noteInsetX * 2,
-  );
+  const x = item.displayShape === "anchorSquare"
+    ? startX - height / 2
+    : startX + CANVAS_METRICS.noteInsetX;
+  const width = item.displayShape === "anchorSquare"
+    ? height
+    : Math.max(
+      CANVAS_METRICS.minNoteWidth,
+      endX - startX - CANVAS_METRICS.noteInsetX * 2,
+    );
 
   return {
     ...item,
@@ -208,9 +212,12 @@ function drawNoteText(
       continue;
     }
 
+    const textPlacement = getTextAnchorPlacement(item, anchor, layout);
+
+    context.textAlign = textPlacement.align;
     context.fillText(
       anchor.text,
-      getTextAnchorCenterX(anchor.startTick, anchor.endTick, layout),
+      textPlacement.x,
       item.y + item.height / 2,
     );
   }
@@ -245,7 +252,7 @@ function drawMuteText(
   context.textBaseline = "middle";
   context.fillText(
     item.text,
-    getTextAnchorCenterX(item.startTick, item.endTick, layout),
+    getTickRangeCenterX(item.startTick, item.endTick, layout),
     row.y + row.height / 2,
   );
   context.restore();
@@ -296,6 +303,17 @@ function effectSegmentToDrawRange(
   endTick: number,
   insetX: number = CANVAS_METRICS.noteInsetX,
 ): DrawRange | null {
+  if (item.displayShape === "anchorSquare") {
+    if (!rangesOverlap(item.startTick, item.endTick, startTick, endTick)) {
+      return null;
+    }
+
+    return {
+      x0: item.x + insetX,
+      x1: item.x + item.width - insetX,
+    };
+  }
+
   const x0 = Math.max(item.x, columnToX(startTick, layout) + insetX);
   const x1 = Math.min(item.x + item.width, columnToX(endTick, layout) - insetX);
 
@@ -463,18 +481,78 @@ function drawVibWave(
 }
 
 /**
- * 표시 텍스트 anchor의 시간 범위 중심 x 좌표를 계산한다.
- * - 인수 : startTick : anchor 시작 tick
- * - 인수 : endTick : anchor 끝 tick
+ * 표시 텍스트 anchor의 x 좌표와 정렬 방식을 계산한다.
+ * - 인수 : item : CSS pixel 좌표가 확정된 note item
+ * - 인수 : anchor : 표시 텍스트 anchor
  * - 인수 : layout : CSS pixel 기준 score layout
- * - 반환값 : number : 텍스트를 배치할 x 좌표
+ * - 반환값 : 텍스트를 배치할 x 좌표와 canvas textAlign 값
  */
-function getTextAnchorCenterX(
+function getTextAnchorPlacement(
+  item: CanvasNoteLayoutItem,
+  anchor: CanvasNoteLayoutItem["displayTextAnchors"][number],
+  layout: CanvasScoreLayout,
+): { x: number; align: CanvasTextAlign } {
+  if (item.displayShape === "anchorSquare") {
+    return {
+      x: item.x + item.width / 2,
+      align: "center",
+    };
+  }
+
+  if (isLongTupletSlotTextAnchor(anchor)) {
+    return {
+      x: columnToX(anchor.startTick, layout),
+      align: "left",
+    };
+  }
+
+  return {
+    x: getTickRangeCenterX(anchor.startTick, anchor.endTick, layout),
+    align: "center",
+  };
+}
+
+/**
+ * tuplet slot 텍스트가 1 tick을 넘는 긴 직사각형 안에 표시되는지 확인한다.
+ * - 인수 : anchor : 표시 텍스트 anchor
+ * - 반환값 : 왼쪽 고정 정렬 대상 여부
+ */
+function isLongTupletSlotTextAnchor(
+  anchor: CanvasNoteLayoutItem["displayTextAnchors"][number],
+): boolean {
+  return anchor.sourceSlotIndex !== undefined && anchor.endTick - anchor.startTick > 1;
+}
+
+/**
+ * tick 범위의 중심 x 좌표를 계산한다.
+ * - 인수 : startTick : 범위 시작 tick
+ * - 인수 : endTick : 범위 끝 tick
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 반환값 : number : 중심 x 좌표
+ */
+function getTickRangeCenterX(
   startTick: number,
   endTick: number,
   layout: CanvasScoreLayout,
 ): number {
   return (columnToX(startTick, layout) + columnToX(endTick, layout)) / 2;
+}
+
+/**
+ * 두 배타적 tick 범위가 겹치는지 확인한다.
+ * - 인수 : leftStart : 첫 범위 시작 tick
+ * - 인수 : leftEnd : 첫 범위 배타적 끝 tick
+ * - 인수 : rightStart : 둘째 범위 시작 tick
+ * - 인수 : rightEnd : 둘째 범위 배타적 끝 tick
+ * - 반환값 : 두 범위에 공통 구간이 있는지 여부
+ */
+function rangesOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+): boolean {
+  return leftStart < rightEnd && rightStart < leftEnd;
 }
 
 /**
