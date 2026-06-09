@@ -186,6 +186,9 @@ function testModifierAnalysis(sourceText: string): void {
     { rowId: "s1-note-53", col: 22, rawText: "T@t(3)" },
     { rowId: "s1-note-53", col: 23, rawText: "-" },
     { rowId: "s1-note-53", col: 24, rawText: "~" },
+    { rowId: "s1-note-65", col: 25, rawText: "F4" },
+    { rowId: "s1-note-65", col: 26, rawText: "~" },
+    { rowId: "s1-note-65", col: 27, rawText: "~" },
   );
 
   const modifierAnalysis = analyzeFixtureScore(score);
@@ -202,9 +205,13 @@ function testModifierAnalysis(sourceText: string): void {
   const tremVibEvent = modifierAnalysis.noteEvents.find(
     (event) => tickToNumber(event.time.startTick) === 22,
   );
+  const headVibEvent = modifierAnalysis.noteEvents.find(
+    (event) => tickToNumber(event.time.startTick) === 25,
+  );
 
   assert(absoluteMicroEvent !== undefined, "Missing @p/@m note event.");
   assert(tremVibEvent !== undefined, "Missing @t/~ note event.");
+  assert(headVibEvent !== undefined, "Missing head-vib note event.");
 
   if (absoluteMicroEvent !== undefined) {
     assert(absoluteMicroEvent.sound.midi === 60, "@p should override sound midi.");
@@ -235,6 +242,19 @@ function testModifierAnalysis(sourceText: string): void {
       tremVibEvent.effects[2]?.vib === true &&
         tremVibEvent.effects[2]?.trem === null,
       "~ should create vib segment and stop trem display.",
+    );
+  }
+
+  if (headVibEvent !== undefined) {
+    assert(
+      tickToNumber(headVibEvent.time.startTick) === 25 &&
+        tickToNumber(headVibEvent.time.endTick) === 28,
+      "F4 then two vib holds should merge into 25..28.",
+    );
+    assert(headVibEvent.effects.length === 3, "Head-vib event should keep 3 effect segments.");
+    assert(
+      headVibEvent.effects.every((effect) => effect.vib && effect.trem === null),
+      "Head note should be included in the vibrato segment when followed immediately by '~'.",
     );
   }
 }

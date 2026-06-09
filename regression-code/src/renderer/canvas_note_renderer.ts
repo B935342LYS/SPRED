@@ -452,24 +452,29 @@ function drawVibWave(
   cycleCount: number,
 ): void {
   const width = x1 - x0;
-  const yCenter = item.y + item.height / 2;
+  const yCenter = alignStrokeCoordinate(item.y + item.height / 2);
   const amplitude = Math.max(2, item.height * 0.22);
+  const sampleCount = getVibWaveSampleCount(width, cycleCount);
+  const startX = alignStrokeCoordinate(x0);
+  const endX = alignStrokeCoordinate(x1);
 
   context.save();
   context.strokeStyle = item.trackId === TRACK_EXTRA
     ? CANVAS_COLORS.extraVibWave
     : CANVAS_COLORS.vibWave;
-  context.lineWidth = 1.5;
+  context.lineWidth = 1;
+  context.lineCap = "round";
+  context.lineJoin = "round";
   context.beginPath();
 
-  for (let step = 0; step <= CANVAS_METRICS.vibWaveSampleCount; step += 1) {
-    const progress = step / CANVAS_METRICS.vibWaveSampleCount;
-    const x = x0 + width * progress;
+  for (let step = 0; step <= sampleCount; step += 1) {
+    const progress = step / sampleCount;
+    const x = startX + (endX - startX) * progress;
     const y = yCenter + Math.sin(progress * Math.PI * 2 * cycleCount) * amplitude;
 
     if (step === 0) {
       context.moveTo(x, yCenter);
-    } else if (step === CANVAS_METRICS.vibWaveSampleCount) {
+    } else if (step === sampleCount) {
       context.lineTo(x, yCenter);
     } else {
       context.lineTo(x, y);
@@ -478,6 +483,32 @@ function drawVibWave(
 
   context.stroke();
   context.restore();
+}
+
+/**
+ * vibrato 사인파를 그릴 샘플 수를 계산한다.
+ * - 인수 : width : 사인파를 그릴 x 좌표 폭
+ * - 인수 : cycleCount : 사인파 주기 수
+ * - 반환값 : 구간 길이와 주기 수를 반영한 샘플 개수
+ */
+function getVibWaveSampleCount(width: number, cycleCount: number): number {
+  const byCycle = Math.ceil(cycleCount * CANVAS_METRICS.vibWaveSamplesPerCycle);
+  const byPixel = Math.ceil(Math.max(0, width) / CANVAS_METRICS.vibWavePixelsPerSample);
+
+  return Math.max(
+    CANVAS_METRICS.vibWaveMinSampleCount,
+    byCycle,
+    byPixel,
+  );
+}
+
+/**
+ * 얇은 stroke가 canvas pixel grid에서 덜 흔들리도록 좌표를 보정한다.
+ * - 인수 : value : 원래 CSS pixel 좌표
+ * - 반환값 : 1px stroke에 맞춘 반 픽셀 정렬 좌표
+ */
+function alignStrokeCoordinate(value: number): number {
+  return Math.round(value) + 0.5;
 }
 
 /**

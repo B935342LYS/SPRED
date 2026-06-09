@@ -1485,6 +1485,8 @@ function createEffectSegmentForValues(
   const vib = hold === "~";
 
   if (vib) {
+    extendVibToHeadSegment(previousEvent);
+
     return {
       ...createDefaultEffectSegment(time),
       vib: true,
@@ -1500,6 +1502,26 @@ function createEffectSegmentForValues(
       ? { division: explicitTrem.divNum }
       : previousTrem,
   };
+}
+
+/**
+ * 첫 vibrato hold가 note 머리 바로 다음에 올 때 머리 segment도 vib로 편입한다.
+ * - 인수 : previousEvent : hold로 이어 붙는 이전 NoteEvent
+ * - 반환값 : 없음
+ */
+function extendVibToHeadSegment(previousEvent: NoteEvent | null): void {
+  if (previousEvent === null || previousEvent.effects.length !== 1) {
+    return;
+  }
+
+  const headSegment = previousEvent.effects[0];
+
+  if (headSegment === undefined || headSegment.vib) {
+    return;
+  }
+
+  headSegment.vib = true;
+  headSegment.trem = null;
 }
 
 /**
