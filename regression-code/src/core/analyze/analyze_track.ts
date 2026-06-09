@@ -54,6 +54,10 @@ type GlissAnchor = {
 
 type RowOrderMap = Map<string, number>;
 
+// ============================================================
+// Public entry
+// ============================================================
+
 /**
  * 한 track 내부의 MVP note/gliss event를 분석한다.
  * - 인수 : trackId : 분석 대상 track
@@ -102,6 +106,10 @@ export const analyzeTrackEvents: AnalyzeTrackEventsFn = (
     events: sortAnalyzedEvents(events),
   };
 };
+
+// ============================================================
+// Track iteration helpers
+// ============================================================
 
 /**
  * 현재 col에서 더 이상 hold 연결 후보가 될 수 없는 active note를 제거한다.
@@ -167,6 +175,10 @@ function createRowOrderMap(context: AnalyzeContext): RowOrderMap {
 
   return rowOrderById;
 }
+
+// ============================================================
+// Parsed entry analyzers
+// ============================================================
 
 /**
  * 단일 parsed entry를 analyzer event로 변환하거나 기존 이벤트에 hold로 병합한다.
@@ -308,6 +320,10 @@ function analyzeParsedMuteEntry(
     text: parsedCell.displayText,
   };
 }
+
+// ============================================================
+// Tuplet analyzers
+// ============================================================
 
 /**
  * 단일 pletHead entry를 TupletGroupEvent와 slot note/rest 이벤트로 변환한다.
@@ -705,6 +721,10 @@ function createTupletRestEvent(
   };
 }
 
+// ============================================================
+// Gliss analyzers
+// ============================================================
+
 /**
  * parsed note의 gliss modifier를 NoteEvent와 별도 anchor 목록에 반영한다.
  * - 인수 : glissAnchors : gliss 연결 후보 누적 목록
@@ -1017,6 +1037,10 @@ function isAnchorBeforeMergedEventEnd(anchor: GlissAnchor): boolean {
   return fractionToNumber(anchor.time.endTick) < fractionToNumber(anchor.event.time.endTick);
 }
 
+// ============================================================
+// Event sorting helpers
+// ============================================================
+
 /**
  * analyzer event를 시간과 종류 기준으로 안정 정렬한다.
  * - 인수 : events : 정렬할 analyzer event 목록
@@ -1076,6 +1100,10 @@ function compareSourceCells(
   }
   return left.rowId.localeCompare(right.rowId);
 }
+
+// ============================================================
+// Note position and hold helpers
+// ============================================================
 
 /**
  * 바로 왼쪽 tick에 끝나고 표시/발음 위치가 같은 기존 NoteEvent를 찾는다.
@@ -1269,6 +1297,10 @@ function createNoteDisplayTextAnchorFromValues(
   };
 }
 
+// ============================================================
+// Time helpers
+// ============================================================
+
 /**
  * 정수 tick을 TimeFraction으로 만든다.
  * - 인수 : tick : 정수 tick 값
@@ -1370,6 +1402,10 @@ function fractionToNumber(value: TimeFraction): number {
   return value.numerator / value.denominator;
 }
 
+// ============================================================
+// Effect helpers
+// ============================================================
+
 /**
  * note 전체 구간에 적용되는 기본 effect segment를 만든다.
  * - 인수 : time : note event 시간 범위
@@ -1458,6 +1494,10 @@ function getContinuingTrem(
 
   return previousSegment.trem ?? null;
 }
+
+// ============================================================
+// Stable id helpers
+// ============================================================
 
 /**
  * 첫 source cell 기준으로 안정적인 note event id를 만든다.

@@ -26,6 +26,10 @@ const ESCAPABLE_CHARS = new Set(["\\", "/", "@", "|", "(", ")", "-", "~"]);
 const KNOWN_MODIFIER_TOKENS = ["@g(", "@t(", "@p(", "@m("] as const;
 const TUPLET_POSITION_TOKEN = "@n(" as const;
 
+// ============================================================
+// Public entry
+// ============================================================
+
 /**
  * 노트 영역 셀 하나의 rawText를 ParsedCell로 파싱한다.
  * - 인수 : input : 트랙 셀 좌표와 원본 문자열
@@ -57,6 +61,10 @@ export function parseNoteCell(input: NoteCellParserInput): ParsedCell {
   // 위 특수 셀에 해당하지 않으면 일반 note 셀 문법으로 해석한다.
   return parseNoteText(rawText);
 }
+
+// ============================================================
+// Special top-level cell parsers
+// ============================================================
 
 /**
  * mute 셀 문자열을 표시용 텍스트로 변환한다.
@@ -170,6 +178,10 @@ function parsePletHead(rawText: string): ParsedCell {
   };
 }
 
+// ============================================================
+// Normal note parser
+// ============================================================
+
 /**
  * 일반 note 셀의 hold와 defaultText를 파싱한다.
  * - 인수 : rawText : 일반 note 셀 원본 문자열
@@ -227,6 +239,10 @@ function parseNoteText(rawText: string): ParsedCell {
     modifiers: modifierResult.value,
   };
 }
+
+// ============================================================
+// Modifier parser
+// ============================================================
 
 /**
  * 일반 note 셀의 modifier 묶음을 canonical order대로 파싱한다.
@@ -330,6 +346,10 @@ function parseModifiers(
     nextIndex: index,
   };
 }
+
+// ============================================================
+// Tuplet slot parser
+// ============================================================
 
 /**
  * tuplet head 내부 slot 하나를 파싱한다.
@@ -499,6 +519,10 @@ function parseTupletPosition(
     nextIndex: argsResult.nextIndex,
   };
 }
+
+// ============================================================
+// Modifier part parsers
+// ============================================================
 
 /**
  * gliss modifier를 파싱한다.
@@ -713,6 +737,10 @@ function classifyRemainingModifierError(
   );
 }
 
+// ============================================================
+// Structural scan helpers
+// ============================================================
+
 /**
  * 여는 괄호에 대응하는 닫는 괄호 위치를 찾는다.
  * - 인수 : rawText : 괄호를 포함한 원본 문자열
@@ -829,6 +857,10 @@ function splitTupletSlots(body: string, bodyStartIndex: number): SplitTupletSlot
     nextIndex: bodyStartIndex + body.length,
   };
 }
+
+// ============================================================
+// Text and escape helpers
+// ============================================================
 
 /**
  * 일반 note 셀의 defaultText 구간을 읽는다.
@@ -982,6 +1014,10 @@ function readEscapedChar(
     nextIndex: escapedIndex + 1,
   };
 }
+
+// ============================================================
+// Predicate, value, and error helpers
+// ============================================================
 
 /**
  * rawText가 tuplet head 후보인지 확인한다.
@@ -1179,6 +1215,10 @@ function createParseError(
     message,
   };
 }
+
+// ============================================================
+// Local result types
+// ============================================================
 
 /**
  * 문자열 스캔 성공 또는 실패 결과.
