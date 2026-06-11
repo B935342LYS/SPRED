@@ -96,6 +96,11 @@ export function collectAppDom(): AppDom {
     localSaveButton: queryElement(".local-save-button", HTMLButtonElement),
     localLoadButton: queryElement(".local-load-button", HTMLButtonElement),
     zoomInput: queryElement(".menu-panel input[type='range']", HTMLInputElement),
+    playButton: queryElement(".transport-button[aria-label='Play or pause']", HTMLButtonElement),
+    stopButton: queryElement(".transport-button[aria-label='Stop']", HTMLButtonElement),
+    playbackStatus: queryElement(".playback-status", HTMLElement),
+    volumeInput: queryElement(".audio-row input[type='range']", HTMLInputElement),
+    waveSelect: queryElement(".audio-row select", HTMLSelectElement),
     leftStatusLine: queryElement(".left-status-line", HTMLElement),
   };
 }

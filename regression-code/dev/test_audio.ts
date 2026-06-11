@@ -1,0 +1,207 @@
+import { readFileSync } from "node:fs";
+
+import { analyzeDocument } from "../src/core/analyze/analyze_full";
+import type { AnalyzedTimeSegment } from "../src/core/analyze/types";
+import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
+import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+import { createAudioEventQueue } from "../src/audio/audio_event_queue";
+import { buildAudioSchedule } from "../src/audio/audio_schedule_builder";
+import { createAudioLookaheadScheduler } from "../src/audio/audio_scheduler";
+import type {
+  AudioBackend,
+  AudioScheduleEvent,
+} from "../src/audio/audio_types";
+import { midiToFrequency } from "../src/audio/oscillator_backend";
+import {
+  createTickTimeMapper,
+  numberToTimeFraction,
+  timeFractionToNumber,
+} from "../src/audio/tick_time_mapper";
+
+/**
+ * 테스트 조건이 거짓이면 프로세스를 실패 상태로 만든다.
+ * - 인수 : condition : 통과 여부
+ * - 인수 : message : 실패 시 출력할 설명
+ * - 반환값 : 없음
+ */
+function assert(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+/**
+ * 두 숫자가 허용 오차 안에서 같은지 확인한다.
+ * - 인수 : actual : 실제 값
+ * - 인수 : expected : 기대 값
+ * - 인수 : message : 실패 시 출력할 설명
+ * - 반환값 : 없음
+ */
+function assertNear(actual: number, expected: number, message: string): void {
+  if (Math.abs(actual - expected) > 1e-9) {
+    throw new Error(`${message} actual=${actual} expected=${expected}`);
+  }
+}
+
+/**
+ * constant BPM timing segment를 만든다.
+ * - 인수 : startTick : segment 시작 tick
+ * - 인수 : endTick : segment 끝 tick
+ * - 인수 : bpm : segment BPM
+ * - 인수 : stepsPerBeat : 1 beat당 step 수
+ * - 반환값 : AnalyzedTimeSegment : 테스트용 timing segment
+ */
+function createConstantSegment(
+  startTick: number,
+  endTick: number,
+  bpm: number,
+  stepsPerBeat: number,
+): AnalyzedTimeSegment {
+  return {
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    startBpm: bpm,
+    endBpm: bpm,
+    bpmCurve: "instant",
+    beatsPerBar: 4,
+    stepsPerBeat,
+    sourceCells: [],
+  };
+}
+
+const singleMapper = createTickTimeMapper([
+  createConstantSegment(0, 16, 120, 4),
+]);
+
+assertNear(singleMapper.tickToSeconds(numberToTimeFraction(0)), 0, "tick 0 should be 0s.");
+assertNear(singleMapper.tickToSeconds(numberToTimeFraction(1)), 0.125, "BPM 120 SPB 4 should make 1 tick 0.125s.");
+assertNear(singleMapper.tickToSeconds(numberToTimeFraction(16)), 2, "16 ticks should be 2s.");
+assertNear(singleMapper.getDurationSeconds(), 2, "single segment duration mismatch.");
+assertNear(timeFractionToNumber(singleMapper.secondsToTick(0.125)), 1, "0.125s should map to tick 1.");
+assertNear(timeFractionToNumber(singleMapper.secondsToTick(2)), 16, "duration end should map to end tick.");
+
+const multiMapper = createTickTimeMapper([
+  createConstantSegment(0, 8, 120, 4),
+  createConstantSegment(8, 16, 60, 4),
+]);
+
+assertNear(multiMapper.tickToSeconds(numberToTimeFraction(8)), 1, "second segment should start at 1s.");
+assertNear(multiMapper.tickToSeconds(numberToTimeFraction(9)), 1.25, "BPM 60 SPB 4 should make 1 tick 0.25s.");
+assertNear(multiMapper.tickToSeconds(numberToTimeFraction(16)), 3, "multi segment duration mismatch.");
+assertNear(multiMapper.getDurationSeconds(), 3, "multi segment total duration mismatch.");
+assertNear(timeFractionToNumber(multiMapper.secondsToTick(1)), 8, "1s should map to second segment start tick.");
+assertNear(timeFractionToNumber(multiMapper.secondsToTick(1.25)), 9, "1.25s should map to tick 9.");
+assertNear(timeFractionToNumber(multiMapper.secondsToTick(3)), 16, "multi duration end should map to end tick.");
+
+const fractionalTick = numberToTimeFraction(8.5);
+
+assert(fractionalTick.numerator === 17 && fractionalTick.denominator === 2, "8.5 should reduce to 17/2.");
+assertNear(multiMapper.tickToSeconds(fractionalTick), 1.125, "fractional tick should map inside second segment.");
+assertNear(midiToFrequency(69, 0), 440, "A4 should be 440Hz.");
+assertNear(midiToFrequency(69, 100), midiToFrequency(70, 0), "+100 cents should match the next semitone.");
+assertNear(midiToFrequency(69, -100), midiToFrequency(68, 0), "-100 cents should match the previous semitone.");
+
+const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
+const jsonText = readFileSync(fixtureUrl, "utf8");
+const loadResult = loadRuntimeDocument(jsonText);
+
+assert(loadResult.ok, "Audio schedule fixture should load.");
+
+if (loadResult.ok) {
+  const parsed = buildParsedDocument(loadResult.document);
+  const analysis = analyzeDocument({
+    score: loadResult.document.score,
+    indexes: loadResult.document.indexes,
+    parsed,
+  });
+  const schedule = buildAudioSchedule({
+    analysis,
+    activeTrackIds: ["basic"],
+  });
+  const queue = createAudioEventQueue(schedule);
+  const firstEvent = schedule.events[0];
+
+  assert(schedule.events.length === 6, "Audio schedule should include 6 basic note events.");
+  assertNear(schedule.durationSeconds, 125, "Fixture schedule duration should follow timing timeline.");
+  assert(firstEvent !== undefined, "Audio schedule should have a first event.");
+
+  if (firstEvent !== undefined) {
+    assert(firstEvent.eventId.length > 0, "Audio event should keep analyzer eventId.");
+    assert(firstEvent.trackId === "basic", "Audio event should keep trackId.");
+    assertNear(firstEvent.startSeconds, 0, "First note should start at 0s.");
+    assertNear(firstEvent.endSeconds, 0.5, "First merged 4-tick note should last 0.5s.");
+    assert(firstEvent.midi === 52, "First event should keep final sound MIDI.");
+  }
+
+  assert(queue.getEventCount() === schedule.events.length, "Queue should keep all schedule events.");
+  assert(queue.getEventsStartingInRange(0.125, 0.25).length === 0, "Starting lookup should not repeat an already-started long note.");
+  assert(queue.getEventsOverlappingRange(0.125, 0.25).length === 1, "Overlap lookup should include an already-started long note.");
+  assert(queue.getEventsStartingInRange(0.5, 0.75).length >= 1, "Starting lookup should include events after first note end.");
+
+  const scheduledEvents: Array<{ event: AudioScheduleEvent; offsetSeconds: number }> = [];
+  const backend: AudioBackend = {
+    ensureStarted: () => Promise.resolve(),
+    scheduleEvent: (event, offsetSeconds) => {
+      scheduledEvents.push({ event, offsetSeconds });
+    },
+    getCurrentTime: () => 0,
+    stopAll: () => {
+      scheduledEvents.length = 0;
+    },
+    dispose: () => {
+      scheduledEvents.length = 0;
+    },
+  };
+  const scheduler = createAudioLookaheadScheduler({
+    queue,
+    backend,
+    lookaheadSeconds: 0.2,
+  });
+
+  assert(
+    scheduler.scheduleLookahead(0, { enabled: false }) === 1,
+    "Scheduler should schedule the first event at playback start.",
+  );
+  assertNear(scheduledEvents[0]?.offsetSeconds ?? -1, 0, "First scheduled event should start immediately.");
+  assert(
+    scheduler.scheduleLookahead(0.05, { enabled: false }) === 0,
+    "Scheduler should not repeat an already-started event.",
+  );
+  assert(
+    scheduler.scheduleLookahead(0.49, { enabled: false }) >= 1,
+    "Scheduler should schedule the next event when it enters lookahead.",
+  );
+
+  scheduler.resetScheduledEvents();
+  scheduledEvents.length = 0;
+
+  assert(
+    scheduler.scheduleLookahead(
+      0.55,
+      {
+        enabled: true,
+        startSeconds: 0,
+        endSeconds: 0.6,
+      },
+      0,
+    ) === 1,
+    "Loop wrap lookahead should schedule the first event of the next cycle.",
+  );
+  assertNear(scheduledEvents[0]?.offsetSeconds ?? -1, 0.05, "Wrapped event should be scheduled after loop end.");
+  assert(
+    scheduler.scheduleLookahead(
+      0,
+      {
+        enabled: true,
+        startSeconds: 0,
+        endSeconds: 0.6,
+      },
+      1,
+    ) === 0,
+    "Loop cycle should not duplicate an event already scheduled from wrapped lookahead.",
+  );
+}
+
+console.log("Audio timing mapper test completed.");

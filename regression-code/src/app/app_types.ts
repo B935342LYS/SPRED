@@ -106,5 +106,10 @@ export type AppDom = {
   localSaveButton: HTMLButtonElement;
   localLoadButton: HTMLButtonElement;
   zoomInput: HTMLInputElement;
+  playButton: HTMLButtonElement;
+  stopButton: HTMLButtonElement;
+  playbackStatus: HTMLElement;
+  volumeInput: HTMLInputElement;
+  waveSelect: HTMLSelectElement;
   leftStatusLine: HTMLElement;
 };

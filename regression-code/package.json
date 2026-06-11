@@ -11,6 +11,7 @@
     "test:parse": "tsx ./dev/test_parse.ts",
     "test:edit": "tsx ./dev/test_edit.ts",
     "test:analyze": "tsx ./dev/test_analyze.ts",
+    "test:audio": "tsx ./dev/test_audio.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },
   "devDependencies": {

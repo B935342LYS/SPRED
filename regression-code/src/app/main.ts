@@ -44,7 +44,19 @@ import {
   loadScoreFromLocalStorage,
   saveScoreToLocalStorage,
 } from "../infra/score_local_storage";
+import type { PlaybackController } from "../audio/playback_controller";
+import { createPlaybackController } from "../audio/playback_controller";
+import { buildAudioSchedule } from "../audio/audio_schedule_builder";
+import { createAudioEventQueue } from "../audio/audio_event_queue";
+import { createAudioLookaheadScheduler } from "../audio/audio_scheduler";
+import { createOscillatorBackend } from "../audio/oscillator_backend";
+import { createTickTimeMapper } from "../audio/tick_time_mapper";
+import type { TickTimeMapper } from "../audio/audio_types";
+import { columnToX } from "../renderer/canvas_coordinate";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
+
+const PLAYBACK_LOOKAHEAD_SECONDS = 0.2;
+const PLAYBACK_SCHEDULER_INTERVAL_MS = 25;
 
 /**
  * sample JSON을 로드하고 base canvas renderer를 실행한다.
@@ -64,11 +76,75 @@ async function boot(): Promise<void> {
   }
 
   let state = sampleLoadResult.state;
+  let playback: PlaybackController;
+  let playbackTimeMapper: TickTimeMapper;
+  let playbackRafId: number | null = null;
 
   const render = (): void => {
     state = renderApp(dom, state);
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
+  };
+
+  const stopPlaybackAnimation = (): void => {
+    if (playbackRafId !== null) {
+      cancelAnimationFrame(playbackRafId);
+      playbackRafId = null;
+    }
+  };
+
+  const syncPlaybackStatus = (text: string): void => {
+    dom.playbackStatus.textContent = text;
+    dom.playbackStatus.title = text;
+  };
+
+  const createPlaybackForState = (): PlaybackController => {
+    const schedule = buildAudioSchedule({
+      analysis: state.analysis,
+      activeTrackIds: [state.activeTrackId],
+    });
+    const queue = createAudioEventQueue(schedule);
+    const backend = createOscillatorBackend({
+      waveType: dom.waveSelect.value as OscillatorType,
+      masterVolume: Number(dom.volumeInput.value) / 100,
+    });
+    const scheduler = createAudioLookaheadScheduler({
+      queue,
+      backend,
+      lookaheadSeconds: PLAYBACK_LOOKAHEAD_SECONDS,
+    });
+
+    return createPlaybackController({
+      schedule,
+      scheduler,
+      backend,
+      schedulerIntervalMs: PLAYBACK_SCHEDULER_INTERVAL_MS,
+    });
+  };
+
+  playback = createPlaybackForState();
+  playbackTimeMapper = createTickTimeMapper(state.analysis.timingTimeline);
+
+  const resetPlaybackForCurrentState = (): void => {
+    stopPlaybackAnimation();
+    playback.dispose();
+    playback = createPlaybackForState();
+    playbackTimeMapper = createTickTimeMapper(state.analysis.timingTimeline);
+    syncPlaybackStatus("stopped");
+  };
+
+  const updatePlaybackScroll = (): void => {
+    if (!playback.isPlaying() || state.layout === null) {
+      playbackRafId = null;
+      return;
+    }
+
+    const currentTick = playbackTimeMapper.secondsToTick(playback.getCurrentScoreSeconds());
+    const currentTickNumber = currentTick.numerator / currentTick.denominator;
+
+    // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
+    dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
+    playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
 
   const applyScoreTextEdit = (hit: ScoreHit, rawText: string): void => {
@@ -88,6 +164,7 @@ async function boot(): Promise<void> {
     state = applyRawTextEditToState(state, selection, rawText);
 
     render();
+    resetPlaybackForCurrentState();
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
@@ -120,6 +197,7 @@ async function boot(): Promise<void> {
       busy: { kind: "idle" },
     };
     render();
+    resetPlaybackForCurrentState();
   };
 
   render();
@@ -132,6 +210,43 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", render);
   // zoom 값이 확정되면 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", render);
+  dom.playButton.addEventListener("click", () => {
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    resetPlaybackForCurrentState();
+    playback
+      .playFromStart()
+      .then(() => {
+        dom.scoreArea.scrollLeft = 0;
+        syncPlaybackStatus("playing");
+        stopPlaybackAnimation();
+        playbackRafId = requestAnimationFrame(updatePlaybackScroll);
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unknown playback error.";
+
+        state = {
+          ...state,
+          statusMessage: {
+            level: "error",
+            text: message,
+          },
+        };
+        syncPlaybackStatus("error");
+        syncLeftStatus(dom, state);
+      });
+  });
+  dom.stopButton.addEventListener("click", () => {
+    stopPlaybackAnimation();
+    playback.stop();
+    dom.scoreArea.scrollLeft = 0;
+    syncPlaybackStatus("stopped");
+    syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  });
+  dom.volumeInput.addEventListener("change", resetPlaybackForCurrentState);
+  dom.waveSelect.addEventListener("change", resetPlaybackForCurrentState);
   dom.jsonDownloadButton.addEventListener("click", () => {
     downloadScoreJson(state.document.score);
     state = {
