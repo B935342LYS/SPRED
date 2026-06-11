@@ -69,6 +69,9 @@ export function collectAppDom(): AppDom {
   const tupletSlotInputs = Array.from(
     document.querySelectorAll(".tuplet-slot-input"),
   ).filter((element): element is HTMLInputElement => element instanceof HTMLInputElement);
+  const numberRampButtons = Array.from(
+    document.querySelectorAll(".number-ramp-button"),
+  ).filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement);
 
   return {
     scoreArea: queryElement(".score-area", HTMLElement),
@@ -89,6 +92,8 @@ export function collectAppDom(): AppDom {
     tupletInsertModeSelect: queryElement(".tuplet-insert-mode-select", HTMLSelectElement),
     tupletFinalizeButton: queryElement(".tuplet-finalize-button", HTMLButtonElement),
     tupletSlotInputs,
+    numberRawInput: queryElement(".number-raw-input", HTMLInputElement),
+    numberRampButtons,
     currentRawTextPreview: queryElement(".current-raw-text-preview", HTMLElement),
     jsonLoadButton: queryElement(".json-load-button", HTMLButtonElement),
     jsonDownloadButton: queryElement(".json-download-button", HTMLButtonElement),

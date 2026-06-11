@@ -169,14 +169,14 @@
                 <section class="edit-card number-card" aria-label="Number edit tools">
                     <div class="edit-card-title">Number</div>
                     <div class="edit-control-row">
-                        <input type="number" min="0" step="1" placeholder="num" disabled>
+                        <input class="number-raw-input" type="number" min="0" step="1" placeholder="num">
                         <div class="tempo-mark-group">
                             <span class="micro-label">Tempo mark</span>
                             <div class="pill-row">
-                                <button type="button" class="pill-toggle on" disabled>Instant</button>
-                                <button type="button" class="pill-toggle off" disabled>start&lt;</button>
-                                <button type="button" class="pill-toggle off" disabled>End &gt;</button>
-                                <button type="button" class="pill-toggle off" disabled>End+Start &gt;&lt;</button>
+                                <button type="button" class="pill-toggle number-ramp-button on" data-ramp="none" aria-pressed="true">Instant</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="start" aria-pressed="false">start&lt;</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="end" aria-pressed="false">End &gt;</button>
+                                <button type="button" class="pill-toggle number-ramp-button off" data-ramp="endStart" aria-pressed="false">End+Start &gt;&lt;</button>
                             </div>
                         </div>
                     </div>

@@ -15,6 +15,10 @@ import type {
   TupletGroupEvent,
 } from "../core/analyze/types";
 import type {
+  ScoreFile,
+} from "../core/score/types";
+import type {
+  CanvasGlobalTextRenderItem,
   CanvasMarkerItem,
   CanvasMuteRenderItem,
   CanvasNoteRenderItem,
@@ -142,6 +146,28 @@ export function buildCanvasMuteRenderItems(
     }
     return (left.trackId ?? "").localeCompare(right.trackId ?? "");
   });
+}
+
+/**
+ * ScoreFile의 globalLines.cells 원본 문자열을 renderer 전역 텍스트 item으로 변환한다.
+ * - 인수 : score : 현재 score JSON
+ * - 반환값 : CanvasGlobalTextRenderItem[] : 전역 행에 표시할 rawText 목록
+ */
+export function buildCanvasGlobalTextRenderItems(
+  score: ScoreFile,
+): CanvasGlobalTextRenderItem[] {
+  const items = score.globalLines.cells
+    .filter((cell) => cell.rawText.trim().length > 0)
+    .map((cell) => ({
+      rowId: cell.rowId,
+      col: cell.col,
+      text: cell.rawText,
+    }));
+
+  // draw 순서가 입력 순서에 의존하지 않도록 rowId, col 순서로 정렬한다.
+  return items.sort((left, right) =>
+    left.rowId.localeCompare(right.rowId) || left.col - right.col
+  );
 }
 
 /**

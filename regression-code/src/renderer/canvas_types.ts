@@ -38,6 +38,7 @@ export type CanvasRenderInput = {
 export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
   noteItems: CanvasNoteRenderItem[];
   muteItems: CanvasMuteRenderItem[];
+  globalTextItems: CanvasGlobalTextRenderItem[];
   markerItems: CanvasMarkerItem[];
 };
 
@@ -191,6 +192,17 @@ export type CanvasMuteRenderItem = {
   endTick: number;
   text: string;
   trackId?: string;
+};
+
+/**
+ * globalLines.cells 원본 문자열을 전역 행에 표시할 renderer item.
+ * - 인수 : 없음
+ * - 반환값 : row/column 기준 전역 셀 텍스트 표시 정보
+ */
+export type CanvasGlobalTextRenderItem = {
+  rowId: string;
+  col: number;
+  text: string;
 };
 
 /**

@@ -151,6 +151,10 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
       isTupletTool && slotIndex === activeTupletSlotIndex,
     );
   });
+  dom.numberRawInput.disabled = isBusy;
+  dom.numberRampButtons.forEach((button) => {
+    button.disabled = isBusy;
+  });
   dom.zoomInput.disabled = isBusy;
   dom.tupletModeToggle.textContent = isTupletMode ? "On" : "Off";
   dom.tupletModeToggle.classList.toggle("on", isTupletMode);

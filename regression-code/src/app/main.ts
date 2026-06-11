@@ -4,6 +4,7 @@
  */
 
 import type {
+  NumberEditRamp,
   ScoreHit,
   ScoreSelection,
 } from "./app_types";
@@ -19,9 +20,10 @@ import {
   syncTupletEditToolFromDom,
 } from "./app_controller";
 import {
-  applyRawTextEditToState,
+  applyRawTextBatchEditToState,
   loadScoreTextAsInitialState,
 } from "./app_runtime";
+import type { ScoreTextEdit } from "./edit/edit_apply";
 import { composeEditRawText } from "./edit/edit_core";
 import {
   normalizeMicroPitchInput,
@@ -58,6 +60,27 @@ import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 const PLAYBACK_LOOKAHEAD_SECONDS = 0.2;
 const PLAYBACK_SCHEDULER_INTERVAL_MS = 25;
 
+type RepeatedClickCycleState = {
+  targetKey: string;
+  baseRawText: string;
+  nextStep: 0 | 1 | 2;
+};
+
+type DragEditState = {
+  pointerId: number;
+  button: 0 | 2;
+  startClientX: number;
+  startClientY: number;
+  startHit: ScoreHit | null;
+  lastHit: ScoreHit | null;
+  canDrag: boolean;
+  isDragging: boolean;
+  edits: Map<string, ScoreTextEdit>;
+};
+
+const DRAG_START_DISTANCE_PX = 4;
+const NOTE_ROW_HIT_SLOP_PX = 14;
+
 /**
  * sample JSON을 로드하고 base canvas renderer를 실행한다.
  * - 인수 : 없음
@@ -79,6 +102,9 @@ async function boot(): Promise<void> {
   let playback: PlaybackController;
   let playbackTimeMapper: TickTimeMapper;
   let playbackRafId: number | null = null;
+  let repeatedClickCycle: RepeatedClickCycleState | null = null;
+  let dragEdit: DragEditState | null = null;
+  let suppressNextClick = false;
 
   const render = (): void => {
     state = renderApp(dom, state);
@@ -133,6 +159,163 @@ async function boot(): Promise<void> {
     syncPlaybackStatus("stopped");
   };
 
+  const resetRepeatedClickCycle = (): void => {
+    repeatedClickCycle = null;
+  };
+
+  const getSelectionForHit = (hit: ScoreHit): ScoreSelection => ({
+    ...hit,
+    trackId: state.activeTrackId,
+  });
+
+  const getEditTargetKey = (selection: ScoreSelection): string =>
+    `${selection.trackId}|${selection.rowId}|${selection.col}`;
+
+  const getScoreTextEditKey = (edit: ScoreTextEdit): string =>
+    getEditTargetKey(edit.selection);
+
+  const getPointerEditHit = (event: MouseEvent): ScoreHit | null => {
+    if (state.layout === null) {
+      return null;
+    }
+
+    return hitTestScoreCell(event, dom.scoreStage, state.layout, {
+      nearestNoteSlopPx: NOTE_ROW_HIT_SLOP_PX,
+    });
+  };
+
+  const getExistingRawText = (selection: ScoreSelection): string => {
+    if (selection.rowKind === "global") {
+      const cell = state.document.indexes.globalCellMapByCoord.get(
+        `${selection.rowId}|${selection.col}`,
+      );
+
+      return cell?.rawText ?? "";
+    }
+
+    if (selection.rowKind === "note") {
+      const trackCellMap = state.document.indexes.cellMapByTrackId.get(selection.trackId);
+      const cell = trackCellMap?.get(`${selection.rowId}|${selection.col}`);
+
+      return cell?.rawText ?? "";
+    }
+
+    return "";
+  };
+
+  const cycleRawTextFromExistingCell = (
+    existingRawText: string,
+    baseRawText: string,
+  ): string => {
+    const normalized = existingRawText.trim();
+
+    if (normalized.length === 0) {
+      return baseRawText;
+    }
+
+    if (normalized.startsWith("-")) {
+      return "~";
+    }
+
+    if (normalized.startsWith("~")) {
+      return baseRawText;
+    }
+
+    return "-";
+  };
+
+  const getSelectedNumberRamp = (): NumberEditRamp => {
+    const selectedButton = dom.numberRampButtons.find(
+      (button) => button.getAttribute("aria-pressed") === "true",
+    );
+    const ramp = selectedButton?.dataset.ramp;
+
+    if (ramp === "start" || ramp === "end" || ramp === "endStart") {
+      return ramp;
+    }
+
+    return "none";
+  };
+
+  const setSelectedNumberRamp = (ramp: NumberEditRamp): void => {
+    dom.numberRampButtons.forEach((button) => {
+      const isSelected = button.dataset.ramp === ramp;
+
+      button.setAttribute("aria-pressed", String(isSelected));
+      button.classList.toggle("on", isSelected);
+      button.classList.toggle("off", !isSelected);
+    });
+  };
+
+  const getRampToken = (ramp: NumberEditRamp): string => {
+    if (ramp === "start") {
+      return "<";
+    }
+
+    if (ramp === "end") {
+      return ">";
+    }
+
+    if (ramp === "endStart") {
+      return "><";
+    }
+
+    return "";
+  };
+
+  const composeNumberRawTextForHit = (hit: ScoreHit):
+    | {
+        kind: "apply";
+        rawText: string;
+      }
+    | {
+        kind: "blocked";
+        message: string;
+      } => {
+    if (hit.rowKind !== "global") {
+      return {
+        kind: "blocked",
+        message: "Number input can only edit global rows.",
+      };
+    }
+
+    const numberText = dom.numberRawInput.value.trim();
+
+    if (numberText.length === 0) {
+      return {
+        kind: "blocked",
+        message: "Number input is empty.",
+      };
+    }
+
+    const row = state.document.indexes.rowById.get(hit.rowId);
+
+    if (row?.type !== "global") {
+      return {
+        kind: "blocked",
+        message: "Selected row is not a global row.",
+      };
+    }
+
+    const ramp = getSelectedNumberRamp();
+
+    if (
+      ramp !== "none" &&
+      row.kind !== "bpm" &&
+      row.kind !== "dynamics"
+    ) {
+      return {
+        kind: "blocked",
+        message: `${row.kind} does not allow tempo mark tokens.`,
+      };
+    }
+
+    return {
+      kind: "apply",
+      rawText: `${numberText}${getRampToken(ramp)}`,
+    };
+  };
+
   const updatePlaybackScroll = (): void => {
     if (!playback.isPlaying() || state.layout === null) {
       playbackRafId = null;
@@ -147,11 +330,10 @@ async function boot(): Promise<void> {
     playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
 
-  const applyScoreTextEdit = (hit: ScoreHit, rawText: string): void => {
-    const selection: ScoreSelection = {
-      ...hit,
-      trackId: state.activeTrackId,
-    };
+  const applyScoreTextEdits = (edits: ScoreTextEdit[]): void => {
+    if (edits.length === 0) {
+      return;
+    }
 
     state = {
       ...state,
@@ -160,11 +342,329 @@ async function boot(): Promise<void> {
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
 
-    // rawText를 직접 적용해 좌클릭 입력과 우클릭 삭제가 같은 full rebuild 경로를 사용한다.
-    state = applyRawTextEditToState(state, selection, rawText);
+    // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
+    state = applyRawTextBatchEditToState(state, edits);
 
     render();
     resetPlaybackForCurrentState();
+  };
+
+  const applyRepeatedClickCycle = (hit: ScoreHit, baseRawText: string): string => {
+    const selection = getSelectionForHit(hit);
+    const targetKey = getEditTargetKey(selection);
+
+    if (
+      repeatedClickCycle === null ||
+      repeatedClickCycle.targetKey !== targetKey ||
+      repeatedClickCycle.baseRawText !== baseRawText
+    ) {
+      repeatedClickCycle = {
+        targetKey,
+        baseRawText,
+        nextStep: 1,
+      };
+      return baseRawText;
+    }
+
+    if (repeatedClickCycle.nextStep === 1) {
+      repeatedClickCycle = {
+        ...repeatedClickCycle,
+        nextStep: 2,
+      };
+      return "-";
+    }
+
+    if (repeatedClickCycle.nextStep === 2) {
+      repeatedClickCycle = {
+        ...repeatedClickCycle,
+        nextStep: 0,
+      };
+      return "~";
+    }
+
+    repeatedClickCycle = {
+      ...repeatedClickCycle,
+      nextStep: 1,
+    };
+    return baseRawText;
+  };
+
+  const composeSingleEditForHit = (
+    hit: ScoreHit,
+    options: {
+      useClickCycle: boolean;
+      forceDelete: boolean;
+    },
+  ):
+    | {
+        kind: "edit";
+        edit: ScoreTextEdit;
+      }
+    | {
+        kind: "handled";
+      }
+    | {
+        kind: "blocked";
+        message: string;
+      } => {
+    const mode = state.mode;
+
+    if (mode.kind !== "edit") {
+      return {
+        kind: "blocked",
+        message: "Edit mode is not active.",
+      };
+    }
+
+    if (options.forceDelete) {
+      resetRepeatedClickCycle();
+      return {
+        kind: "edit",
+        edit: {
+          selection: getSelectionForHit(hit),
+          rawText: "",
+        },
+      };
+    }
+
+    if (hit.rowKind === "global") {
+      resetRepeatedClickCycle();
+      const numberResult = composeNumberRawTextForHit(hit);
+
+      if (numberResult.kind === "blocked") {
+        return numberResult;
+      }
+
+      return {
+        kind: "edit",
+        edit: {
+          selection: getSelectionForHit(hit),
+          rawText: numberResult.rawText,
+        },
+      };
+    }
+
+    if (
+      mode.tool.kind === "tuplet" &&
+      dom.tupletInsertModeSelect.value === "SELECT ROW"
+    ) {
+      resetRepeatedClickCycle();
+      const slotTextResult = composeTupletSlotTextFromRow(dom, state, hit);
+
+      if (slotTextResult.kind === "blocked") {
+        return slotTextResult;
+      }
+
+      state = setActiveTupletSlotText(dom, state, slotTextResult.text);
+      syncLeftStatus(dom, state);
+      syncUiControls(dom, state);
+      return {
+        kind: "handled",
+      };
+    }
+
+    const editRawText = mode.tool.kind === "pletExtend"
+      ? {
+          kind: "apply" as const,
+          rawText: "/&",
+        }
+      : mode.tool.kind === "tuplet"
+        ? composeEditRawText({
+            kind: "tuplet",
+            draft: mode.tool.draft,
+          })
+        : composeEditRawText({
+            kind: "default",
+            input: resolveAutoDefaultText(state, mode.tool.input, hit.rowId),
+          });
+
+    if (editRawText.kind === "blocked") {
+      return {
+        kind: "blocked",
+        message: editRawText.message,
+      };
+    }
+
+    let targetHit = hit;
+    let rawText = editRawText.kind === "delete" ? "" : editRawText.rawText;
+
+    if (mode.tool.kind === "tuplet" && editRawText.kind === "apply") {
+      resetRepeatedClickCycle();
+      const placementResult = resolveTupletHeadPlacementHit(state, hit, editRawText.rawText);
+
+      if (placementResult.kind === "blocked") {
+        return placementResult;
+      }
+
+      targetHit = placementResult.hit;
+    } else if (
+      options.useClickCycle &&
+      mode.tool.kind === "default" &&
+      editRawText.kind === "apply" &&
+      hit.rowKind === "note"
+    ) {
+      rawText = applyRepeatedClickCycle(hit, editRawText.rawText);
+    } else {
+      resetRepeatedClickCycle();
+    }
+
+    return {
+      kind: "edit",
+      edit: {
+        selection: getSelectionForHit(targetHit),
+        rawText,
+      },
+    };
+  };
+
+  const applySinglePointerEdit = (
+    hit: ScoreHit,
+    options: {
+      useClickCycle: boolean;
+      forceDelete: boolean;
+    },
+  ): void => {
+    const result = composeSingleEditForHit(hit, options);
+
+    if (result.kind === "blocked") {
+      state = {
+        ...state,
+        statusMessage: {
+          level: "warning",
+          text: result.message,
+        },
+      };
+      syncLeftStatus(dom, state);
+      return;
+    }
+
+    if (result.kind === "handled") {
+      return;
+    }
+
+    applyScoreTextEdits([result.edit]);
+  };
+
+  const composeDragRawTextForHit = (
+    hit: ScoreHit,
+    button: 0 | 2,
+  ):
+    | {
+        kind: "apply";
+        rawText: string;
+      }
+    | {
+        kind: "blocked";
+        message: string;
+      } => {
+    if (button === 2) {
+      return {
+        kind: "apply",
+        rawText: "",
+      };
+    }
+
+    if (hit.rowKind === "global") {
+      return composeNumberRawTextForHit(hit);
+    }
+
+    const mode = state.mode;
+
+    if (mode.kind !== "edit" || mode.tool.kind !== "default") {
+      return {
+        kind: "blocked",
+        message: "Drag edit is only available for Default, Eraser, and Number input.",
+      };
+    }
+
+    const editRawText = composeEditRawText({
+      kind: "default",
+      input: resolveAutoDefaultText(state, mode.tool.input, hit.rowId),
+    });
+
+    if (editRawText.kind === "blocked") {
+      return {
+        kind: "blocked",
+        message: editRawText.message,
+      };
+    }
+
+    const baseRawText = editRawText.kind === "delete" ? "" : editRawText.rawText;
+
+    if (
+      editRawText.kind === "apply" &&
+      !baseRawText.startsWith("//") &&
+      hit.rowKind === "note"
+    ) {
+      return {
+        kind: "apply",
+        rawText: cycleRawTextFromExistingCell(
+          getExistingRawText(getSelectionForHit(hit)),
+          baseRawText,
+        ),
+      };
+    }
+
+    return {
+      kind: "apply",
+      rawText: baseRawText,
+    };
+  };
+
+  const createDragEditForHit = (
+    dragState: DragEditState,
+    hit: ScoreHit,
+  ): ScoreTextEdit | null => {
+    const rawTextResult = composeDragRawTextForHit(hit, dragState.button);
+
+    if (rawTextResult.kind === "blocked") {
+      return null;
+    }
+
+    const selection = getSelectionForHit(hit);
+
+    return {
+      selection,
+      rawText: rawTextResult.rawText,
+    };
+  };
+
+  const addDragEditForHit = (dragState: DragEditState, hit: ScoreHit): void => {
+    // 같은 행에서 빠르게 이동해 중간 열 hit가 누락된 경우 이전 열과 현재 열 사이를 채운다.
+    if (dragState.lastHit !== null && dragState.lastHit.rowId === hit.rowId) {
+      const startCol = Math.min(dragState.lastHit.col, hit.col);
+      const endCol = Math.max(dragState.lastHit.col, hit.col);
+
+      for (let col = startCol; col <= endCol; col += 1) {
+        const interpolatedEdit = createDragEditForHit(dragState, {
+          ...hit,
+          col,
+        });
+
+        if (interpolatedEdit !== null) {
+          dragState.edits.set(getScoreTextEditKey(interpolatedEdit), interpolatedEdit);
+        }
+      }
+    } else {
+      const edit = createDragEditForHit(dragState, hit);
+
+      if (edit !== null) {
+        dragState.edits.set(getScoreTextEditKey(edit), edit);
+      }
+    }
+
+    dragState.lastHit = hit;
+  };
+
+  const shouldStartDragEdit = (event: PointerEvent): boolean => {
+    if (dragEdit === null || dragEdit.isDragging || !dragEdit.canDrag) {
+      return false;
+    }
+
+    const deltaX = event.clientX - dragEdit.startClientX;
+    const deltaY = event.clientY - dragEdit.startClientY;
+
+    return Math.hypot(deltaX, deltaY) >= DRAG_START_DISTANCE_PX;
   };
 
   const loadScoreJsonText = (jsonText: string, sourceLabel: string): void => {
@@ -390,6 +890,17 @@ async function boot(): Promise<void> {
 
     syncDefaultEditInput();
   });
+  dom.numberRawInput.addEventListener("input", resetRepeatedClickCycle);
+  dom.numberRampButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const ramp = button.dataset.ramp;
+
+      if (ramp === "none" || ramp === "start" || ramp === "end" || ramp === "endStart") {
+        setSelectedNumberRamp(ramp);
+        resetRepeatedClickCycle();
+      }
+    });
+  });
   dom.tupletModeToggle.addEventListener("click", () => {
     if (state.mode.kind !== "edit") {
       return;
@@ -486,7 +997,126 @@ async function boot(): Promise<void> {
     });
     input.addEventListener("input", syncTupletEditInput);
   });
+  dom.scoreStage.addEventListener("pointerdown", (event) => {
+    if (
+      state.busy.kind !== "idle" ||
+      state.layout === null ||
+      state.mode.kind !== "edit" ||
+      (event.button !== 0 && event.button !== 2)
+    ) {
+      return;
+    }
+
+    const hit = getPointerEditHit(event);
+
+    event.preventDefault();
+    suppressNextClick = true;
+
+    const button = event.button as 0 | 2;
+    const dragRawText = hit === null ? null : composeDragRawTextForHit(hit, button);
+    const canStartFloatingDrag = button === 2 ||
+      (state.mode.kind === "edit" && state.mode.tool.kind === "default");
+
+    dragEdit = dragRawText?.kind === "apply" || (hit === null && canStartFloatingDrag)
+      ? {
+          pointerId: event.pointerId,
+          button,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          startHit: hit,
+          lastHit: hit,
+          canDrag: true,
+          isDragging: false,
+          edits: new Map(),
+        }
+      : null;
+
+    if (dragRawText?.kind === "blocked") {
+      // 드래그 입력을 지원하지 않는 도구는 pointerup에서 단일 클릭 처리만 수행한다.
+      dragEdit = {
+        pointerId: event.pointerId,
+        button,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startHit: hit,
+        lastHit: hit,
+        canDrag: false,
+        isDragging: false,
+        edits: new Map(),
+      };
+    }
+
+    dom.scoreStage.setPointerCapture(event.pointerId);
+  });
+  dom.scoreStage.addEventListener("pointermove", (event) => {
+    if (
+      dragEdit === null ||
+      dragEdit.pointerId !== event.pointerId ||
+      state.busy.kind !== "idle" ||
+      state.layout === null
+    ) {
+      return;
+    }
+
+    if (shouldStartDragEdit(event)) {
+      dragEdit.isDragging = true;
+      resetRepeatedClickCycle();
+      if (dragEdit.startHit !== null) {
+        addDragEditForHit(dragEdit, dragEdit.startHit);
+      }
+    }
+
+    if (!dragEdit.isDragging) {
+      return;
+    }
+
+    const hit = getPointerEditHit(event);
+
+    if (hit === null) {
+      return;
+    }
+
+    addDragEditForHit(dragEdit, hit);
+  });
+  dom.scoreStage.addEventListener("pointerup", (event) => {
+    if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const completedDrag = dragEdit;
+    dragEdit = null;
+
+    if (dom.scoreStage.hasPointerCapture(event.pointerId)) {
+      dom.scoreStage.releasePointerCapture(event.pointerId);
+    }
+
+    if (completedDrag.isDragging) {
+      applyScoreTextEdits(Array.from(completedDrag.edits.values()));
+      return;
+    }
+
+    if (completedDrag.startHit === null) {
+      return;
+    }
+
+    applySinglePointerEdit(completedDrag.startHit, {
+      useClickCycle: completedDrag.button === 0,
+      forceDelete: completedDrag.button === 2,
+    });
+  });
+  dom.scoreStage.addEventListener("pointercancel", (event) => {
+    if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
+      return;
+    }
+
+    dragEdit = null;
+  });
   dom.scoreStage.addEventListener("click", (event) => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      return;
+    }
+
     if (state.busy.kind !== "idle" || state.layout === null) {
       return;
     }
@@ -512,112 +1142,18 @@ async function boot(): Promise<void> {
       return;
     }
 
-    if (
-      state.mode.tool.kind === "tuplet" &&
-      dom.tupletInsertModeSelect.value === "SELECT ROW"
-    ) {
-      const slotTextResult = composeTupletSlotTextFromRow(dom, state, hit);
-
-      if (slotTextResult.kind === "blocked") {
-        state = {
-          ...state,
-          statusMessage: {
-            level: "warning",
-            text: slotTextResult.message,
-          },
-        };
-        syncLeftStatus(dom, state);
-        return;
-      }
-
-      state = setActiveTupletSlotText(dom, state, slotTextResult.text);
-      syncLeftStatus(dom, state);
-      syncUiControls(dom, state);
-      return;
-    }
-
-    const editRawText = state.mode.tool.kind === "pletExtend"
-      ? {
-          kind: "apply" as const,
-          rawText: "/&",
-        }
-      : state.mode.tool.kind === "tuplet"
-        ? composeEditRawText({
-            kind: "tuplet",
-            draft: state.mode.tool.draft,
-          })
-        : composeEditRawText({
-            kind: "default",
-            input: resolveAutoDefaultText(state, state.mode.tool.input, hit.rowId),
-          });
-
-    if (editRawText.kind === "blocked") {
-      state = {
-        ...state,
-        statusMessage: {
-          level: "warning",
-          text: editRawText.message,
-        },
-      };
-      syncLeftStatus(dom, state);
-      return;
-    }
-
-    let targetHit = hit;
-
-    if (state.mode.tool.kind === "tuplet" && editRawText.kind === "apply") {
-      const placementResult = resolveTupletHeadPlacementHit(state, hit, editRawText.rawText);
-
-      if (placementResult.kind === "blocked") {
-        state = {
-          ...state,
-          statusMessage: {
-            level: "warning",
-            text: placementResult.message,
-          },
-        };
-        syncLeftStatus(dom, state);
-        return;
-      }
-
-      targetHit = placementResult.hit;
-    }
-
-    // edit_core가 합성한 적용/삭제 명령을 score mutation 경계로 넘긴다.
-    applyScoreTextEdit(
-      targetHit,
-      editRawText.kind === "delete" ? "" : editRawText.rawText,
-    );
+    applySinglePointerEdit(hit, {
+      useClickCycle: true,
+      forceDelete: false,
+    });
   });
   dom.scoreStage.addEventListener("contextmenu", (event) => {
     if (state.mode.kind !== "edit") {
       return;
     }
 
-    // edit mode의 score stage 우클릭은 브라우저 메뉴 대신 해당 note cell 삭제로 해석한다.
+    // edit mode의 score stage 우클릭은 브라우저 메뉴 대신 pointer 삭제 입력으로 해석한다.
     event.preventDefault();
-
-    if (state.busy.kind !== "idle" || state.layout === null) {
-      return;
-    }
-
-    const hit = hitTestScoreCell(event, dom.scoreStage, state.layout);
-
-    if (hit === null) {
-      state = {
-        ...state,
-        statusMessage: {
-          level: "warning",
-          text: "Score right-click is outside editable cells.",
-        },
-      };
-
-      syncLeftStatus(dom, state);
-      return;
-    }
-
-    // 빈 rawText 적용은 edit_apply의 삭제 규칙을 사용한다.
-    applyScoreTextEdit(hit, "");
   });
 }
 

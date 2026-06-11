@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/app_controller";
 import { createInitialState } from "../src/app/app_runtime";
+import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
@@ -195,6 +196,41 @@ if (loadResult.ok && tupletResult.kind === "apply") {
   if (placementResult.kind === "hit") {
     assert(placementResult.hit.rowId === "s1-note-60", "Tuplet placement hit should use first slot @n row.");
     assert(placementResult.hit.col === 12, "Tuplet placement hit should keep clicked column.");
+  }
+
+  const batchApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "s1-note-60",
+        rowKind: "note",
+        col: 2,
+      },
+      rawText: "C4",
+    },
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "global-bpm",
+        rowKind: "global",
+        col: 2,
+      },
+      rawText: "120<",
+    },
+  ]);
+
+  assert(batchApplyResult.ok, "Batch edit should apply note and global cells together.");
+
+  if (batchApplyResult.ok) {
+    const noteCell = batchApplyResult.score.tracks
+      .find((track) => track.trackId === "basic")
+      ?.cells.find((cell) => cell.rowId === "s1-note-60" && cell.col === 2);
+    const globalCell = batchApplyResult.score.globalLines.cells.find(
+      (cell) => cell.rowId === "global-bpm" && cell.col === 2,
+    );
+
+    assert(noteCell?.rawText === "C4", "Batch edit should upsert note rawText.");
+    assert(globalCell?.rawText === "120<", "Batch edit should upsert global rawText.");
   }
 }
 

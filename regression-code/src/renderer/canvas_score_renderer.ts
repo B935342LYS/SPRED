@@ -14,6 +14,7 @@ import {
 import { drawScoreNotes } from "./canvas_note_renderer";
 import type {
   CanvasAnalyzedRenderInput,
+  CanvasGlobalTextRenderItem,
   CanvasMarkerItem,
   CanvasMuteRenderItem,
   CanvasRenderInput,
@@ -38,18 +39,34 @@ export function renderCanvasScore(
   const layout = buildCanvasScoreLayout(input, options);
   const noteItems = getNoteItems(input);
   const muteItems = getMuteItems(input);
+  const globalTextItems = getGlobalTextItems(input);
   const markerItems = getMarkerItems(input);
 
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
   drawScoreGrid(target.base.context, layout);
   drawScoreMarkers(target.marker.context, layout, markerItems);
-  drawScoreNotes(target.note.context, layout, noteItems, muteItems);
+  drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
   drawScoreOverlayMarkers(target.note.context, layout, markerItems);
 
   return {
     layout,
   };
+}
+
+/**
+ * renderer 입력에서 global text item 목록을 꺼낸다.
+ * - 인수 : input : base-only 또는 analyzer 연결 renderer 입력
+ * - 반환값 : CanvasGlobalTextRenderItem[] : note layer가 그릴 전역 텍스트 item 목록
+ */
+function getGlobalTextItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasGlobalTextRenderItem[] {
+  if ("globalTextItems" in input) {
+    return input.globalTextItems;
+  }
+
+  return [];
 }
 
 /**

@@ -15,13 +15,18 @@ import type {
   ScoreFile,
 } from "../core/score/types";
 import {
+  buildCanvasGlobalTextRenderItems,
   buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
 import { createCanvasRenderInput } from "./canvas_renderer_adapter";
-import { applyNoteCellRawText } from "./edit/edit_apply";
+import {
+  applyNoteCellRawText,
+  applyScoreCellRawTextBatch,
+} from "./edit/edit_apply";
+import type { ScoreTextEdit } from "./edit/edit_apply";
 import type {
   AppState,
   ScoreSelection,
@@ -63,6 +68,7 @@ export function buildRuntimeArtifacts(document: RuntimeDocument): {
     // note layer는 analyzer 결과만 소비하도록 renderer 입력에 noteItems를 덧붙인다.
     renderInput: {
       ...renderInput,
+      globalTextItems: buildCanvasGlobalTextRenderItems(document.score),
       noteItems: buildCanvasNoteRenderItems(analysis),
       muteItems: buildCanvasMuteRenderItems(analysis),
       markerItems: buildCanvasMarkerItems(analysis),
@@ -183,6 +189,53 @@ export function applyRawTextToScore(
 }
 
 /**
+ * 여러 score cell rawText 편집을 한 번의 full rebuild로 적용한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : full rebuild가 반영된 앱 상태
+ */
+export function applyRawTextBatchToScore(
+  state: AppState,
+  edits: ScoreTextEdit[],
+): AppState {
+  if (edits.length === 0) {
+    return state;
+  }
+
+  const applyResult = applyScoreCellRawTextBatch(state.document.score, edits);
+  const lastSelection = edits[edits.length - 1]?.selection ?? state.selection;
+
+  if (!applyResult.ok) {
+    return {
+      ...state,
+      selection: lastSelection,
+      statusMessage: {
+        level: applyResult.level,
+        text: applyResult.message,
+      },
+    };
+  }
+
+  const nextDocument = createRuntimeDocument(applyResult.score);
+  const artifacts = buildRuntimeArtifacts(nextDocument);
+
+  return {
+    ...state,
+    document: nextDocument,
+    parsed: artifacts.parsed,
+    analysis: artifacts.analysis,
+    renderInput: artifacts.renderInput,
+    selection: lastSelection,
+    statusMessage: {
+      level: "info",
+      text: applyResult.isDelete
+        ? `Cleared ${applyResult.updated} cells.`
+        : `Applied ${applyResult.updated} cells.`,
+    },
+  };
+}
+
+/**
  * edit 적용 전후 busy/status 전환을 포함해 rawText full rebuild를 실행한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : editTarget : rawText 편집을 적용할 score 좌표와 track
@@ -202,6 +255,40 @@ export function applyRawTextEditToState(
   try {
     return {
       ...applyRawTextToScore(actionState, editTarget, rawText),
+      busy: { kind: "idle" },
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown edit error.";
+
+    return {
+      ...state,
+      busy: { kind: "idle" },
+      statusMessage: {
+        level: "error",
+        text: message,
+      },
+    };
+  }
+}
+
+/**
+ * edit 적용 전후 busy/status 전환을 포함해 여러 rawText 편집을 한 번에 적용한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : 성공/실패 상태 메시지가 반영된 앱 상태
+ */
+export function applyRawTextBatchEditToState(
+  state: AppState,
+  edits: ScoreTextEdit[],
+): AppState {
+  const actionState: AppState = {
+    ...state,
+    busy: { kind: "idle" },
+  };
+
+  try {
+    return {
+      ...applyRawTextBatchToScore(actionState, edits),
       busy: { kind: "idle" },
     };
   } catch (error: unknown) {

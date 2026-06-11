@@ -12,6 +12,7 @@ import {
   CANVAS_METRICS,
 } from "./canvas_theme";
 import type {
+  CanvasGlobalTextRenderItem,
   CanvasLayoutRow,
   CanvasMuteRenderItem,
   CanvasNoteLayoutItem,
@@ -34,6 +35,7 @@ export function drawScoreNotes(
   layout: CanvasScoreLayout,
   items: CanvasNoteRenderItem[],
   muteItems: CanvasMuteRenderItem[] = [],
+  globalTextItems: CanvasGlobalTextRenderItem[] = [],
 ): void {
   context.clearRect(0, 0, layout.stageWidth, layout.stageHeight);
 
@@ -55,6 +57,11 @@ export function drawScoreNotes(
   // mute item은 발음 사각형 없이 흰색 텍스트만 note layer 위에 표시한다.
   for (const item of muteItems) {
     drawMuteText(context, layout, rowById, item);
+  }
+
+  // 전역 행 셀 rawText는 note/mute와 같은 overlay layer에 흰색 텍스트로 표시한다.
+  for (const item of globalTextItems) {
+    drawGlobalText(context, layout, rowById, item);
   }
 }
 
@@ -253,6 +260,44 @@ function drawMuteText(
   context.fillText(
     item.text,
     getTickRangeCenterX(item.startTick, item.endTick, layout),
+    row.y + row.height / 2,
+  );
+  context.restore();
+}
+
+/**
+ * globalLines.cells 원본 문자열을 전역 행 셀 중앙에 표시한다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : rowById : layout row 조회 Map
+ * - 인수 : item : 전역 텍스트 표시 item
+ * - 반환값 : 없음
+ */
+function drawGlobalText(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  rowById: Map<string, CanvasLayoutRow>,
+  item: CanvasGlobalTextRenderItem,
+): void {
+  const row = rowById.get(item.rowId);
+
+  if (row === undefined || row.kind !== "global" || item.text === "") {
+    return;
+  }
+
+  const fontSize = Math.max(
+    8,
+    CANVAS_METRICS.globalTextFontSizePx * getLayoutZoom(layout),
+  );
+
+  context.save();
+  context.fillStyle = CANVAS_COLORS.globalText;
+  context.font = `700 ${fontSize}px Arial, sans-serif`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(
+    item.text,
+    columnToX(item.col + 0.5, layout),
     row.y + row.height / 2,
   );
   context.restore();

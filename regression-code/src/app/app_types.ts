@@ -21,6 +21,9 @@ import type { TupletEditDraft } from "./edit/edit_tuplet";
 /** 사용자가 볼 수 있는 짧은 상태 메시지의 중요도. */
 export type UiStatusLevel = "info" | "warning" | "error";
 
+/** number UI에서 선택하는 전역 행 선형 변화 표식. */
+export type NumberEditRamp = "none" | "start" | "end" | "endStart";
+
 /** 왼쪽 메뉴 하단에 표시할 사용자 조작 결과 메시지. */
 export type UiStatusMessage = {
   level: UiStatusLevel;
@@ -99,6 +102,8 @@ export type AppDom = {
   tupletInsertModeSelect: HTMLSelectElement;
   tupletFinalizeButton: HTMLButtonElement;
   tupletSlotInputs: HTMLInputElement[];
+  numberRawInput: HTMLInputElement;
+  numberRampButtons: HTMLButtonElement[];
   currentRawTextPreview: HTMLElement;
   jsonLoadButton: HTMLButtonElement;
   jsonDownloadButton: HTMLButtonElement;
