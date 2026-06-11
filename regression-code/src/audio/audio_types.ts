@@ -23,14 +23,17 @@ export type TickTimeMapper = {
   getDurationSeconds(): number;
 };
 
-/** TickTimeMapper 내부에서 사용할 수 있도록 정규화한 constant tempo segment. */
-export type ConstantTempoMapSegment = {
+/** TickTimeMapper 내부에서 사용할 수 있도록 정규화한 tempo segment. */
+export type TempoMapSegment = {
   source: AnalyzedTimeSegment;
   startTickNumber: number;
   endTickNumber: number;
   startSeconds: number;
   endSeconds: number;
-  secondsPerTick: number;
+  startBpm: number;
+  endBpm: number;
+  bpmCurve: "instant" | "linear";
+  stepsPerBeat: number;
 };
 
 /** lookahead scheduler가 시간 범위로 schedule event를 조회하기 위한 큐 인터페이스. */

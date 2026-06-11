@@ -8,19 +8,21 @@ import type {
   TimeFraction,
 } from "../core/analyze/types";
 import type {
-  ConstantTempoMapSegment,
+  TempoMapSegment,
   TickTimeMapper,
 } from "./audio_types";
 
+const EPSILON = 1e-9;
+
 /**
- * timing timeline에서 constant tempo 기반 TickTimeMapper를 만든다.
+ * timing timeline에서 BPM 보간을 반영한 TickTimeMapper를 만든다.
  * - 인수 : segments : analyzer가 생성한 timing segment 목록
  * - 반환값 : TickTimeMapper : tick/seconds 양방향 변환기
  */
 export function createTickTimeMapper(
   segments: AnalyzedTimeSegment[],
 ): TickTimeMapper {
-  const mapSegments = buildConstantTempoMapSegments(segments);
+  const mapSegments = buildTempoMapSegments(segments);
   const durationSeconds = mapSegments.length === 0
     ? 0
     : mapSegments[mapSegments.length - 1].endSeconds;
@@ -31,15 +33,14 @@ export function createTickTimeMapper(
       const segment = findSegmentByTick(mapSegments, tickNumber);
 
       return segment.startSeconds +
-        (tickNumber - segment.startTickNumber) * segment.secondsPerTick;
+        tickOffsetToSeconds(segment, tickNumber - segment.startTickNumber);
     },
     secondsToTick(seconds: number): TimeFraction {
       const normalizedSeconds = clampSeconds(seconds, durationSeconds);
       const segment = findSegmentBySeconds(mapSegments, normalizedSeconds);
-      const tickNumber = segment.startTickNumber +
-        (normalizedSeconds - segment.startSeconds) / segment.secondsPerTick;
+      const tickOffset = secondsOffsetToTick(segment, normalizedSeconds - segment.startSeconds);
 
-      return numberToTimeFraction(tickNumber);
+      return numberToTimeFraction(segment.startTickNumber + tickOffset);
     },
     getDurationSeconds(): number {
       return durationSeconds;
@@ -72,7 +73,7 @@ export function numberToTimeFraction(value: number): TimeFraction {
 
   const roundedInteger = Math.round(value);
 
-  if (Math.abs(value - roundedInteger) < 1e-9) {
+  if (Math.abs(value - roundedInteger) < EPSILON) {
     return {
       numerator: roundedInteger,
       denominator: 1,
@@ -90,51 +91,57 @@ export function numberToTimeFraction(value: number): TimeFraction {
 }
 
 /**
- * timing segment 목록을 시작 초가 누적된 constant tempo segment 목록으로 바꾼다.
+ * timing segment 목록을 시작 초가 누적된 tempo segment 목록으로 바꾼다.
  * - 인수 : segments : analyzer timing segment 목록
- * - 반환값 : ConstantTempoMapSegment[] : tick/seconds 변환용 segment 목록
+ * - 반환값 : TempoMapSegment[] : tick/seconds 변환용 segment 목록
  */
-function buildConstantTempoMapSegments(
+function buildTempoMapSegments(
   segments: AnalyzedTimeSegment[],
-): ConstantTempoMapSegment[] {
+): TempoMapSegment[] {
   const sortedSegments = [...segments].sort(
     (left, right) =>
       timeFractionToNumber(left.time.startTick) -
       timeFractionToNumber(right.time.startTick),
   );
-  const result: ConstantTempoMapSegment[] = [];
+  const result: TempoMapSegment[] = [];
   let nextStartSeconds = 0;
 
-  // timing segment마다 누적 시작 초와 tick당 초를 계산해 변환 lookup 단위를 만든다.
+  // timing segment마다 누적 시작 초와 BPM 보간 정보를 계산해 변환 lookup 단위를 만든다.
   for (const segment of sortedSegments) {
-    validateConstantTempoSegment(segment);
+    validateTempoSegment(segment);
 
     const startTickNumber = timeFractionToNumber(segment.time.startTick);
     const endTickNumber = timeFractionToNumber(segment.time.endTick);
-    const secondsPerTick = 60 / segment.startBpm / segment.stepsPerBeat;
-    const durationSeconds = (endTickNumber - startTickNumber) * secondsPerTick;
-    const endSeconds = nextStartSeconds + durationSeconds;
-
-    result.push({
+    const mapSegment: TempoMapSegment = {
       source: segment,
       startTickNumber,
       endTickNumber,
       startSeconds: nextStartSeconds,
-      endSeconds,
-      secondsPerTick,
-    });
-    nextStartSeconds = endSeconds;
+      endSeconds: nextStartSeconds,
+      startBpm: segment.startBpm,
+      endBpm: segment.endBpm,
+      bpmCurve: segment.bpmCurve,
+      stepsPerBeat: segment.stepsPerBeat,
+    };
+    const durationSeconds = tickOffsetToSeconds(
+      mapSegment,
+      endTickNumber - startTickNumber,
+    );
+
+    mapSegment.endSeconds = nextStartSeconds + durationSeconds;
+    result.push(mapSegment);
+    nextStartSeconds = mapSegment.endSeconds;
   }
 
   return result;
 }
 
 /**
- * 1차 audio mapper가 지원하는 constant tempo segment인지 확인한다.
+ * timing segment가 audio mapper에 사용할 수 있는 값인지 확인한다.
  * - 인수 : segment : 검사할 analyzer timing segment
  * - 반환값 : 없음
  */
-function validateConstantTempoSegment(segment: AnalyzedTimeSegment): void {
+function validateTempoSegment(segment: AnalyzedTimeSegment): void {
   const startTickNumber = timeFractionToNumber(segment.time.startTick);
   const endTickNumber = timeFractionToNumber(segment.time.endTick);
 
@@ -150,8 +157,87 @@ function validateConstantTempoSegment(segment: AnalyzedTimeSegment): void {
     throw new Error("Timing segment stepsPerBeat must be greater than 0.");
   }
 
-  if (segment.bpmCurve !== "instant" || segment.startBpm !== segment.endBpm) {
-    throw new Error("Linear tempo segments are not supported by the first audio mapper.");
+  if (segment.bpmCurve !== "instant" && segment.bpmCurve !== "linear") {
+    throw new Error("Unsupported timing segment BPM curve.");
+  }
+}
+
+/**
+ * segment 내부 tick offset을 초 offset으로 변환한다.
+ * - 인수 : segment : 정규화된 tempo segment
+ * - 인수 : tickOffset : segment 시작점 기준 tick offset
+ * - 반환값 : number : segment 시작점 기준 seconds offset
+ */
+function tickOffsetToSeconds(
+  segment: TempoMapSegment,
+  tickOffset: number,
+): number {
+  validateFiniteOffset(tickOffset, "tickOffset");
+
+  const durationTicks = segment.endTickNumber - segment.startTickNumber;
+
+  if (
+    segment.bpmCurve === "instant" ||
+    Math.abs(segment.endBpm - segment.startBpm) < EPSILON ||
+    durationTicks === 0
+  ) {
+    return tickOffset * getConstantSecondsPerTick(segment.startBpm, segment.stepsPerBeat);
+  }
+
+  const bpmSlopePerTick = (segment.endBpm - segment.startBpm) / durationTicks;
+  const endBpmAtOffset = segment.startBpm + bpmSlopePerTick * tickOffset;
+
+  return (60 / segment.stepsPerBeat / bpmSlopePerTick) *
+    Math.log(endBpmAtOffset / segment.startBpm);
+}
+
+/**
+ * segment 내부 seconds offset을 tick offset으로 역변환한다.
+ * - 인수 : segment : 정규화된 tempo segment
+ * - 인수 : secondsOffset : segment 시작점 기준 seconds offset
+ * - 반환값 : number : segment 시작점 기준 tick offset
+ */
+function secondsOffsetToTick(
+  segment: TempoMapSegment,
+  secondsOffset: number,
+): number {
+  validateFiniteOffset(secondsOffset, "secondsOffset");
+
+  const durationTicks = segment.endTickNumber - segment.startTickNumber;
+
+  if (
+    segment.bpmCurve === "instant" ||
+    Math.abs(segment.endBpm - segment.startBpm) < EPSILON ||
+    durationTicks === 0
+  ) {
+    return secondsOffset / getConstantSecondsPerTick(segment.startBpm, segment.stepsPerBeat);
+  }
+
+  const bpmSlopePerTick = (segment.endBpm - segment.startBpm) / durationTicks;
+  const exponent = secondsOffset * segment.stepsPerBeat * bpmSlopePerTick / 60;
+
+  return (segment.startBpm * (Math.exp(exponent) - 1)) / bpmSlopePerTick;
+}
+
+/**
+ * constant BPM에서 한 tick의 초 길이를 계산한다.
+ * - 인수 : bpm : BPM 값
+ * - 인수 : stepsPerBeat : 1 beat당 tick 수
+ * - 반환값 : number : seconds per tick
+ */
+function getConstantSecondsPerTick(bpm: number, stepsPerBeat: number): number {
+  return 60 / bpm / stepsPerBeat;
+}
+
+/**
+ * offset 계산 입력이 유한한 값인지 확인한다.
+ * - 인수 : value : 검사할 값
+ * - 인수 : label : 오류 메시지에 사용할 이름
+ * - 반환값 : 없음
+ */
+function validateFiniteOffset(value: number, label: string): void {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number.`);
   }
 }
 
@@ -162,9 +248,9 @@ function validateConstantTempoSegment(segment: AnalyzedTimeSegment): void {
  * - 반환값 : tick을 포함하는 segment
  */
 function findSegmentByTick(
-  segments: ConstantTempoMapSegment[],
+  segments: TempoMapSegment[],
   tickNumber: number,
-): ConstantTempoMapSegment {
+): TempoMapSegment {
   if (segments.length === 0) {
     throw new Error("TickTimeMapper requires at least one timing segment.");
   }
@@ -197,9 +283,9 @@ function findSegmentByTick(
  * - 반환값 : seconds를 포함하는 segment
  */
 function findSegmentBySeconds(
-  segments: ConstantTempoMapSegment[],
+  segments: TempoMapSegment[],
   seconds: number,
-): ConstantTempoMapSegment {
+): TempoMapSegment {
   if (segments.length === 0) {
     throw new Error("TickTimeMapper requires at least one timing segment.");
   }

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
 import type {
   GlissEvent,
+  AnalysisResult,
   MuteEvent,
   NoteEvent,
   RestEvent,
@@ -134,6 +135,7 @@ function analyzeFixtureScore(score: ScoreFile):
       restEvents: RestEvent[];
       tupletGroupEvents: TupletGroupEvent[];
       tupletExtendGroupEvents: TupletExtendGroupEvent[];
+      analysis: AnalysisResult;
     }
   | { ok: false } {
   const modifierResult = loadRuntimeDocument(JSON.stringify(score));
@@ -162,6 +164,7 @@ function analyzeFixtureScore(score: ScoreFile):
     restEvents: getRestEvents(basicTrack?.events ?? []),
     tupletGroupEvents: getTupletGroupEvents(basicTrack?.events ?? []),
     tupletExtendGroupEvents: getTupletExtendGroupEvents(basicTrack?.events ?? []),
+    analysis,
   };
 }
 
@@ -901,6 +904,109 @@ function testTupletGlissAnalysis(sourceText: string): void {
   );
 }
 
+/**
+ * 전역 행의 instant/ramp token이 timing/dynamics timeline segment로 정규화되는지 검증한다.
+ * - 인수 : sourceText : 기본 fixture JSON 문자열
+ * - 반환값 : 없음
+ */
+function testGlobalTimelineAnalysis(sourceText: string): void {
+  const score = parseFixtureScore(sourceText);
+
+  score.globalLines.cells = score.globalLines.cells.map((cell) => {
+    if (cell.rowId === "global-bpm" && cell.col === 0) {
+      return { ...cell, rawText: "120<" };
+    }
+
+    if (cell.rowId === "global-dyn" && cell.col === 0) {
+      return { ...cell, rawText: "100<" };
+    }
+
+    return cell;
+  });
+  score.globalLines.cells.push(
+    { rowId: "global-spb", col: 4, rawText: "2" },
+    { rowId: "global-bpm", col: 8, rawText: "240><" },
+    { rowId: "global-dyn", col: 8, rawText: "60>" },
+    { rowId: "global-bpb", col: 12, rawText: "3" },
+    { rowId: "global-dyn", col: 12, rawText: "80<" },
+    { rowId: "global-bpm", col: 16, rawText: "120>" },
+  );
+
+  const timelineAnalysis = analyzeFixtureScore(score);
+
+  assert(timelineAnalysis.ok, "Global timeline fixture should analyze.");
+
+  if (!timelineAnalysis.ok) {
+    return;
+  }
+
+  const timing = timelineAnalysis.analysis.timingTimeline;
+  const dynamics = timelineAnalysis.analysis.dynamicsTimeline;
+
+  assert(timing.length === 5, "Timing boundaries should split BPM ramp around step and beat changes.");
+  assert(dynamics.length === 3, "Dynamics boundaries should follow dynamics cells only.");
+
+  const firstTiming = timing[0];
+  const secondTiming = timing[1];
+  const thirdTiming = timing[2];
+  const fourthTiming = timing[3];
+  const finalTiming = timing[4];
+
+  if (
+    firstTiming !== undefined &&
+    secondTiming !== undefined &&
+    thirdTiming !== undefined &&
+    fourthTiming !== undefined &&
+    finalTiming !== undefined
+  ) {
+    assert(tickToNumber(firstTiming.time.startTick) === 0, "First timing segment should start at 0.");
+    assert(tickToNumber(firstTiming.time.endTick) === 4, "First timing segment should end at SPB change.");
+    assertApproximately(firstTiming.startBpm, 120, "First ramp start BPM mismatch.");
+    assertApproximately(firstTiming.endBpm, 180, "First ramp end BPM mismatch.");
+    assert(firstTiming.bpmCurve === "linear", "First timing segment should be linear.");
+    assert(firstTiming.stepsPerBeat === 4, "First timing segment should keep initial SPB.");
+
+    assert(tickToNumber(secondTiming.time.startTick) === 4, "Second timing segment should start at SPB change.");
+    assert(tickToNumber(secondTiming.time.endTick) === 8, "Second timing segment should end at endStart BPM.");
+    assertApproximately(secondTiming.startBpm, 180, "Second ramp start BPM mismatch.");
+    assertApproximately(secondTiming.endBpm, 240, "Second ramp end BPM mismatch.");
+    assert(secondTiming.stepsPerBeat === 2, "Second timing segment should use changed SPB.");
+
+    assert(tickToNumber(thirdTiming.time.startTick) === 8, "Third timing segment should start at endStart BPM.");
+    assert(tickToNumber(thirdTiming.time.endTick) === 12, "Third timing segment should end at BPB change.");
+    assertApproximately(thirdTiming.startBpm, 240, "Third ramp start BPM mismatch.");
+    assertApproximately(thirdTiming.endBpm, 180, "Third ramp end BPM mismatch.");
+    assert(thirdTiming.beatsPerBar === 4, "Third timing segment should keep initial BPB.");
+
+    assert(tickToNumber(fourthTiming.time.startTick) === 12, "Fourth timing segment should start at BPB change.");
+    assert(tickToNumber(fourthTiming.time.endTick) === 16, "Fourth timing segment should end at BPM end.");
+    assertApproximately(fourthTiming.startBpm, 180, "Fourth ramp start BPM mismatch.");
+    assertApproximately(fourthTiming.endBpm, 120, "Fourth ramp end BPM mismatch.");
+    assert(fourthTiming.beatsPerBar === 3, "Fourth timing segment should use changed BPB.");
+
+    assert(finalTiming.bpmCurve === "instant", "Completed BPM end should become constant after its col.");
+    assert(finalTiming.startBpm === 120, "Final timing segment should keep BPM end value.");
+  }
+
+  const firstDynamics = dynamics[0];
+  const secondDynamics = dynamics[1];
+  const thirdDynamics = dynamics[2];
+
+  if (
+    firstDynamics !== undefined &&
+    secondDynamics !== undefined &&
+    thirdDynamics !== undefined
+  ) {
+    assert(firstDynamics.curve === "linear", "Completed dynamics ramp should be linear.");
+    assert(firstDynamics.startValue === 100, "Dynamics ramp start mismatch.");
+    assert(firstDynamics.endValue === 60, "Dynamics ramp end mismatch.");
+    assert(secondDynamics.curve === "instant", "Dynamics after ramp end should be instant.");
+    assert(secondDynamics.startValue === 60, "Dynamics after ramp end should keep end value.");
+    assert(thirdDynamics.curve === "instant", "Unmatched dynamics start should degrade to instant.");
+    assert(thirdDynamics.startValue === 80, "Unmatched dynamics start should use its numeric value.");
+  }
+}
+
 if (!result.ok) {
   console.error("Runtime document load failed.");
   console.error(result.error);
@@ -1022,4 +1128,5 @@ if (!result.ok) {
   testTupletContainerPlacementAnalysis(jsonText);
   testTupletExtendOnlyAnalysis(jsonText);
   testTupletGlissAnalysis(jsonText);
+  testGlobalTimelineAnalysis(jsonText);
 }

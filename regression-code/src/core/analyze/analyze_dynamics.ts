@@ -1,88 +1,61 @@
 /**
  * src/core/analyze/analyze_dynamics.ts
- * MVP 범위의 dynamics timeline을 생성한다.
- * 현재 구현은 col 0의 dynamics 시작값만 사용한다.
+ * dynamics 전역 행을 volume 세그먼트 배열로 정규화한다.
  */
 
-import type { ParsedGlobalCellEntry } from "../parse/types";
+import {
+  collectBoundaryColumns,
+  createColumnTimeRange,
+  getValidGlobalEntries,
+  resolveLinearGlobalRange,
+} from "./analyze_global_segments";
 import type {
   AnalyzeContext,
   AnalyzedDynamicsSegment,
   AnalyzeDynamicsTimelineFn,
-  TimeRange,
 } from "./types";
 
 const DEFAULT_DYNAMICS = 100;
 
 /**
- * MVP dynamics timeline을 생성한다.
+ * dynamics timeline을 생성한다.
  * - 인수 : context : score/index/parsed 문맥
- * - 반환값 : AnalyzedDynamicsSegment[] : 문서 전체에 적용되는 단일 dynamics segment
+ * - 반환값 : AnalyzedDynamicsSegment[] : dynamics segment 배열
  */
 export const analyzeDynamicsTimeline: AnalyzeDynamicsTimelineFn = (
   context: AnalyzeContext,
 ): AnalyzedDynamicsSegment[] => {
-  // col 0의 dynamics 전역 셀을 문서 전체 dynamics 시작값으로 가져온다.
-  const dynamicsEntry =
-    context.parsed.globalCellsByKindAndCol.get("dynamics")?.get(0) ?? null;
-  const value = getNumericGlobalValue(dynamicsEntry, DEFAULT_DYNAMICS);
+  const columnCount = context.score.globalLines.columnCount;
+  const dynamicsEntries = getValidGlobalEntries(context, "dynamics");
+  const boundaryColumns = collectBoundaryColumns(columnCount, [
+    dynamicsEntries,
+  ]);
+  const segments: AnalyzedDynamicsSegment[] = [];
 
-  return [
-    {
-      time: createDocumentTimeRange(context),
-      startValue: value,
-      endValue: value,
-      curve: "instant",
-      sourceCells:
-        dynamicsEntry === null
-          ? []
-          : [
-              {
-                rowId: dynamicsEntry.rowId,
-                col: dynamicsEntry.col,
-              },
-            ],
-    },
-  ];
-};
+  // dynamics 전역 셀 경계를 순회하며 상수 또는 선형 volume segment를 만든다.
+  for (let index = 0; index < boundaryColumns.length - 1; index += 1) {
+    const startCol = boundaryColumns[index];
+    const endCol = boundaryColumns[index + 1];
 
-/**
- * ParsedGlobalCellEntry에서 dynamics 숫자 값을 읽는다.
- * - 인수 : entry : parsed global entry 후보
- * - 인수 : fallback : 값이 없거나 invalid일 때 사용할 기본값
- * - 반환값 : number : dynamics timeline에 사용할 값
- */
-function getNumericGlobalValue(
-  entry: ParsedGlobalCellEntry | null,
-  fallback: number,
-): number {
-  const parsedCell = entry?.parsedCell;
+    if (endCol <= startCol) {
+      continue;
+    }
 
-  // 정상 숫자 global cell이면 parser가 만든 value를 dynamics 값으로 사용한다.
-  if (
-    parsedCell?.kind === "instantGlobalValue" ||
-    parsedCell?.kind === "linearGlobalValue"
-  ) {
-    return parsedCell.value;
+    const dynamicsRange = resolveLinearGlobalRange(
+      dynamicsEntries,
+      startCol,
+      endCol,
+      DEFAULT_DYNAMICS,
+    );
+
+    segments.push({
+      time: createColumnTimeRange(startCol, endCol),
+      startValue: dynamicsRange.startValue,
+      endValue: dynamicsRange.endValue,
+      curve: dynamicsRange.curve,
+      sourceCells: dynamicsRange.sourceCells,
+    });
   }
 
-  return fallback;
-}
-
-/**
- * 문서 전체 범위의 TimeRange를 만든다.
- * - 인수 : context : score/index/parsed 문맥
- * - 반환값 : TimeRange : 0부터 columnCount까지의 시간 범위
- */
-function createDocumentTimeRange(context: AnalyzeContext): TimeRange {
-  return {
-    startTick: {
-      numerator: 0,
-      denominator: 1,
-    },
-    endTick: {
-      numerator: context.score.globalLines.columnCount,
-      denominator: 1,
-    },
-  };
-}
+  return segments;
+};

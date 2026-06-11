@@ -71,6 +71,36 @@ function createConstantSegment(
   };
 }
 
+/**
+ * linear BPM timing segment를 만든다.
+ * - 인수 : startTick : segment 시작 tick
+ * - 인수 : endTick : segment 끝 tick
+ * - 인수 : startBpm : 시작 BPM
+ * - 인수 : endBpm : 종료 BPM
+ * - 인수 : stepsPerBeat : 1 beat당 step 수
+ * - 반환값 : AnalyzedTimeSegment : 테스트용 timing segment
+ */
+function createLinearSegment(
+  startTick: number,
+  endTick: number,
+  startBpm: number,
+  endBpm: number,
+  stepsPerBeat: number,
+): AnalyzedTimeSegment {
+  return {
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    startBpm,
+    endBpm,
+    bpmCurve: "linear",
+    beatsPerBar: 4,
+    stepsPerBeat,
+    sourceCells: [],
+  };
+}
+
 const singleMapper = createTickTimeMapper([
   createConstantSegment(0, 16, 120, 4),
 ]);
@@ -94,6 +124,26 @@ assertNear(multiMapper.getDurationSeconds(), 3, "multi segment total duration mi
 assertNear(timeFractionToNumber(multiMapper.secondsToTick(1)), 8, "1s should map to second segment start tick.");
 assertNear(timeFractionToNumber(multiMapper.secondsToTick(1.25)), 9, "1.25s should map to tick 9.");
 assertNear(timeFractionToNumber(multiMapper.secondsToTick(3)), 16, "multi duration end should map to end tick.");
+
+const linearMapper = createTickTimeMapper([
+  createLinearSegment(0, 8, 120, 240, 4),
+]);
+
+assertNear(
+  linearMapper.tickToSeconds(numberToTimeFraction(4)),
+  Math.log(1.5),
+  "Linear BPM 120..240 should integrate to ln(1.5) seconds at tick 4.",
+);
+assertNear(
+  linearMapper.tickToSeconds(numberToTimeFraction(8)),
+  Math.log(2),
+  "Linear BPM 120..240 should integrate to ln(2) seconds at tick 8.",
+);
+assertNear(
+  timeFractionToNumber(linearMapper.secondsToTick(Math.log(1.5))),
+  4,
+  "Linear BPM inverse mapping should recover tick 4.",
+);
 
 const fractionalTick = numberToTimeFraction(8.5);
 

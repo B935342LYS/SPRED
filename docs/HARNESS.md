@@ -222,9 +222,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the edit-mode driven visual verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> JSON download/load verification
-- Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation
-- gliss, mute, trem/vib, and tuplet analyzer/render connections have first-pass implementations and are being visually tuned before audio work
+- current focus is the edit/playback verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> optional Web Audio playback check
+- Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
+- gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
 
@@ -268,14 +268,17 @@ If memo content is explicitly adopted by the user for implementation order or st
 - note rendering currently displays legacy-like track colors, 21px note rectangle height, black text except extra, and per-cell `displayTextAnchors`
 - the UI shell now uses canvas layers instead of the temporary static score grid
 - the left menu status line has been added for user-facing load/edit/error messages
-- minimal edit mode is implemented for the `basic` track: CUSTOM text input writes note cell rawText, empty input deletes a cell, and edit-mode right click deletes a note cell
+- minimal edit mode is implemented for the `basic` track: CUSTOM/AUTO/default modifier input writes note cell rawText, empty input deletes a cell, and edit-mode right click deletes cells
 - CUSTOM defaultText input escapes parser reserved characters internally while showing the user-entered characters in the input and rendered score
-- edit-mode mutation currently performs full rebuild: `ScoreFile` mutation -> `createRuntimeDocument()` -> `buildParsedDocument()` -> `analyzeDocument()` -> `buildCanvasNoteRenderItems()` -> `renderCanvasScore()`
+- edit-mode mutation currently performs full rebuild: `ScoreFile` mutation -> `createRuntimeDocument()` -> `buildParsedDocument()` -> `analyzeDocument()` -> canvas item builders -> `renderCanvasScore()`
+- edit-mode mutation now supports note/global batch edits so drag input can update many cells before a single full rebuild
 - `src/app/edit/` now separates edit logic into `edit_core.ts`, `edit_default.ts`, `edit_tuplet.ts`, and `edit_apply.ts`
-- `edit_core.ts` returns apply/delete/blocked commands, `edit_default.ts` handles defaultText escaping and note rawText composition, `edit_tuplet.ts` is a placeholder boundary for tuplet draft/finalize, and `edit_apply.ts` applies note cell upsert/delete to `ScoreFile`
-- score pointer coordinate resolution currently uses the graphics UI convention name `hitTestScoreCell()`
+- `edit_core.ts` returns apply/delete/blocked commands, `edit_default.ts` handles defaultText escaping and note rawText composition, `edit_tuplet.ts` handles tuplet draft/finalize helpers, and `edit_apply.ts` applies note/global cell upsert/delete to `ScoreFile`
+- score pointer coordinate resolution currently uses the graphics UI convention name `hitTestScoreCell()` and edit-mode hit testing can use nearest-note row slop for thin note rows
 - `main.ts` has been partially modularized into `app_types.ts`, `app_dom.ts`, `app_runtime.ts`, `app_ui_sync.ts`, `app_controller.ts`, `pitch_label.ts`, and `score_hit_test.ts`
 - edit mode now supports Default AUTO sharp/flat, CUSTOM, comment, eraser, long hold, vibrato hold, Gliss input controls, Trem input controls, absolutePitch dropdown, and microPitch normalization
+- edit mode now supports same-cell click cycle `currentText -> - -> ~ -> currentText`, left-drag install, right-drag delete, and per-cell drag loop based on existing rawText
+- Number UI is always available in edit mode for global rows; `bpm` and `dynamics` accept ramp tokens while `beatsPerBar` and `stepsPerBeat` remain numeric-only
 - CUSTOM defaultText input is limited to 10 characters and escapes parser reserved characters at rawText composition time
 - absolutePitch UI uses a high-to-low sharp-note dropdown instead of direct MIDI number input
 - `@p(0)` and `@m(0)` are omitted from composed rawText because they have no effect
@@ -291,18 +294,27 @@ If memo content is explicitly adopted by the user for implementation order or st
 - gliss analyzer/render now supports connected S/M/E segments, orphan anchor markers, duplicate same-column anchor filtering, trem+gliss dashed outgoing segments, and tuplet slot anchor coordinates
 - tuplet analyzer/render now supports `/n(...)` head plus `/&` group spans, slot note/rest events, extend-only containers, first-slot based placement, dotted 21px containers, and slot gliss display rules
 - long tuplet slot gliss start/mid notes use `anchorSquare` display while short slots and end anchors keep normal rectangles; long slot text is left-aligned in the renderer
+- renderer now displays `globalLines.cells` rawText as white text on global rows through `CanvasGlobalTextRenderItem`
+- audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
+- UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
+- current audio backend intentionally ignores gliss, vibrato, tremolo, dynamics automation, and sampled instrument playback; these remain later backend extensions
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
 - `docs/implementation-memo/1.17-step2-gliss-mute-marker-rendering.md` records gliss, mute, trem+gliss, and vibrato renderer decisions
 - `docs/implementation-memo/1.18-step3-tuplet-analyzer-first-pass.md` records tuplet analyzer/render first-pass decisions
 - `docs/implementation-memo/1.19-step4-audio-open-source-survey.md` records audio open-source survey and adoption candidates
-- `docs/2.3-audio-playback-module-spec.md` defines the planned audio generator, playback controller, lookahead scheduler, and Web Audio backend structure before implementation
-- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:parse`, `npm run test:analyze`
+- `docs/implementation-memo/1.20-step4-playback-edit-global-visualization.md` records audio playback, edit UX, batch edit, and global rawText visualization progress
+- `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
+- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:edit`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- connect gliss pitch ramp, vibrato modulation, trem division, and tuplet timing to the audio generator
+- implement multiple timing segments from global tempo rows and make playback tick/seconds mapping follow those segments
+- connect gliss pitch ramp, vibrato modulation, trem division, dynamics automation, and tuplet timing to the audio generator
+- add loop playback range selection and scheduler/controller support
+- evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
+- add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
 - connect the center player group to real score metadata and enable Details information editing
 - define a production build path that strips or minifies comments for GitHub Pages deployment

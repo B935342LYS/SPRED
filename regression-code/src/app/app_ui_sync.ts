@@ -198,18 +198,24 @@ export function createRenderOptions(zoomInput: HTMLInputElement): CanvasRenderOp
 /**
  * renderer 결과 크기를 CSS 변수에 반영해 scroll container와 canvas style을 맞춘다.
  * - 인수 : stageWidth : score stage CSS pixel 너비
+ * - 인수 : scrollWidth : score area에서 실제로 스크롤 가능한 stage CSS pixel 너비
  * - 인수 : stageHeight : score stage CSS pixel 높이
  * - 인수 : layoutWidth : layout label area CSS pixel 너비
  * - 반환값 : 없음
  */
 export function updateStageCssVars(
   stageWidth: number,
+  scrollWidth: number,
   stageHeight: number,
   layoutWidth: number,
 ): void {
   document.documentElement.style.setProperty(
     "--score-stage-width",
     `${stageWidth}px`,
+  );
+  document.documentElement.style.setProperty(
+    "--score-scroll-width",
+    `${scrollWidth}px`,
   );
   document.documentElement.style.setProperty(
     "--score-stage-height",
@@ -236,8 +242,12 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   );
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
+  // 오른쪽 tail 폭은 playback 기준선이 마지막 tick까지 따라갈 수 있도록 scroll extent만 확장한다.
+  const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
+
   updateStageCssVars(
     result.layout.stageWidth,
+    result.layout.stageWidth + horizontalTailWidth,
     result.layout.stageHeight,
     result.layout.layoutWidth,
   );
