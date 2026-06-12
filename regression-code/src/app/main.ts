@@ -328,7 +328,7 @@ async function boot(): Promise<void> {
       return;
     }
 
-    const previewHitKey = `${hit.rowId}|${hit.col}`;
+    const previewHitKey = hit.rowId;
 
     if (previewHitKey === lastPreviewHitKey) {
       return;

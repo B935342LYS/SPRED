@@ -9,6 +9,7 @@ import type { AppDom } from "./app_types";
 
 const PREVIEW_DURATION_SECONDS = 0.12;
 const PREVIEW_VOLUME_SCALE = 0.65;
+const PREVIEW_MIN_INTERVAL_MS = 60;
 
 /** note row 입력 preview runtime 계약. */
 export type AppNotePreviewRuntime = {
@@ -28,17 +29,24 @@ export function createAppNotePreviewRuntime(dom: AppDom): AppNotePreviewRuntime 
     attackSeconds: 0.003,
     releaseSeconds: 0.035,
   });
+  let lastPreviewAtMs = 0;
 
   return {
     previewMidi(midi: number): void {
+      const nowMs = performance.now();
+
       if (!Number.isFinite(midi)) {
         return;
       }
+      if (nowMs - lastPreviewAtMs < PREVIEW_MIN_INTERVAL_MS) {
+        return;
+      }
 
-      // 입력 preview는 짧은 단발음이므로 이전 preview를 끊고 새 음을 즉시 예약한다.
+      lastPreviewAtMs = nowMs;
+
+      // 입력 preview는 짧은 단발음이므로 이전 음은 release에 맡기고 새 음을 최소 간격으로 제한한다.
       backend.ensureStarted()
         .then(() => {
-          backend.stopAll();
           backend.scheduleEvent(createPreviewScheduleEvent(midi), 0);
         })
         .catch(() => {
