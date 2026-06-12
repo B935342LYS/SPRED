@@ -132,7 +132,11 @@ export type AppDom = {
   detailsYoutubeOffsetInput: HTMLInputElement;
   playButton: HTMLButtonElement;
   stopButton: HTMLButtonElement;
+  seekInput: HTMLInputElement;
+  seekCurrentLabel: HTMLElement;
+  seekDurationLabel: HTMLElement;
   playbackStatus: HTMLElement;
+  tempoStatus: HTMLElement;
   musicArtist: HTMLElement;
   musicTitle: HTMLElement;
   volumeInput: HTMLInputElement;

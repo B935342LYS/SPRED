@@ -52,11 +52,11 @@ import { columnToX } from "../renderer/canvas_coordinate";
 import {
   createAppPlaybackRuntime,
   type AppPlaybackRuntime,
-} from "./app_playback";
+} from "./playback/app_playback";
 import {
   createAppNotePreviewRuntime,
   type AppNotePreviewRuntime,
-} from "./app_note_preview";
+} from "./playback/app_note_preview";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 
 type RepeatedClickCycleState = {
@@ -123,6 +123,96 @@ async function boot(): Promise<void> {
   const syncPlaybackStatus = (text: string): void => {
     dom.playbackStatus.textContent = text;
     dom.playbackStatus.title = text;
+  };
+
+  const formatSeekInputSeconds = (seconds: number): string => {
+    if (!Number.isFinite(seconds)) {
+      return "0";
+    }
+
+    return String(Math.round(seconds));
+  };
+
+  const formatPlaybackClock = (seconds: number): string => {
+    const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainingSeconds = safeSeconds % 60;
+
+    return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+  };
+
+  const syncTempoStatus = (scoreSeconds: number): void => {
+    const tick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
+    const tickNumber = tick.numerator / tick.denominator;
+    const bpm = resolveBpmAtTick(tickNumber);
+    const bpmText = bpm === null
+      ? "--"
+      : bpm.toFixed(Number.isInteger(bpm) ? 0 : 1);
+
+    dom.tempoStatus.textContent = `BPM: ${bpmText}`;
+    dom.tempoStatus.title = `BPM: ${bpmText}`;
+  };
+
+  const resolveBpmAtTick = (tick: number): number | null => {
+    const segments = state.analysis.timingTimeline;
+    const fallbackSegment = segments[segments.length - 1];
+    const segment = segments.find((candidate) => {
+      const startTick = candidate.time.startTick.numerator / candidate.time.startTick.denominator;
+      const endTick = candidate.time.endTick.numerator / candidate.time.endTick.denominator;
+
+      return tick >= startTick && tick < endTick;
+    }) ?? fallbackSegment;
+
+    if (segment === undefined) {
+      return null;
+    }
+
+    const startTick = segment.time.startTick.numerator / segment.time.startTick.denominator;
+    const endTick = segment.time.endTick.numerator / segment.time.endTick.denominator;
+
+    if (
+      segment.bpmCurve !== "linear" ||
+      endTick <= startTick ||
+      segment.startBpm === segment.endBpm
+    ) {
+      return segment.startBpm;
+    }
+
+    const progress = Math.min(Math.max((tick - startTick) / (endTick - startTick), 0), 1);
+
+    return segment.startBpm + (segment.endBpm - segment.startBpm) * progress;
+  };
+
+  const syncSeekUi = (scoreSeconds: number): void => {
+    const durationSeconds = playbackRuntime.timeMapper.getDurationSeconds();
+    const clampedSeconds = Math.min(Math.max(scoreSeconds, 0), Math.max(0, durationSeconds));
+
+    dom.seekInput.max = formatSeekInputSeconds(durationSeconds);
+    dom.seekInput.value = formatSeekInputSeconds(clampedSeconds);
+    dom.seekCurrentLabel.textContent = formatPlaybackClock(clampedSeconds);
+    dom.seekDurationLabel.textContent = formatPlaybackClock(durationSeconds);
+    syncTempoStatus(clampedSeconds);
+  };
+
+  const syncPlaybackUi = (): void => {
+    const playbackState = playbackRuntime.controller.getState();
+    const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
+
+    syncSeekUi(currentScoreSeconds);
+    syncPlaybackStatus(playbackState.kind);
+    dom.playButton.textContent = playbackState.kind === "playing" ? "❚❚" : "▶";
+  };
+
+  const scrollToScoreSeconds = (scoreSeconds: number): void => {
+    if (state.layout === null) {
+      return;
+    }
+
+    const currentTick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
+    const currentTickNumber = currentTick.numerator / currentTick.denominator;
+
+    dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
+    syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   };
 
   const setZoomPercent = (zoomPercent: number, minZoomPercent?: number): void => {
@@ -279,7 +369,7 @@ async function boot(): Promise<void> {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
-    syncPlaybackStatus("stopped");
+    syncPlaybackUi();
   };
 
   const resetNotePreviewForCurrentDom = (): void => {
@@ -480,16 +570,17 @@ async function boot(): Promise<void> {
   const updatePlaybackScroll = (): void => {
     if (!playbackRuntime.controller.isPlaying() || state.layout === null) {
       playbackRafId = null;
+      syncPlaybackUi();
       return;
     }
 
-    const currentTick = playbackRuntime.timeMapper.secondsToTick(
-      playbackRuntime.controller.getCurrentScoreSeconds(),
-    );
+    const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
+    const currentTick = playbackRuntime.timeMapper.secondsToTick(currentScoreSeconds);
     const currentTickNumber = currentTick.numerator / currentTick.denominator;
 
     // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
     dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
+    syncSeekUi(currentScoreSeconds);
     playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
 
@@ -890,6 +981,7 @@ async function boot(): Promise<void> {
   };
 
   render();
+  syncPlaybackUi();
   setStatus(0, "sample auto load: done");
 
   // score 영역이 스크롤될 때 layout label stage의 세로 위치를 함께 이동한다.
@@ -924,12 +1016,24 @@ async function boot(): Promise<void> {
       return;
     }
 
-    resetPlaybackForCurrentState();
-    playbackRuntime.controller
-      .playFromStart()
+    const playbackState = playbackRuntime.controller.getState();
+
+    if (playbackState.kind === "playing") {
+      playbackRuntime.controller.pause();
+      stopPlaybackAnimation();
+      syncPlaybackUi();
+      scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
+      return;
+    }
+
+    const playRequest = playbackState.kind === "paused"
+      ? playbackRuntime.controller.resume()
+      : playbackRuntime.controller.playFromSeconds(Number(dom.seekInput.value));
+
+    playRequest
       .then(() => {
-        dom.scoreArea.scrollLeft = 0;
-        syncPlaybackStatus("playing");
+        syncPlaybackUi();
+        scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
         stopPlaybackAnimation();
         playbackRafId = requestAnimationFrame(updatePlaybackScroll);
       })
@@ -950,9 +1054,40 @@ async function boot(): Promise<void> {
   dom.stopButton.addEventListener("click", () => {
     stopPlaybackAnimation();
     playbackRuntime.controller.stop();
-    dom.scoreArea.scrollLeft = 0;
-    syncPlaybackStatus("stopped");
-    syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+    syncPlaybackUi();
+    scrollToScoreSeconds(0);
+  });
+  dom.seekInput.addEventListener("input", () => {
+    const scoreSeconds = Number(dom.seekInput.value);
+
+    syncSeekUi(scoreSeconds);
+    scrollToScoreSeconds(scoreSeconds);
+  });
+  dom.seekInput.addEventListener("change", () => {
+    const scoreSeconds = Number(dom.seekInput.value);
+
+    playbackRuntime.controller.seekToSeconds(scoreSeconds)
+      .then(() => {
+        syncPlaybackUi();
+        scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
+        if (playbackRuntime.controller.isPlaying()) {
+          stopPlaybackAnimation();
+          playbackRafId = requestAnimationFrame(updatePlaybackScroll);
+        }
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unknown seek error.";
+
+        state = {
+          ...state,
+          statusMessage: {
+            level: "error",
+            text: message,
+          },
+        };
+        syncPlaybackStatus("error");
+        syncLeftStatus(dom, state);
+      });
   });
   dom.volumeInput.addEventListener("change", () => {
     resetPlaybackForCurrentState();

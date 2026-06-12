@@ -7,6 +7,7 @@ import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import { createAudioEventQueue } from "../src/audio/audio_event_queue";
 import { buildAudioSchedule } from "../src/audio/audio_schedule_builder";
 import { createAudioLookaheadScheduler } from "../src/audio/audio_scheduler";
+import { createPlaybackController } from "../src/audio/playback_controller";
 import type {
   AudioBackend,
   AudioScheduleEvent,
@@ -252,6 +253,59 @@ if (loadResult.ok) {
     ) === 0,
     "Loop cycle should not duplicate an event already scheduled from wrapped lookahead.",
   );
+
+  let fakeAudioTime = 0;
+  const controllerScheduledEvents: Array<{ event: AudioScheduleEvent; offsetSeconds: number }> = [];
+  const controllerBackend: AudioBackend = {
+    ensureStarted: () => Promise.resolve(),
+    scheduleEvent: (event, offsetSeconds) => {
+      controllerScheduledEvents.push({ event, offsetSeconds });
+    },
+    getCurrentTime: () => fakeAudioTime,
+    stopAll: () => {
+      controllerScheduledEvents.length = 0;
+    },
+    dispose: () => {
+      controllerScheduledEvents.length = 0;
+    },
+  };
+  const controller = createPlaybackController({
+    schedule,
+    scheduler: createAudioLookaheadScheduler({
+      queue,
+      backend: controllerBackend,
+      lookaheadSeconds: 0.2,
+    }),
+    backend: controllerBackend,
+    schedulerIntervalMs: 25,
+  });
+
+  await controller.playFromSeconds(0.5);
+  assert(controller.getState().kind === "playing", "Controller should enter playing state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0.5, "playFromSeconds should set playback origin.");
+
+  fakeAudioTime = 0.25;
+  assertNear(controller.getCurrentScoreSeconds(), 0.75, "Playing controller should advance with backend time.");
+  controller.pause();
+  assert(controller.getState().kind === "paused", "Pause should enter paused state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0.75, "Pause should preserve current score time.");
+
+  await controller.resume();
+  assert(controller.getState().kind === "playing", "Resume should enter playing state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0.75, "Resume should restart from paused score time.");
+
+  await controller.seekToSeconds(1.25);
+  assert(controller.getState().kind === "playing", "Seek during playback should keep playing state.");
+  assertNear(controller.getCurrentScoreSeconds(), 1.25, "Seek should move playing origin.");
+
+  controller.pause();
+  await controller.seekToSeconds(0.25);
+  assert(controller.getState().kind === "paused", "Seek while paused should keep paused state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0.25, "Paused seek should update paused time.");
+
+  controller.stop();
+  assert(controller.getState().kind === "stopped", "Stop should enter stopped state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0, "Stop should reset score time.");
 }
 
 console.log("Audio timing mapper test completed.");

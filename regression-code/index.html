@@ -118,9 +118,9 @@
                     <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
                     <button type="button" class="transport-button" aria-label="Stop">■</button>
                     <label class="seek-field">
-                        <span>0</span>
-                        <input type="range" min="0" max="100" value="0">
-                        <span>100</span>
+                        <span class="seek-current-label">0</span>
+                        <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
+                        <span class="seek-duration-label">0</span>
                     </label>
                 </div>
                 <div class="audio-row">
@@ -137,7 +137,7 @@
                             <option>sawtooth</option>
                         </select>
                     </label>
-                    <span class="status-pill step-info">stepMs: --</span>
+                    <span class="status-pill step-info">BPM: --</span>
                 </div>
             </section>
 

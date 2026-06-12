@@ -1,20 +1,20 @@
 /**
- * src/app/app_playback.ts
+ * src/app/playback/app_playback.ts
  * app 상태와 DOM 입력값에서 playback controller와 tick mapper를 생성한다.
  */
 
-import { buildAudioSchedule } from "../audio/audio_schedule_builder";
-import { createAudioEventQueue } from "../audio/audio_event_queue";
-import { createAudioLookaheadScheduler } from "../audio/audio_scheduler";
-import type { TickTimeMapper } from "../audio/audio_types";
-import { createOscillatorBackend } from "../audio/oscillator_backend";
-import type { PlaybackController } from "../audio/playback_controller";
-import { createPlaybackController } from "../audio/playback_controller";
-import { createTickTimeMapper } from "../audio/tick_time_mapper";
+import { buildAudioSchedule } from "../../audio/audio_schedule_builder";
+import { createAudioEventQueue } from "../../audio/audio_event_queue";
+import { createAudioLookaheadScheduler } from "../../audio/audio_scheduler";
+import type { TickTimeMapper } from "../../audio/audio_types";
+import { createOscillatorBackend } from "../../audio/oscillator_backend";
+import type { PlaybackController } from "../../audio/playback_controller";
+import { createPlaybackController } from "../../audio/playback_controller";
+import { createTickTimeMapper } from "../../audio/tick_time_mapper";
 import type {
   AppDom,
   AppState,
-} from "./app_types";
+} from "../app_types";
 
 const PLAYBACK_LOOKAHEAD_SECONDS = 0.2;
 const PLAYBACK_SCHEDULER_INTERVAL_MS = 25;

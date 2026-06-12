@@ -21,6 +21,10 @@ export type PlaybackControllerInput = {
 /** UI/app 계층이 사용할 playback controller 계약. */
 export type PlaybackController = {
   playFromStart(): Promise<void>;
+  playFromSeconds(scoreSeconds: number): Promise<void>;
+  pause(): void;
+  resume(): Promise<void>;
+  seekToSeconds(scoreSeconds: number): Promise<void>;
   stop(): void;
   getState(): PlaybackState;
   getCurrentScoreSeconds(): number;
@@ -42,12 +46,16 @@ export function createPlaybackController(
 
   let state: PlaybackState = {
     kind: "stopped",
+    seekScoreSeconds: 0,
     loop: LOOP_OFF,
   };
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
   return {
     async playFromStart(): Promise<void> {
+      await this.playFromSeconds(0);
+    },
+    async playFromSeconds(scoreSeconds: number): Promise<void> {
       stopInterval();
       input.backend.stopAll();
       input.scheduler.resetScheduledEvents();
@@ -56,7 +64,7 @@ export function createPlaybackController(
       state = {
         kind: "playing",
         audioStartedAt: input.backend.getCurrentTime(),
-        scoreStartedAt: 0,
+        scoreStartedAt: clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds),
         loop: LOOP_OFF,
       };
       scheduleCurrentLookahead();
@@ -65,12 +73,59 @@ export function createPlaybackController(
         input.schedulerIntervalMs,
       );
     },
+    pause(): void {
+      if (state.kind !== "playing") {
+        return;
+      }
+
+      const pausedAtScoreSeconds = getPlayingScoreSeconds(state);
+
+      stopInterval();
+      input.backend.stopAll();
+      input.scheduler.resetScheduledEvents();
+      state = {
+        kind: "paused",
+        pausedAtScoreSeconds,
+        loop: state.loop,
+      };
+    },
+    async resume(): Promise<void> {
+      if (state.kind !== "paused") {
+        return;
+      }
+
+      await this.playFromSeconds(state.pausedAtScoreSeconds);
+    },
+    async seekToSeconds(scoreSeconds: number): Promise<void> {
+      const nextScoreSeconds = clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds);
+
+      if (state.kind === "playing") {
+        await this.playFromSeconds(nextScoreSeconds);
+        return;
+      }
+
+      stopInterval();
+      input.backend.stopAll();
+      input.scheduler.resetScheduledEvents();
+      state = state.kind === "paused"
+        ? {
+            kind: "paused",
+            pausedAtScoreSeconds: nextScoreSeconds,
+            loop: state.loop,
+          }
+        : {
+            kind: "stopped",
+            seekScoreSeconds: nextScoreSeconds,
+            loop: LOOP_OFF,
+          };
+    },
     stop(): void {
       stopInterval();
       input.backend.stopAll();
       input.scheduler.resetScheduledEvents();
       state = {
         kind: "stopped",
+        seekScoreSeconds: 0,
         loop: LOOP_OFF,
       };
     },
@@ -79,13 +134,10 @@ export function createPlaybackController(
     },
     getCurrentScoreSeconds(): number {
       if (state.kind !== "playing") {
-        return state.kind === "paused" ? state.pausedAtScoreSeconds : 0;
+        return state.kind === "paused" ? state.pausedAtScoreSeconds : state.seekScoreSeconds;
       }
 
-      return clampScoreSeconds(
-        state.scoreStartedAt + input.backend.getCurrentTime() - state.audioStartedAt,
-        input.schedule.durationSeconds,
-      );
+      return getPlayingScoreSeconds(state);
     },
     isPlaying(): boolean {
       return state.kind === "playing";
@@ -95,6 +147,7 @@ export function createPlaybackController(
       input.backend.dispose();
       state = {
         kind: "stopped",
+        seekScoreSeconds: 0,
         loop: LOOP_OFF,
       };
     },
@@ -111,7 +164,7 @@ export function createPlaybackController(
     }
 
     const currentScoreSeconds = clampScoreSeconds(
-      state.scoreStartedAt + input.backend.getCurrentTime() - state.audioStartedAt,
+      getPlayingScoreSeconds(state),
       input.schedule.durationSeconds,
     );
 
@@ -121,6 +174,7 @@ export function createPlaybackController(
       stopInterval();
       state = {
         kind: "stopped",
+        seekScoreSeconds: 0,
         loop: LOOP_OFF,
       };
     }
@@ -136,6 +190,20 @@ export function createPlaybackController(
       clearInterval(intervalId);
       intervalId = null;
     }
+  }
+
+  /**
+   * playing 상태의 현재 score time을 계산한다.
+   * - 인수 : playingState : 현재 playing 상태
+   * - 반환값 : 재생 범위로 제한된 현재 score seconds
+   */
+  function getPlayingScoreSeconds(
+    playingState: Extract<PlaybackState, { kind: "playing" }>,
+  ): number {
+    return clampScoreSeconds(
+      playingState.scoreStartedAt + input.backend.getCurrentTime() - playingState.audioStartedAt,
+      input.schedule.durationSeconds,
+    );
   }
 }
 

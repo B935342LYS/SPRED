@@ -222,9 +222,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the edit/playback verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> optional Web Audio playback check
+- current focus is the edit/playback/layout verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> Web Audio playback/seek check -> layout compatibility planning
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
-- gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, and edit UX helpers have first-pass implementations
+- gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
 
@@ -298,25 +298,35 @@ If memo content is explicitly adopted by the user for implementation order or st
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
 - current audio backend intentionally ignores gliss, vibrato, tremolo, dynamics automation, and sampled instrument playback; these remain later backend extensions
+- `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `resume()`, `seekToSeconds()`, and `stop()`
+- seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
+- app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
+- edit mode pointer input can preview the touched note row pitch through Web Audio, with row-level drag throttling to reduce overlapping preview artifacts
+- Fit Height, Fullscreen, zoom floor handling, and edit-mode auto Fit Height are connected as score view helpers
+- the edit panel uses a single-row grid layout with horizontal overflow so smaller desktop screens can keep edit controls on one line
+- center player metadata now reads from `ScoreFile.musicData`, and the Details dialog can edit musicData fields except creation/update timestamps
+- beat and bar marker rendering now uses timing row data, treats bar markers as stronger than beat markers at the same tick, and does not let BPM-only segment changes reset the beat/bar grid
+- `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
+- root layout test fixtures have been added for a 2-octave layout with fixed 21px gap rows and a 3-octave layout without gap rows
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
 - `docs/implementation-memo/1.17-step2-gliss-mute-marker-rendering.md` records gliss, mute, trem+gliss, and vibrato renderer decisions
 - `docs/implementation-memo/1.18-step3-tuplet-analyzer-first-pass.md` records tuplet analyzer/render first-pass decisions
 - `docs/implementation-memo/1.19-step4-audio-open-source-survey.md` records audio open-source survey and adoption candidates
 - `docs/implementation-memo/1.20-step4-playback-edit-global-visualization.md` records audio playback, edit UX, batch edit, and global rawText visualization progress
+- `docs/implementation-memo/1.21-step4-playback-layout-ui-progress.md` records pause/seek playback state, metadata/details UI, view helper, edit preview, app playback folder split, and layout compatibility planning progress
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:edit`
+- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:audio`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- implement multiple timing segments from global tempo rows and make playback tick/seconds mapping follow those segments
 - connect gliss pitch ramp, vibrato modulation, trem division, dynamics automation, and tuplet timing to the audio generator
 - add loop playback range selection and scheduler/controller support
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
-- connect the center player group to real score metadata and enable Details information editing
+- implement layout replacement UI and the explicit confirmation flow for deleting cells that are incompatible with the target layout
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes

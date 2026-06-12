@@ -1,11 +1,11 @@
 /**
- * src/app/app_note_preview.ts
+ * src/app/playback/app_note_preview.ts
  * score 입력 중 터치한 note row를 짧은 oscillator preview로 들려준다.
  */
 
-import type { AudioScheduleEvent } from "../audio/audio_types";
-import { createOscillatorBackend } from "../audio/oscillator_backend";
-import type { AppDom } from "./app_types";
+import type { AudioScheduleEvent } from "../../audio/audio_types";
+import { createOscillatorBackend } from "../../audio/oscillator_backend";
+import type { AppDom } from "../app_types";
 
 const PREVIEW_DURATION_SECONDS = 0.12;
 const PREVIEW_VOLUME_SCALE = 0.65;

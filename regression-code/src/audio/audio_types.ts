@@ -115,6 +115,7 @@ export type PlaybackLoopState =
 export type PlaybackState =
   | {
       kind: "stopped";
+      seekScoreSeconds: number;
       loop: PlaybackLoopState;
     }
   | {
