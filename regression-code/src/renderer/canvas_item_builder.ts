@@ -178,7 +178,7 @@ export function buildCanvasGlobalTextRenderItems(
 export function buildCanvasMarkerItems(
   analysis: AnalysisResult,
 ): CanvasMarkerItem[] {
-  const items: CanvasMarkerItem[] = [];
+  const items: CanvasMarkerItem[] = buildTimingLineMarkerItems(analysis);
   const connectedGlissAnchorKeys = new Set<string>();
   const noteEvents = collectNoteEvents(analysis);
 
@@ -269,6 +269,94 @@ export function buildCanvasMarkerItems(
     }
     return getMarkerSortTrackId(left).localeCompare(getMarkerSortTrackId(right));
   });
+}
+
+/**
+ * timing timeline에서 beat/bar 세로선 marker item을 만든다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 반환값 : CanvasMarkerItem[] : score 전체에 그릴 박자선/마디선 목록
+ */
+function buildTimingLineMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[] {
+  const items: CanvasMarkerItem[] = [];
+
+  // timing segment별로 박자 기준을 새로 잡고, 같은 tick에서는 bar line을 우선한다.
+  for (const segment of analysis.timingTimeline) {
+    const startTick = timeFractionToNumber(segment.time.startTick);
+    const endTick = timeFractionToNumber(segment.time.endTick);
+    const beatInterval = segment.stepsPerBeat;
+    const barInterval = segment.beatsPerBar * segment.stepsPerBeat;
+
+    if (
+      endTick <= startTick ||
+      !isPositiveFiniteNumber(beatInterval) ||
+      !isPositiveFiniteNumber(barInterval)
+    ) {
+      continue;
+    }
+
+    const barTicks = collectIntervalTicks(startTick, endTick, barInterval);
+    const barTickKeys = new Set(barTicks.map(createMarkerTickKey));
+
+    for (const tick of barTicks) {
+      items.push({
+        kind: "bar",
+        tick,
+      });
+    }
+
+    for (const tick of collectIntervalTicks(startTick, endTick, beatInterval)) {
+      if (barTickKeys.has(createMarkerTickKey(tick))) {
+        continue;
+      }
+
+      items.push({
+        kind: "beat",
+        tick,
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * segment 시작점 기준 간격으로 marker tick 목록을 만든다.
+ * - 인수 : startTick : segment 시작 tick
+ * - 인수 : endTick : segment 배타적 끝 tick
+ * - 인수 : interval : marker 간격
+ * - 반환값 : number[] : segment 안에 포함되는 marker tick 목록
+ */
+function collectIntervalTicks(
+  startTick: number,
+  endTick: number,
+  interval: number,
+): number[] {
+  const ticks: number[] = [];
+
+  // endTick은 다음 timing segment가 담당하므로 배타적으로 처리한다.
+  for (let tick = startTick; tick < endTick; tick += interval) {
+    ticks.push(tick);
+  }
+
+  return ticks;
+}
+
+/**
+ * tick이 marker 간격으로 사용할 수 있는 양수인지 확인한다.
+ * - 인수 : value : 검사할 tick 간격
+ * - 반환값 : boolean : finite 양수 여부
+ */
+function isPositiveFiniteNumber(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+/**
+ * 부동소수 tick을 중복 제거용 key로 정규화한다.
+ * - 인수 : tick : marker tick
+ * - 반환값 : string : 같은 위치 판정에 사용할 key
+ */
+function createMarkerTickKey(tick: number): string {
+  return tick.toFixed(6);
 }
 
 /**

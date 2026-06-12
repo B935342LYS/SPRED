@@ -14,6 +14,7 @@ import type {
 } from "./canvas_types";
 
 const TRACK_EXTRA = "extra";
+const BEAT_LINE_DASH = [4, 4] as const;
 const GLISS_TREM_LINE_DASH = [6, 4] as const;
 const TUPLET_CONTAINER_LINE_DASH = [4, 3] as const;
 
@@ -35,7 +36,9 @@ export function drawScoreMarkers(
 
   // marker item 종류별로 score 좌표를 계산해 marker layer에 그린다.
   for (const item of items) {
-    if (item.kind === "gliss") {
+    if (item.kind === "beat" || item.kind === "bar") {
+      drawTimingLineMarker(context, layout, item);
+    } else if (item.kind === "gliss") {
       drawGlissMarker(context, layout, rowById, item);
     } else if (item.kind === "glissOrphanAnchor") {
       drawGlissOrphanAnchorMarker(context, layout, rowById, item);
@@ -81,6 +84,41 @@ function createLayoutRowMap(
   }
 
   return rowById;
+}
+
+/**
+ * beat/bar marker item을 score 전체 높이의 세로선으로 그린다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : item : beat 또는 bar marker item
+ * - 반환값 : 없음
+ */
+function drawTimingLineMarker(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  item: Extract<CanvasMarkerItem, { kind: "beat" | "bar" }>,
+): void {
+  const x = columnToX(item.tick, layout);
+
+  if (x < 0 || x > layout.stageWidth) {
+    return;
+  }
+
+  context.save();
+  context.strokeStyle = item.kind === "bar"
+    ? CANVAS_COLORS.barLine
+    : CANVAS_COLORS.beatLine;
+  context.lineWidth = item.kind === "bar"
+    ? CANVAS_METRICS.barLineWidth
+    : CANVAS_METRICS.beatLineWidth;
+  if (item.kind === "beat") {
+    context.setLineDash([...BEAT_LINE_DASH]);
+  }
+  context.beginPath();
+  context.moveTo(x + 0.5, 0);
+  context.lineTo(x + 0.5, layout.stageHeight);
+  context.stroke();
+  context.restore();
 }
 
 /**
