@@ -422,8 +422,16 @@ select:disabled {
 }
 
 .edit-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.2fr)
+    minmax(180px, 1fr)
+    minmax(76px, 0.45fr)
+    minmax(132px, 0.75fr)
+    minmax(108px, 0.6fr)
+    minmax(164px, 0.9fr)
+    minmax(420px, 2.4fr)
+    minmax(190px, 0.95fr);
   align-items: flex-start;
   gap: 10px;
   max-height: 224px;
@@ -434,7 +442,6 @@ select:disabled {
 .edit-card {
   display: grid;
   gap: 6px;
-  flex: 1 1 180px;
   min-width: 0;
   max-width: 100%;
   padding: 8px;
@@ -443,29 +450,8 @@ select:disabled {
   background: var(--surface);
 }
 
-.number-card {
-  flex-basis: 310px;
-}
-
-.default-card {
-  flex-basis: 320px;
-}
-
-.narrow-card {
-  flex: 0 1 160px;
-}
-
-.pitch-card {
-  flex-basis: 220px;
-}
-
-.tuplet-card {
-  flex: 3 1 620px;
-}
-
 .actions-card {
   position: relative;
-  flex-basis: 320px;
   padding-right: 86px;
 }
 
