@@ -192,9 +192,9 @@ async function boot(): Promise<void> {
   };
 
   const extractPitchModifierSuffix = (rawText: string): string => {
-    const pitchTokens = rawText.match(/@(?:p|m)\([^)]*\)/g);
+    const pitchTokenSuffix = rawText.match(/(?:@(?:p|m)\([^)]*\))+$/);
 
-    return pitchTokens?.join("") ?? "";
+    return pitchTokenSuffix?.[0] ?? "";
   };
 
   const getSelectedNumberRamp = (): NumberEditRamp => {
@@ -327,6 +327,7 @@ async function boot(): Promise<void> {
   const applyRepeatedClickCycle = (hit: ScoreHit, baseRawText: string): string => {
     const selection = getSelectionForHit(hit);
     const targetKey = getEditTargetKey(selection);
+    const pitchModifierSuffix = extractPitchModifierSuffix(baseRawText);
 
     if (
       repeatedClickCycle === null ||
@@ -346,7 +347,7 @@ async function boot(): Promise<void> {
         ...repeatedClickCycle,
         nextStep: 2,
       };
-      return "-";
+      return `-${pitchModifierSuffix}`;
     }
 
     if (repeatedClickCycle.nextStep === 2) {
@@ -354,7 +355,7 @@ async function boot(): Promise<void> {
         ...repeatedClickCycle,
         nextStep: 0,
       };
-      return "~";
+      return `~${pitchModifierSuffix}`;
     }
 
     repeatedClickCycle = {
