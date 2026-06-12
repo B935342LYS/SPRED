@@ -53,6 +53,10 @@ import {
   createAppPlaybackRuntime,
   type AppPlaybackRuntime,
 } from "./app_playback";
+import {
+  createAppNotePreviewRuntime,
+  type AppNotePreviewRuntime,
+} from "./app_note_preview";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 
 type RepeatedClickCycleState = {
@@ -95,10 +99,12 @@ async function boot(): Promise<void> {
 
   let state = sampleLoadResult.state;
   let playbackRuntime: AppPlaybackRuntime;
+  let notePreviewRuntime: AppNotePreviewRuntime;
   let playbackRafId: number | null = null;
   let repeatedClickCycle: RepeatedClickCycleState | null = null;
   let dragEdit: DragEditState | null = null;
   let suppressNextClick = false;
+  let lastPreviewHitKey: string | null = null;
 
   const render = (): void => {
     state = renderApp(dom, state);
@@ -267,12 +273,19 @@ async function boot(): Promise<void> {
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
+  notePreviewRuntime = createAppNotePreviewRuntime(dom);
 
   const resetPlaybackForCurrentState = (): void => {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
     syncPlaybackStatus("stopped");
+  };
+
+  const resetNotePreviewForCurrentDom = (): void => {
+    notePreviewRuntime.dispose();
+    notePreviewRuntime = createAppNotePreviewRuntime(dom);
+    lastPreviewHitKey = null;
   };
 
   const resetRepeatedClickCycle = (): void => {
@@ -298,6 +311,31 @@ async function boot(): Promise<void> {
     return hitTestScoreCell(event, dom.scoreStage, state.layout, {
       nearestNoteSlopPx: NOTE_ROW_HIT_SLOP_PX,
     });
+  };
+
+  const resetNotePreviewHit = (): void => {
+    lastPreviewHitKey = null;
+  };
+
+  const playNotePreviewForHit = (hit: ScoreHit | null): void => {
+    if (hit === null || hit.rowKind !== "note") {
+      return;
+    }
+
+    const row = state.document.indexes.rowById.get(hit.rowId);
+
+    if (row?.type !== "note") {
+      return;
+    }
+
+    const previewHitKey = `${hit.rowId}|${hit.col}`;
+
+    if (previewHitKey === lastPreviewHitKey) {
+      return;
+    }
+
+    lastPreviewHitKey = previewHitKey;
+    notePreviewRuntime.previewMidi(row.midi);
   };
 
   const getExistingRawText = (selection: ScoreSelection): string => {
@@ -916,8 +954,14 @@ async function boot(): Promise<void> {
     syncPlaybackStatus("stopped");
     syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   });
-  dom.volumeInput.addEventListener("change", resetPlaybackForCurrentState);
-  dom.waveSelect.addEventListener("change", resetPlaybackForCurrentState);
+  dom.volumeInput.addEventListener("change", () => {
+    resetPlaybackForCurrentState();
+    resetNotePreviewForCurrentDom();
+  });
+  dom.waveSelect.addEventListener("change", () => {
+    resetPlaybackForCurrentState();
+    resetNotePreviewForCurrentDom();
+  });
   dom.jsonDownloadButton.addEventListener("click", () => {
     downloadScoreJson(state.document.score);
     state = {
@@ -1176,13 +1220,19 @@ async function boot(): Promise<void> {
     if (
       state.busy.kind !== "idle" ||
       state.layout === null ||
-      state.mode.kind !== "edit" ||
       (event.button !== 0 && event.button !== 2)
     ) {
       return;
     }
 
     const hit = getPointerEditHit(event);
+
+    if (state.mode.kind !== "edit") {
+      return;
+    }
+
+    resetNotePreviewHit();
+    playNotePreviewForHit(hit);
 
     event.preventDefault();
     suppressNextClick = true;
@@ -1259,6 +1309,8 @@ async function boot(): Promise<void> {
       return;
     }
 
+    playNotePreviewForHit(hit);
+
     if (
       startedDragThisMove &&
       dragEdit.startHit !== null &&
@@ -1285,10 +1337,12 @@ async function boot(): Promise<void> {
     }
 
     if (completedDrag.isDragging) {
+      resetNotePreviewHit();
       return;
     }
 
     if (completedDrag.startHit === null) {
+      resetNotePreviewHit();
       return;
     }
 
@@ -1296,6 +1350,7 @@ async function boot(): Promise<void> {
       useClickCycle: completedDrag.button === 0,
       forceDelete: completedDrag.button === 2,
     });
+    resetNotePreviewHit();
   });
   dom.scoreStage.addEventListener("pointercancel", (event) => {
     if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
@@ -1303,6 +1358,7 @@ async function boot(): Promise<void> {
     }
 
     dragEdit = null;
+    resetNotePreviewHit();
   });
   dom.scoreStage.addEventListener("click", (event) => {
     if (suppressNextClick) {
