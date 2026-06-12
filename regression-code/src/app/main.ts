@@ -4,7 +4,6 @@
  */
 
 import type {
-  NumberEditRamp,
   ScoreHit,
   ScoreSelection,
 } from "./app_types";
@@ -27,6 +26,10 @@ import {
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import { composeEditRawText } from "./edit/edit_core";
 import {
+  composeNumberRawTextForHit,
+  setSelectedNumberRamp,
+} from "./edit/edit_number";
+import {
   normalizeMicroPitchInput,
   populateAbsolutePitchOptions,
   resolveAutoDefaultText,
@@ -48,7 +51,14 @@ import {
   loadScoreFromLocalStorage,
   saveScoreToLocalStorage,
 } from "../infra/score_local_storage";
-import { columnToX } from "../renderer/canvas_coordinate";
+import {
+  fitScoreHeightZoom,
+  populateDetailsDialog,
+  readDetailsDialogMusicData,
+  setZoomPercent,
+  syncFullscreenButton,
+  toggleFullscreen,
+} from "./app_view_actions";
 import {
   createAppPlaybackRuntime,
   type AppPlaybackRuntime,
@@ -57,6 +67,12 @@ import {
   createAppNotePreviewRuntime,
   type AppNotePreviewRuntime,
 } from "./playback/app_note_preview";
+import {
+  scrollToScoreSeconds,
+  syncPlaybackStatus,
+  syncPlaybackUi,
+  syncSeekUi,
+} from "./playback/app_playback_ui";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 
 type RepeatedClickCycleState = {
@@ -120,246 +136,34 @@ async function boot(): Promise<void> {
     }
   };
 
-  const syncPlaybackStatus = (text: string): void => {
-    dom.playbackStatus.textContent = text;
-    dom.playbackStatus.title = text;
-  };
-
-  const formatSeekInputSeconds = (seconds: number): string => {
-    if (!Number.isFinite(seconds)) {
-      return "0";
-    }
-
-    return String(Math.round(seconds));
-  };
-
-  const formatPlaybackClock = (seconds: number): string => {
-    const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
-    const minutes = Math.floor(safeSeconds / 60);
-    const remainingSeconds = safeSeconds % 60;
-
-    return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-  };
-
-  const syncTempoStatus = (scoreSeconds: number): void => {
-    const tick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
-    const tickNumber = tick.numerator / tick.denominator;
-    const bpm = resolveBpmAtTick(tickNumber);
-    const bpmText = bpm === null
-      ? "--"
-      : bpm.toFixed(Number.isInteger(bpm) ? 0 : 1);
-
-    dom.tempoStatus.textContent = `BPM: ${bpmText}`;
-    dom.tempoStatus.title = `BPM: ${bpmText}`;
-  };
-
-  const resolveBpmAtTick = (tick: number): number | null => {
-    const segments = state.analysis.timingTimeline;
-    const fallbackSegment = segments[segments.length - 1];
-    const segment = segments.find((candidate) => {
-      const startTick = candidate.time.startTick.numerator / candidate.time.startTick.denominator;
-      const endTick = candidate.time.endTick.numerator / candidate.time.endTick.denominator;
-
-      return tick >= startTick && tick < endTick;
-    }) ?? fallbackSegment;
-
-    if (segment === undefined) {
-      return null;
-    }
-
-    const startTick = segment.time.startTick.numerator / segment.time.startTick.denominator;
-    const endTick = segment.time.endTick.numerator / segment.time.endTick.denominator;
-
-    if (
-      segment.bpmCurve !== "linear" ||
-      endTick <= startTick ||
-      segment.startBpm === segment.endBpm
-    ) {
-      return segment.startBpm;
-    }
-
-    const progress = Math.min(Math.max((tick - startTick) / (endTick - startTick), 0), 1);
-
-    return segment.startBpm + (segment.endBpm - segment.startBpm) * progress;
-  };
-
-  const syncSeekUi = (scoreSeconds: number): void => {
-    const durationSeconds = playbackRuntime.timeMapper.getDurationSeconds();
-    const clampedSeconds = Math.min(Math.max(scoreSeconds, 0), Math.max(0, durationSeconds));
-
-    dom.seekInput.max = formatSeekInputSeconds(durationSeconds);
-    dom.seekInput.value = formatSeekInputSeconds(clampedSeconds);
-    dom.seekCurrentLabel.textContent = formatPlaybackClock(clampedSeconds);
-    dom.seekDurationLabel.textContent = formatPlaybackClock(durationSeconds);
-    syncTempoStatus(clampedSeconds);
-  };
-
-  const syncPlaybackUi = (): void => {
-    const playbackState = playbackRuntime.controller.getState();
-    const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
-
-    syncSeekUi(currentScoreSeconds);
-    syncPlaybackStatus(playbackState.kind);
-    dom.playButton.textContent = playbackState.kind === "playing" ? "❚❚" : "▶";
-  };
-
-  const scrollToScoreSeconds = (scoreSeconds: number): void => {
-    if (state.layout === null) {
-      return;
-    }
-
-    const currentTick = playbackRuntime.timeMapper.secondsToTick(scoreSeconds);
-    const currentTickNumber = currentTick.numerator / currentTick.denominator;
-
-    dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
-    syncLayoutScroll(dom.scoreArea, dom.layoutStage);
-  };
-
-  const setZoomPercent = (zoomPercent: number, minZoomPercent?: number): void => {
-    const min = Number(dom.zoomInput.min);
-    const max = Number(dom.zoomInput.max);
-    const normalizedMin = minZoomPercent ?? (Number.isFinite(min) ? min : 1);
-    const boundedZoom = Math.min(
-      Math.max(zoomPercent, normalizedMin),
-      Number.isFinite(max) ? max : 400,
-    );
-
-    dom.zoomInput.value = String(Math.round(boundedZoom));
-  };
-
   const fitScoreHeight = (): void => {
-    const baseStageHeight = state.renderInput.rows.reduce(
-      (sum, row) => sum + Math.max(0, row.height),
-      0,
-    );
-    const targetHeight = Math.max(
-      0,
-      dom.scoreArea.clientHeight,
-    );
+    const statusMessage = fitScoreHeightZoom(dom, state);
 
-    if (baseStageHeight <= 0 || targetHeight <= 0) {
-      state = {
-        ...state,
-        statusMessage: {
-          level: "warning",
-          text: "Fit Height needs a visible score area.",
-        },
-      };
-      syncLeftStatus(dom, state);
-      return;
+    if (statusMessage.level === "info") {
+      render();
     }
 
-    setZoomPercent((targetHeight / baseStageHeight) * 100);
-    render();
     state = {
       ...state,
-      statusMessage: {
-        level: "info",
-        text: `Fit Height: ${dom.zoomInput.value}%`,
-      },
+      statusMessage,
     };
     syncLeftStatus(dom, state);
   };
 
-  const syncFullscreenButton = (): void => {
-    dom.fullscreenButton.textContent =
-      document.fullscreenElement === dom.appShell ? "Exit Fullscreen" : "Fullscreen";
-  };
-
-  const readIntegerInput = (input: HTMLInputElement, fallback: number): number => {
-    const value = Number.parseInt(input.value, 10);
-
-    return Number.isFinite(value) ? value : fallback;
-  };
-
-  const populateDetailsDialog = (): void => {
-    const musicData = state.document.score.musicData;
-
-    // Details dialog는 생성/수정 시각을 제외한 musicData 편집 필드를 현재 score 값으로 채운다.
-    dom.detailsTitleInput.value = musicData.musicTitle;
-    dom.detailsArtistInput.value = musicData.musicArtist;
-    dom.detailsGenreInput.value = musicData.musicGenre;
-    dom.detailsWriterInput.value = musicData.scoreWriter;
-    dom.detailsCommentInput.value = musicData.comment;
-    dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty.basic);
-    dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty.optional);
-    dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty.extra);
-    dom.detailsYoutubeVideoInput.value = musicData.youtube.videoId;
-    dom.detailsYoutubeOffsetInput.value = String(musicData.youtube.offsetMs);
-  };
-
   const openDetailsDialog = (): void => {
-    populateDetailsDialog();
+    populateDetailsDialog(dom, state.document.score.musicData);
     dom.detailsDialog.showModal();
   };
 
   const applyDetailsDialog = (): void => {
     const currentMusicData = state.document.score.musicData;
 
-    state = applyMusicDataEditToState(state, {
-      ...currentMusicData,
-      musicTitle: dom.detailsTitleInput.value,
-      musicArtist: dom.detailsArtistInput.value,
-      musicGenre: dom.detailsGenreInput.value,
-      scoreWriter: dom.detailsWriterInput.value,
-      comment: dom.detailsCommentInput.value.slice(0, 100),
-      scoreDifficulty: {
-        basic: readIntegerInput(
-          dom.detailsBasicDifficultyInput,
-          currentMusicData.scoreDifficulty.basic,
-        ),
-        optional: readIntegerInput(
-          dom.detailsOptionalDifficultyInput,
-          currentMusicData.scoreDifficulty.optional,
-        ),
-        extra: readIntegerInput(
-          dom.detailsExtraDifficultyInput,
-          currentMusicData.scoreDifficulty.extra,
-        ),
-      },
-      youtube: {
-        videoId: dom.detailsYoutubeVideoInput.value,
-        offsetMs: readIntegerInput(
-          dom.detailsYoutubeOffsetInput,
-          currentMusicData.youtube.offsetMs,
-        ),
-      },
-    });
+    state = applyMusicDataEditToState(
+      state,
+      readDetailsDialogMusicData(dom, currentMusicData),
+    );
     dom.detailsDialog.close();
     render();
-  };
-
-  const toggleFullscreen = (): void => {
-    if (document.fullscreenElement === dom.appShell) {
-      document.exitFullscreen()
-        .catch((error: unknown) => {
-          const message = error instanceof Error ? error.message : "Unknown fullscreen error.";
-
-          state = {
-            ...state,
-            statusMessage: {
-              level: "error",
-              text: message,
-            },
-          };
-          syncLeftStatus(dom, state);
-        });
-      return;
-    }
-
-    dom.appShell.requestFullscreen()
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Unknown fullscreen error.";
-
-        state = {
-          ...state,
-          statusMessage: {
-            level: "error",
-            text: message,
-          },
-        };
-        syncLeftStatus(dom, state);
-      });
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
@@ -369,7 +173,7 @@ async function boot(): Promise<void> {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
-    syncPlaybackUi();
+    syncPlaybackUi(dom, state, playbackRuntime);
   };
 
   const resetNotePreviewForCurrentDom = (): void => {
@@ -475,112 +279,18 @@ async function boot(): Promise<void> {
     return pitchTokenSuffix?.[0] ?? "";
   };
 
-  const getSelectedNumberRamp = (): NumberEditRamp => {
-    const selectedButton = dom.numberRampButtons.find(
-      (button) => button.getAttribute("aria-pressed") === "true",
-    );
-    const ramp = selectedButton?.dataset.ramp;
-
-    if (ramp === "start" || ramp === "end" || ramp === "endStart") {
-      return ramp;
-    }
-
-    return "none";
-  };
-
-  const setSelectedNumberRamp = (ramp: NumberEditRamp): void => {
-    dom.numberRampButtons.forEach((button) => {
-      const isSelected = button.dataset.ramp === ramp;
-
-      button.setAttribute("aria-pressed", String(isSelected));
-      button.classList.toggle("on", isSelected);
-      button.classList.toggle("off", !isSelected);
-    });
-  };
-
-  const getRampToken = (ramp: NumberEditRamp): string => {
-    if (ramp === "start") {
-      return "<";
-    }
-
-    if (ramp === "end") {
-      return ">";
-    }
-
-    if (ramp === "endStart") {
-      return "><";
-    }
-
-    return "";
-  };
-
-  const composeNumberRawTextForHit = (hit: ScoreHit):
-    | {
-        kind: "apply";
-        rawText: string;
-      }
-    | {
-        kind: "blocked";
-        message: string;
-      } => {
-    if (hit.rowKind !== "global") {
-      return {
-        kind: "blocked",
-        message: "Number input can only edit global rows.",
-      };
-    }
-
-    const numberText = dom.numberRawInput.value.trim();
-
-    if (numberText.length === 0) {
-      return {
-        kind: "blocked",
-        message: "Number input is empty.",
-      };
-    }
-
-    const row = state.document.indexes.rowById.get(hit.rowId);
-
-    if (row?.type !== "global") {
-      return {
-        kind: "blocked",
-        message: "Selected row is not a global row.",
-      };
-    }
-
-    const ramp = getSelectedNumberRamp();
-
-    if (
-      ramp !== "none" &&
-      row.kind !== "bpm" &&
-      row.kind !== "dynamics"
-    ) {
-      return {
-        kind: "blocked",
-        message: `${row.kind} does not allow tempo mark tokens.`,
-      };
-    }
-
-    return {
-      kind: "apply",
-      rawText: `${numberText}${getRampToken(ramp)}`,
-    };
-  };
-
   const updatePlaybackScroll = (): void => {
     if (!playbackRuntime.controller.isPlaying() || state.layout === null) {
       playbackRafId = null;
-      syncPlaybackUi();
+      syncPlaybackUi(dom, state, playbackRuntime);
       return;
     }
 
     const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
-    const currentTick = playbackRuntime.timeMapper.secondsToTick(currentScoreSeconds);
-    const currentTickNumber = currentTick.numerator / currentTick.denominator;
 
     // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
-    dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
-    syncSeekUi(currentScoreSeconds);
+    scrollToScoreSeconds(dom, state, playbackRuntime, currentScoreSeconds);
+    syncSeekUi(dom, state, playbackRuntime, currentScoreSeconds);
     playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
 
@@ -684,7 +394,7 @@ async function boot(): Promise<void> {
 
     if (hit.rowKind === "global") {
       resetRepeatedClickCycle();
-      const numberResult = composeNumberRawTextForHit(hit);
+      const numberResult = composeNumberRawTextForHit(dom, state, hit);
 
       if (numberResult.kind === "blocked") {
         return numberResult;
@@ -820,7 +530,7 @@ async function boot(): Promise<void> {
     }
 
     if (hit.rowKind === "global") {
-      return composeNumberRawTextForHit(hit);
+      return composeNumberRawTextForHit(dom, state, hit);
     }
 
     const mode = state.mode;
@@ -981,7 +691,7 @@ async function boot(): Promise<void> {
   };
 
   render();
-  syncPlaybackUi();
+  syncPlaybackUi(dom, state, playbackRuntime);
   setStatus(0, "sample auto load: done");
 
   // score 영역이 스크롤될 때 layout label stage의 세로 위치를 함께 이동한다.
@@ -990,16 +700,27 @@ async function boot(): Promise<void> {
   });
   window.addEventListener("resize", render);
   document.addEventListener("fullscreenchange", () => {
-    syncFullscreenButton();
+    syncFullscreenButton(dom);
     render();
   });
   // zoom 값이 확정되면 수동 zoom 하한을 적용한 뒤 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", () => {
-    setZoomPercent(Number(dom.zoomInput.value), 100);
+    setZoomPercent(dom, Number(dom.zoomInput.value), 100);
     render();
   });
   dom.fitHeightButton.addEventListener("click", fitScoreHeight);
-  dom.fullscreenButton.addEventListener("click", toggleFullscreen);
+  dom.fullscreenButton.addEventListener("click", () => {
+    toggleFullscreen(dom, (message) => {
+      state = {
+        ...state,
+        statusMessage: {
+          level: "error",
+          text: message,
+        },
+      };
+      syncLeftStatus(dom, state);
+    });
+  });
   dom.detailsButton.addEventListener("click", openDetailsDialog);
   dom.detailsCloseButton.addEventListener("click", () => {
     dom.detailsDialog.close();
@@ -1021,8 +742,13 @@ async function boot(): Promise<void> {
     if (playbackState.kind === "playing") {
       playbackRuntime.controller.pause();
       stopPlaybackAnimation();
-      syncPlaybackUi();
-      scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
+      syncPlaybackUi(dom, state, playbackRuntime);
+      scrollToScoreSeconds(
+        dom,
+        state,
+        playbackRuntime,
+        playbackRuntime.controller.getCurrentScoreSeconds(),
+      );
       return;
     }
 
@@ -1032,8 +758,13 @@ async function boot(): Promise<void> {
 
     playRequest
       .then(() => {
-        syncPlaybackUi();
-        scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
+        syncPlaybackUi(dom, state, playbackRuntime);
+        scrollToScoreSeconds(
+          dom,
+          state,
+          playbackRuntime,
+          playbackRuntime.controller.getCurrentScoreSeconds(),
+        );
         stopPlaybackAnimation();
         playbackRafId = requestAnimationFrame(updatePlaybackScroll);
       })
@@ -1047,29 +778,34 @@ async function boot(): Promise<void> {
             text: message,
           },
         };
-        syncPlaybackStatus("error");
+        syncPlaybackStatus(dom, "error");
         syncLeftStatus(dom, state);
       });
   });
   dom.stopButton.addEventListener("click", () => {
     stopPlaybackAnimation();
     playbackRuntime.controller.stop();
-    syncPlaybackUi();
-    scrollToScoreSeconds(0);
+    syncPlaybackUi(dom, state, playbackRuntime);
+    scrollToScoreSeconds(dom, state, playbackRuntime, 0);
   });
   dom.seekInput.addEventListener("input", () => {
     const scoreSeconds = Number(dom.seekInput.value);
 
-    syncSeekUi(scoreSeconds);
-    scrollToScoreSeconds(scoreSeconds);
+    syncSeekUi(dom, state, playbackRuntime, scoreSeconds);
+    scrollToScoreSeconds(dom, state, playbackRuntime, scoreSeconds);
   });
   dom.seekInput.addEventListener("change", () => {
     const scoreSeconds = Number(dom.seekInput.value);
 
     playbackRuntime.controller.seekToSeconds(scoreSeconds)
       .then(() => {
-        syncPlaybackUi();
-        scrollToScoreSeconds(playbackRuntime.controller.getCurrentScoreSeconds());
+        syncPlaybackUi(dom, state, playbackRuntime);
+        scrollToScoreSeconds(
+          dom,
+          state,
+          playbackRuntime,
+          playbackRuntime.controller.getCurrentScoreSeconds(),
+        );
         if (playbackRuntime.controller.isPlaying()) {
           stopPlaybackAnimation();
           playbackRafId = requestAnimationFrame(updatePlaybackScroll);
@@ -1085,7 +821,7 @@ async function boot(): Promise<void> {
             text: message,
           },
         };
-        syncPlaybackStatus("error");
+        syncPlaybackStatus(dom, "error");
         syncLeftStatus(dom, state);
       });
   });
@@ -1250,7 +986,7 @@ async function boot(): Promise<void> {
       const ramp = button.dataset.ramp;
 
       if (ramp === "none" || ramp === "start" || ramp === "end" || ramp === "endStart") {
-        setSelectedNumberRamp(ramp);
+        setSelectedNumberRamp(dom, ramp);
         resetRepeatedClickCycle();
       }
     });
