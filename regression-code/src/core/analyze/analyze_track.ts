@@ -435,26 +435,26 @@ function analyzeParsedPletHeadEntry(
 }
 
 /**
- * tuplet 점선 컨테이너를 표시할 rowId를 첫 slot의 @n(midi) 기준으로 찾는다.
+ * tuplet 점선 컨테이너를 표시할 rowId를 첫 note slot의 @n(midi) 기준으로 찾는다.
  * - 인수 : context : score/index/parsed 문맥
  * - 인수 : headRow : pletHead가 놓인 note row
  * - 인수 : parsedCell : parser가 확정한 pletHead 셀
- * - 반환값 : 첫 slot 위치 rowId, 찾지 못하면 null
+ * - 반환값 : 첫 note slot 위치 rowId, note slot이 없으면 head rowId
  */
 function resolveTupletContainerRowId(
   context: AnalyzeContext,
   headRow: NoteRowDefinition,
   parsedCell: ParsedPletHeadCell,
 ): RowId | null {
-  const firstSlot = parsedCell.slots.find((slot) => slot.slotIndex === 0);
-  const firstSlotMidi = firstSlot?.note?.position.midiNum;
+  const placementSlot = parsedCell.slots.find((slot) => slot.note !== null);
+  const placementSlotMidi = placementSlot?.note?.position.midiNum;
 
-  if (firstSlotMidi === undefined) {
-    return null;
+  if (placementSlotMidi === undefined) {
+    return headRow.rowId;
   }
 
   return context.indexes.noteRowIdByStringMidi.get(
-    `${headRow.stringId}|${firstSlotMidi}`,
+    `${headRow.stringId}|${placementSlotMidi}`,
   ) ?? null;
 }
 

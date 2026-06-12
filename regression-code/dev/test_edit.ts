@@ -198,6 +198,40 @@ if (loadResult.ok && tupletResult.kind === "apply") {
     assert(placementResult.hit.col === 12, "Tuplet placement hit should keep clicked column.");
   }
 
+  const restFirstPlacementResult = resolveTupletHeadPlacementHit(
+    placementState,
+    {
+      rowId: "s1-note-67",
+      rowKind: "note",
+      col: 13,
+    },
+    "/3(|D@n(62)|E@n(64))",
+  );
+
+  assert(restFirstPlacementResult.kind === "hit", "Tuplet placement should use the first non-rest slot.");
+
+  if (restFirstPlacementResult.kind === "hit") {
+    assert(restFirstPlacementResult.hit.rowId === "s1-note-62", "Rest-first tuplet placement should use slot 2 row.");
+    assert(restFirstPlacementResult.hit.col === 13, "Rest-first placement should keep clicked column.");
+  }
+
+  const allRestPlacementResult = resolveTupletHeadPlacementHit(
+    placementState,
+    {
+      rowId: "s1-note-67",
+      rowKind: "note",
+      col: 14,
+    },
+    "/3(||)",
+  );
+
+  assert(allRestPlacementResult.kind === "hit", "All-rest tuplet placement should keep clicked row.");
+
+  if (allRestPlacementResult.kind === "hit") {
+    assert(allRestPlacementResult.hit.rowId === "s1-note-67", "All-rest tuplet placement should keep source row.");
+    assert(allRestPlacementResult.hit.col === 14, "All-rest placement should keep clicked column.");
+  }
+
   const batchApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
     {
       selection: {

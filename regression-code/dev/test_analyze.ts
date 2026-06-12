@@ -651,6 +651,8 @@ function testTupletContainerPlacementAnalysis(sourceText: string): void {
 
   basicTrack.cells.push(
     { rowId: "s1-note-67", col: 48, rawText: "/3(C@n(60)|D@n(62)|E@n(64))" },
+    { rowId: "s1-note-67", col: 50, rawText: "/3(|D@n(62)|E@n(64))" },
+    { rowId: "s1-note-67", col: 52, rawText: "/3(||)" },
   );
 
   const placementAnalysis = analyzeFixtureScore(score);
@@ -661,13 +663,29 @@ function testTupletContainerPlacementAnalysis(sourceText: string): void {
     return;
   }
 
-  const groupEvent = placementAnalysis.tupletGroupEvents[0];
+  const firstSlotGroup = placementAnalysis.tupletGroupEvents.find(
+    (event) => event.headCell.col === 48,
+  );
+  const restFirstGroup = placementAnalysis.tupletGroupEvents.find(
+    (event) => event.headCell.col === 50,
+  );
+  const allRestGroup = placementAnalysis.tupletGroupEvents.find(
+    (event) => event.headCell.col === 52,
+  );
 
-  assert(groupEvent !== undefined, "Missing placement tuplet group event.");
+  assert(firstSlotGroup !== undefined, "Missing first-slot placement tuplet group event.");
+  assert(restFirstGroup !== undefined, "Missing rest-first placement tuplet group event.");
+  assert(allRestGroup !== undefined, "Missing all-rest placement tuplet group event.");
 
-  if (groupEvent !== undefined) {
-    assert(groupEvent.headCell.rowId === "s1-note-67", "Tuplet source head row should keep stored cell row.");
-    assert(groupEvent.containerRowId === "s1-note-60", "Tuplet container row should follow first slot @n row.");
+  if (
+    firstSlotGroup !== undefined &&
+    restFirstGroup !== undefined &&
+    allRestGroup !== undefined
+  ) {
+    assert(firstSlotGroup.headCell.rowId === "s1-note-67", "Tuplet source head row should keep stored cell row.");
+    assert(firstSlotGroup.containerRowId === "s1-note-60", "Tuplet container row should follow first slot @n row.");
+    assert(restFirstGroup.containerRowId === "s1-note-62", "Rest-first tuplet container should use first non-rest slot row.");
+    assert(allRestGroup.containerRowId === "s1-note-67", "All-rest tuplet container should keep head row.");
   }
 
   const markerItems = buildCanvasMarkerItems({
@@ -681,13 +699,20 @@ function testTupletContainerPlacementAnalysis(sourceText: string): void {
     ],
     analysisIssues: [],
   });
-  const tupletMarker = markerItems.find((item) => item.kind === "tupletContainer");
+  const tupletMarkers = markerItems.filter((item) => item.kind === "tupletContainer");
 
-  assert(tupletMarker !== undefined, "Tuplet placement group should convert to a container marker.");
-
-  if (tupletMarker !== undefined && tupletMarker.kind === "tupletContainer") {
-    assert(tupletMarker.rowId === "s1-note-60", "Tuplet marker should draw at first slot row.");
-  }
+  assert(
+    tupletMarkers.some((item) => item.kind === "tupletContainer" && item.rowId === "s1-note-60"),
+    "Tuplet marker should draw at first slot row.",
+  );
+  assert(
+    tupletMarkers.some((item) => item.kind === "tupletContainer" && item.rowId === "s1-note-62"),
+    "Rest-first tuplet marker should draw at first non-rest slot row.",
+  );
+  assert(
+    tupletMarkers.some((item) => item.kind === "tupletContainer" && item.rowId === "s1-note-67"),
+    "All-rest tuplet marker should draw at head row.",
+  );
 }
 
 /**

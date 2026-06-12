@@ -174,20 +174,27 @@ async function boot(): Promise<void> {
     baseRawText: string,
   ): string => {
     const normalized = existingRawText.trim();
+    const pitchModifierSuffix = extractPitchModifierSuffix(baseRawText);
 
     if (normalized.length === 0) {
       return baseRawText;
     }
 
     if (normalized.startsWith("-")) {
-      return "~";
+      return `~${pitchModifierSuffix}`;
     }
 
     if (normalized.startsWith("~")) {
       return baseRawText;
     }
 
-    return "-";
+    return `-${pitchModifierSuffix}`;
+  };
+
+  const extractPitchModifierSuffix = (rawText: string): string => {
+    const pitchTokens = rawText.match(/@(?:p|m)\([^)]*\)/g);
+
+    return pitchTokens?.join("") ?? "";
   };
 
   const getSelectedNumberRamp = (): NumberEditRamp => {
@@ -538,10 +545,24 @@ async function boot(): Promise<void> {
 
     const mode = state.mode;
 
-    if (mode.kind !== "edit" || mode.tool.kind !== "default") {
+    if (mode.kind !== "edit") {
       return {
         kind: "blocked",
-        message: "Drag edit is only available for Default, Eraser, and Number input.",
+        message: "Drag edit is only available in edit mode.",
+      };
+    }
+
+    if (mode.tool.kind === "pletExtend") {
+      return {
+        kind: "apply",
+        rawText: "/&",
+      };
+    }
+
+    if (mode.tool.kind !== "default") {
+      return {
+        kind: "blocked",
+        message: "Drag edit is only available for Default, Eraser, Number, and /& input.",
       };
     }
 
@@ -597,7 +618,9 @@ async function boot(): Promise<void> {
     };
   };
 
-  const addDragEditForHit = (dragState: DragEditState, hit: ScoreHit): void => {
+  const addDragEditForHit = (dragState: DragEditState, hit: ScoreHit): ScoreTextEdit[] => {
+    const edits: ScoreTextEdit[] = [];
+
     // 같은 행에서 빠르게 이동해 중간 열 hit가 누락된 경우 이전 열과 현재 열 사이를 채운다.
     if (dragState.lastHit !== null && dragState.lastHit.rowId === hit.rowId) {
       const startCol = Math.min(dragState.lastHit.col, hit.col);
@@ -611,6 +634,7 @@ async function boot(): Promise<void> {
 
         if (interpolatedEdit !== null) {
           dragState.edits.set(getScoreTextEditKey(interpolatedEdit), interpolatedEdit);
+          edits.push(interpolatedEdit);
         }
       }
     } else {
@@ -618,10 +642,13 @@ async function boot(): Promise<void> {
 
       if (edit !== null) {
         dragState.edits.set(getScoreTextEditKey(edit), edit);
+        edits.push(edit);
       }
     }
 
     dragState.lastHit = hit;
+
+    return edits;
   };
 
   const shouldStartDragEdit = (event: PointerEvent): boolean => {
@@ -983,7 +1010,10 @@ async function boot(): Promise<void> {
     const button = event.button as 0 | 2;
     const dragRawText = hit === null ? null : composeDragRawTextForHit(hit, button);
     const canStartFloatingDrag = button === 2 ||
-      (state.mode.kind === "edit" && state.mode.tool.kind === "default");
+      (
+        state.mode.kind === "edit" &&
+        (state.mode.tool.kind === "default" || state.mode.tool.kind === "pletExtend")
+      );
 
     dragEdit = dragRawText?.kind === "apply" || (hit === null && canStartFloatingDrag)
       ? {
@@ -1026,11 +1056,17 @@ async function boot(): Promise<void> {
       return;
     }
 
+    let startedDragThisMove = false;
+
     if (shouldStartDragEdit(event)) {
       dragEdit.isDragging = true;
+      startedDragThisMove = true;
       resetRepeatedClickCycle();
       if (dragEdit.startHit !== null) {
-        addDragEditForHit(dragEdit, dragEdit.startHit);
+        const startEdits = addDragEditForHit(dragEdit, dragEdit.startHit);
+
+        applyScoreTextEdits(startEdits);
+        dragEdit.edits.clear();
       }
     }
 
@@ -1044,7 +1080,19 @@ async function boot(): Promise<void> {
       return;
     }
 
-    addDragEditForHit(dragEdit, hit);
+    if (
+      startedDragThisMove &&
+      dragEdit.startHit !== null &&
+      dragEdit.startHit.rowId === hit.rowId &&
+      dragEdit.startHit.col === hit.col
+    ) {
+      return;
+    }
+
+    const edits = addDragEditForHit(dragEdit, hit);
+
+    applyScoreTextEdits(edits);
+    dragEdit.edits.clear();
   });
   dom.scoreStage.addEventListener("pointerup", (event) => {
     if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {

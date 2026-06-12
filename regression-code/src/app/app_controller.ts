@@ -294,7 +294,7 @@ export function setActiveTupletSlotText(
 }
 
 /**
- * tuplet head 설치 대상 좌표를 첫 slot의 @n(midi) 위치로 보정한다.
+ * tuplet head 설치 대상 좌표를 첫 note slot의 @n(midi) 위치로 보정한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : hit : 사용자가 클릭한 score 좌표
  * - 인수 : rawText : draft에서 합성된 tuplet rawText
@@ -336,24 +336,24 @@ export function resolveTupletHeadPlacementHit(
     };
   }
 
-  const firstSlot = parsedCell.slots.find((slot) => slot.slotIndex === 0);
-  const firstSlotMidi = firstSlot?.note?.position.midiNum;
+  const placementSlot = parsedCell.slots.find((slot) => slot.note !== null);
+  const placementSlotMidi = placementSlot?.note?.position.midiNum;
 
-  if (firstSlotMidi === undefined) {
+  if (placementSlotMidi === undefined) {
     return {
-      kind: "blocked",
-      message: "Tuplet first slot must select a note row before placement.",
+      kind: "hit",
+      hit,
     };
   }
 
   const placementRowId = state.document.indexes.noteRowIdByStringMidi.get(
-    `${clickedRow.stringId}|${firstSlotMidi}`,
+    `${clickedRow.stringId}|${placementSlotMidi}`,
   );
 
   if (placementRowId === undefined) {
     return {
       kind: "blocked",
-      message: "Tuplet first slot row is outside the selected string range.",
+      message: "Tuplet placement slot row is outside the selected string range.",
     };
   }
 
