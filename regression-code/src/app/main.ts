@@ -755,13 +755,18 @@ async function boot(): Promise<void> {
     dragState: DragEditState,
     hit: ScoreHit,
   ): ScoreTextEdit | null => {
+    const selection = getSelectionForHit(hit);
+    const editKey = getEditTargetKey(selection);
+
+    if (dragState.edits.has(editKey)) {
+      return null;
+    }
+
     const rawTextResult = composeDragRawTextForHit(hit, dragState.button);
 
     if (rawTextResult.kind === "blocked") {
       return null;
     }
-
-    const selection = getSelectionForHit(hit);
 
     return {
       selection,
@@ -1237,7 +1242,6 @@ async function boot(): Promise<void> {
         const startEdits = addDragEditForHit(dragEdit, dragEdit.startHit);
 
         applyScoreTextEdits(startEdits);
-        dragEdit.edits.clear();
       }
     }
 
@@ -1263,7 +1267,6 @@ async function boot(): Promise<void> {
     const edits = addDragEditForHit(dragEdit, hit);
 
     applyScoreTextEdits(edits);
-    dragEdit.edits.clear();
   });
   dom.scoreStage.addEventListener("pointerup", (event) => {
     if (dragEdit === null || dragEdit.pointerId !== event.pointerId) {
@@ -1278,7 +1281,6 @@ async function boot(): Promise<void> {
     }
 
     if (completedDrag.isDragging) {
-      applyScoreTextEdits(Array.from(completedDrag.edits.values()));
       return;
     }
 
