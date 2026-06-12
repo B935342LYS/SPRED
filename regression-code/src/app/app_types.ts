@@ -84,6 +84,8 @@ export type AppState = {
 
 /** 앱 진입점에서 제어하는 DOM 요소 묶음. */
 export type AppDom = {
+  appShell: HTMLElement;
+  scoreViewer: HTMLElement;
   scoreArea: HTMLElement;
   scoreStage: HTMLElement;
   layoutStage: HTMLElement;
@@ -111,9 +113,28 @@ export type AppDom = {
   localSaveButton: HTMLButtonElement;
   localLoadButton: HTMLButtonElement;
   zoomInput: HTMLInputElement;
+  fullscreenButton: HTMLButtonElement;
+  fitHeightButton: HTMLButtonElement;
+  detailsButton: HTMLButtonElement;
+  detailsDialog: HTMLDialogElement;
+  detailsForm: HTMLFormElement;
+  detailsCloseButton: HTMLButtonElement;
+  detailsCancelButton: HTMLButtonElement;
+  detailsTitleInput: HTMLInputElement;
+  detailsArtistInput: HTMLInputElement;
+  detailsGenreInput: HTMLInputElement;
+  detailsWriterInput: HTMLInputElement;
+  detailsCommentInput: HTMLTextAreaElement;
+  detailsBasicDifficultyInput: HTMLInputElement;
+  detailsOptionalDifficultyInput: HTMLInputElement;
+  detailsExtraDifficultyInput: HTMLInputElement;
+  detailsYoutubeVideoInput: HTMLInputElement;
+  detailsYoutubeOffsetInput: HTMLInputElement;
   playButton: HTMLButtonElement;
   stopButton: HTMLButtonElement;
   playbackStatus: HTMLElement;
+  musicArtist: HTMLElement;
+  musicTitle: HTMLElement;
   volumeInput: HTMLInputElement;
   waveSelect: HTMLSelectElement;
   leftStatusLine: HTMLElement;

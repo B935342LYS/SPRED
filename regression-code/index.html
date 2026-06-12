@@ -29,7 +29,7 @@
                         <div class="menu-panel">
                             <label class="compact-field">
                                 Zoom
-                                <input type="range" min="50" max="200" value="100">
+                                <input type="range" min="25" max="200" value="100">
                             </label>
                             <label class="compact-field">
                                 Text Scale
@@ -39,8 +39,8 @@
                                 Speed
                                 <input type="range" min="50" max="150" value="100" disabled>
                             </label>
-                            <button type="button" disabled>Fullscreen</button>
-                            <button type="button" disabled>Fit Height</button>
+                            <button type="button" class="fullscreen-button">Fullscreen</button>
+                            <button type="button" class="fit-height-button">Fit Height</button>
                             <button type="button" disabled>Reverse</button>
                             <button type="button" disabled>Theme</button>
                             <label class="switch-field">
@@ -116,7 +116,7 @@
 
             <section class="player-group" aria-label="Playback controls">
                 <span class="status-pill playback-status">stopped</span>
-                <button type="button" class="details-button" disabled>Details</button>
+                <button type="button" class="details-button">Details</button>
                 <div class="music-meta">
                     <span class="artist">unknown</span>
                     <span aria-hidden="true">-</span>
@@ -374,6 +374,67 @@
             <p>Score data may be removed from the database or public list upon request from the copyright holder.</p>
             <p>Users must respect copyright.</p>
             <button type="submit">Close</button>
+        </form>
+    </dialog>
+
+    <!-- Score Details Dialog -->
+    <dialog id="score-details" class="details-dialog">
+        <form class="details-form">
+            <div class="dialog-title-row">
+                <h2>Details</h2>
+                <button type="button" class="details-close-button" aria-label="Close">Close</button>
+            </div>
+            <div class="details-grid">
+                <label class="details-field">
+                    Title
+                    <input class="details-title-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Artist
+                    <input class="details-artist-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Genre
+                    <input class="details-genre-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field">
+                    Score Writer
+                    <input class="details-writer-input" type="text" maxlength="100">
+                </label>
+                <label class="details-field wide">
+                    Comment
+                    <textarea class="details-comment-input" maxlength="100" rows="3"></textarea>
+                </label>
+                <fieldset class="details-difficulty-row">
+                    <legend>Difficulty</legend>
+                    <label class="details-field compact">
+                        Basic
+                        <input class="details-basic-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                    <label class="details-field compact">
+                        Optional
+                        <input class="details-optional-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                    <label class="details-field compact">
+                        Extra
+                        <input class="details-extra-difficulty-input" type="number" min="0" max="99" step="1">
+                    </label>
+                </fieldset>
+                <div class="details-youtube-row">
+                    <label class="details-field">
+                        YouTube Video ID
+                        <input class="details-youtube-video-input" type="text" maxlength="128">
+                    </label>
+                    <label class="details-field">
+                        Offset ms
+                        <input class="details-youtube-offset-input" type="number" min="-9999" max="9999" step="1">
+                    </label>
+                </div>
+            </div>
+            <div class="dialog-action-row">
+                <button type="button" class="details-cancel-button">Cancel</button>
+                <button type="submit" class="details-save-button">Save</button>
+            </div>
         </form>
     </dialog>
     <script type="module" src="./src/app/main.ts"></script>

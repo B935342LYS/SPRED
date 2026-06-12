@@ -11,6 +11,7 @@ import {
   loadRuntimeDocument,
 } from "../core/score/create_runtime_document";
 import type {
+  MusicData,
   RuntimeDocument,
   ScoreFile,
 } from "../core/score/types";
@@ -136,6 +137,32 @@ export function loadScoreTextAsInitialState(
         level: "info",
         text: `${sourceLabel} loaded.`,
       },
+    },
+  };
+}
+
+/**
+ * ScoreFile의 musicData만 교체해 AppState에 반영한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : musicData : Details dialog에서 확정된 새 metadata
+ * - 반환값 : metadata가 갱신된 앱 상태
+ */
+export function applyMusicDataEditToState(
+  state: AppState,
+  musicData: MusicData,
+): AppState {
+  const nextScore: ScoreFile = {
+    ...state.document.score,
+    musicData,
+  };
+  const nextDocument = createRuntimeDocument(nextScore);
+
+  return {
+    ...state,
+    document: nextDocument,
+    statusMessage: {
+      level: "info",
+      text: "Score details updated.",
     },
   };
 }

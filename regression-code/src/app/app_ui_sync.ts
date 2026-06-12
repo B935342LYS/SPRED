@@ -62,6 +62,35 @@ export function syncLeftStatus(dom: AppDom, state: AppState): void {
 }
 
 /**
+ * metadata 표시용 문자열을 정리한다.
+ * - 인수 : value : ScoreFile musicData에서 읽은 원본 문자열
+ * - 반환값 : 공문자열이면 unknown, 아니면 trim된 표시 문자열
+ */
+function formatMusicMetadataText(value: string): string {
+  const text = value.trim();
+
+  return text.length > 0 ? text : "unknown";
+}
+
+/**
+ * 중앙 player group의 곡 metadata 표시를 현재 ScoreFile과 동기화한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncMusicMetadata(dom: AppDom, state: AppState): void {
+  const musicData = state.document.score.musicData;
+  const artist = formatMusicMetadataText(musicData.musicArtist);
+  const title = formatMusicMetadataText(musicData.musicTitle);
+
+  // 중앙 플레이어는 ScoreFile 원본 metadata를 직접 표시하고 전체 문구는 tooltip에도 둔다.
+  dom.musicArtist.textContent = artist;
+  dom.musicArtist.title = artist;
+  dom.musicTitle.textContent = title;
+  dom.musicTitle.title = title;
+}
+
+/**
  * Default 카드 상단의 current rawText preview를 현재 edit tool 상태로 갱신한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : state : 현재 앱 상태
@@ -165,6 +194,9 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.jsonDownloadButton.disabled = isBusy;
   dom.localSaveButton.disabled = isBusy;
   dom.localLoadButton.disabled = isBusy;
+  dom.fullscreenButton.disabled = isBusy;
+  dom.fitHeightButton.disabled = isBusy;
+  dom.detailsButton.disabled = isBusy;
   syncCurrentRawTextPreview(dom, state);
 }
 

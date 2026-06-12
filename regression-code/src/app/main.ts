@@ -20,6 +20,7 @@ import {
   syncTupletEditToolFromDom,
 } from "./app_controller";
 import {
+  applyMusicDataEditToState,
   applyRawTextBatchEditToState,
   loadScoreTextAsInitialState,
 } from "./app_runtime";
@@ -36,6 +37,7 @@ import {
   setStatus,
   syncLayoutScroll,
   syncLeftStatus,
+  syncMusicMetadata,
   syncUiControls,
 } from "./app_ui_sync";
 import {
@@ -100,6 +102,7 @@ async function boot(): Promise<void> {
 
   const render = (): void => {
     state = renderApp(dom, state);
+    syncMusicMetadata(dom, state);
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
   };
@@ -114,6 +117,153 @@ async function boot(): Promise<void> {
   const syncPlaybackStatus = (text: string): void => {
     dom.playbackStatus.textContent = text;
     dom.playbackStatus.title = text;
+  };
+
+  const setZoomPercent = (zoomPercent: number, minZoomPercent?: number): void => {
+    const min = Number(dom.zoomInput.min);
+    const max = Number(dom.zoomInput.max);
+    const normalizedMin = minZoomPercent ?? (Number.isFinite(min) ? min : 1);
+    const boundedZoom = Math.min(
+      Math.max(zoomPercent, normalizedMin),
+      Number.isFinite(max) ? max : 400,
+    );
+
+    dom.zoomInput.value = String(Math.round(boundedZoom));
+  };
+
+  const fitScoreHeight = (): void => {
+    const baseStageHeight = state.renderInput.rows.reduce(
+      (sum, row) => sum + Math.max(0, row.height),
+      0,
+    );
+    const targetHeight = Math.max(
+      0,
+      dom.scoreArea.clientHeight,
+    );
+
+    if (baseStageHeight <= 0 || targetHeight <= 0) {
+      state = {
+        ...state,
+        statusMessage: {
+          level: "warning",
+          text: "Fit Height needs a visible score area.",
+        },
+      };
+      syncLeftStatus(dom, state);
+      return;
+    }
+
+    setZoomPercent((targetHeight / baseStageHeight) * 100);
+    render();
+    state = {
+      ...state,
+      statusMessage: {
+        level: "info",
+        text: `Fit Height: ${dom.zoomInput.value}%`,
+      },
+    };
+    syncLeftStatus(dom, state);
+  };
+
+  const syncFullscreenButton = (): void => {
+    dom.fullscreenButton.textContent =
+      document.fullscreenElement === dom.appShell ? "Exit Fullscreen" : "Fullscreen";
+  };
+
+  const readIntegerInput = (input: HTMLInputElement, fallback: number): number => {
+    const value = Number.parseInt(input.value, 10);
+
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  const populateDetailsDialog = (): void => {
+    const musicData = state.document.score.musicData;
+
+    // Details dialog는 생성/수정 시각을 제외한 musicData 편집 필드를 현재 score 값으로 채운다.
+    dom.detailsTitleInput.value = musicData.musicTitle;
+    dom.detailsArtistInput.value = musicData.musicArtist;
+    dom.detailsGenreInput.value = musicData.musicGenre;
+    dom.detailsWriterInput.value = musicData.scoreWriter;
+    dom.detailsCommentInput.value = musicData.comment;
+    dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty.basic);
+    dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty.optional);
+    dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty.extra);
+    dom.detailsYoutubeVideoInput.value = musicData.youtube.videoId;
+    dom.detailsYoutubeOffsetInput.value = String(musicData.youtube.offsetMs);
+  };
+
+  const openDetailsDialog = (): void => {
+    populateDetailsDialog();
+    dom.detailsDialog.showModal();
+  };
+
+  const applyDetailsDialog = (): void => {
+    const currentMusicData = state.document.score.musicData;
+
+    state = applyMusicDataEditToState(state, {
+      ...currentMusicData,
+      musicTitle: dom.detailsTitleInput.value,
+      musicArtist: dom.detailsArtistInput.value,
+      musicGenre: dom.detailsGenreInput.value,
+      scoreWriter: dom.detailsWriterInput.value,
+      comment: dom.detailsCommentInput.value.slice(0, 100),
+      scoreDifficulty: {
+        basic: readIntegerInput(
+          dom.detailsBasicDifficultyInput,
+          currentMusicData.scoreDifficulty.basic,
+        ),
+        optional: readIntegerInput(
+          dom.detailsOptionalDifficultyInput,
+          currentMusicData.scoreDifficulty.optional,
+        ),
+        extra: readIntegerInput(
+          dom.detailsExtraDifficultyInput,
+          currentMusicData.scoreDifficulty.extra,
+        ),
+      },
+      youtube: {
+        videoId: dom.detailsYoutubeVideoInput.value,
+        offsetMs: readIntegerInput(
+          dom.detailsYoutubeOffsetInput,
+          currentMusicData.youtube.offsetMs,
+        ),
+      },
+    });
+    dom.detailsDialog.close();
+    render();
+  };
+
+  const toggleFullscreen = (): void => {
+    if (document.fullscreenElement === dom.appShell) {
+      document.exitFullscreen()
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : "Unknown fullscreen error.";
+
+          state = {
+            ...state,
+            statusMessage: {
+              level: "error",
+              text: message,
+            },
+          };
+          syncLeftStatus(dom, state);
+        });
+      return;
+    }
+
+    dom.appShell.requestFullscreen()
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "Unknown fullscreen error.";
+
+        state = {
+          ...state,
+          statusMessage: {
+            level: "error",
+            text: message,
+          },
+        };
+        syncLeftStatus(dom, state);
+      });
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
@@ -704,8 +854,28 @@ async function boot(): Promise<void> {
     syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   });
   window.addEventListener("resize", render);
-  // zoom 값이 확정되면 전체 canvas score를 다시 그린다.
-  dom.zoomInput.addEventListener("change", render);
+  document.addEventListener("fullscreenchange", () => {
+    syncFullscreenButton();
+    render();
+  });
+  // zoom 값이 확정되면 수동 zoom 하한을 적용한 뒤 전체 canvas score를 다시 그린다.
+  dom.zoomInput.addEventListener("change", () => {
+    setZoomPercent(Number(dom.zoomInput.value), 100);
+    render();
+  });
+  dom.fitHeightButton.addEventListener("click", fitScoreHeight);
+  dom.fullscreenButton.addEventListener("click", toggleFullscreen);
+  dom.detailsButton.addEventListener("click", openDetailsDialog);
+  dom.detailsCloseButton.addEventListener("click", () => {
+    dom.detailsDialog.close();
+  });
+  dom.detailsCancelButton.addEventListener("click", () => {
+    dom.detailsDialog.close();
+  });
+  dom.detailsForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applyDetailsDialog();
+  });
   dom.playButton.addEventListener("click", () => {
     if (state.busy.kind !== "idle") {
       return;
