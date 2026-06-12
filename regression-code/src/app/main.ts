@@ -1037,6 +1037,10 @@ async function boot(): Promise<void> {
     };
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
+
+    if (dom.editToggle.checked) {
+      fitScoreHeight();
+    }
   });
 
   const syncDefaultEditInput = (): void => {

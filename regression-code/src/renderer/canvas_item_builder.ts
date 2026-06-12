@@ -278,23 +278,22 @@ export function buildCanvasMarkerItems(
  */
 function buildTimingLineMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[] {
   const items: CanvasMarkerItem[] = [];
+  const sections = buildTimingLineSections(analysis);
 
-  // timing segment별로 박자 기준을 새로 잡고, 같은 tick에서는 bar line을 우선한다.
-  for (const segment of analysis.timingTimeline) {
-    const startTick = timeFractionToNumber(segment.time.startTick);
-    const endTick = timeFractionToNumber(segment.time.endTick);
-    const beatInterval = segment.stepsPerBeat;
-    const barInterval = segment.beatsPerBar * segment.stepsPerBeat;
+  // 박자/step 기준이 유지되는 구간별로 선을 만들고, 같은 tick에서는 bar line을 우선한다.
+  for (const section of sections) {
+    const beatInterval = section.stepsPerBeat;
+    const barInterval = section.beatsPerBar * section.stepsPerBeat;
 
     if (
-      endTick <= startTick ||
+      section.endTick <= section.startTick ||
       !isPositiveFiniteNumber(beatInterval) ||
       !isPositiveFiniteNumber(barInterval)
     ) {
       continue;
     }
 
-    const barTicks = collectIntervalTicks(startTick, endTick, barInterval);
+    const barTicks = collectIntervalTicks(section.startTick, section.endTick, barInterval);
     const barTickKeys = new Set(barTicks.map(createMarkerTickKey));
 
     for (const tick of barTicks) {
@@ -304,7 +303,7 @@ function buildTimingLineMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[
       });
     }
 
-    for (const tick of collectIntervalTicks(startTick, endTick, beatInterval)) {
+    for (const tick of collectIntervalTicks(section.startTick, section.endTick, beatInterval)) {
       if (barTickKeys.has(createMarkerTickKey(tick))) {
         continue;
       }
@@ -317,6 +316,48 @@ function buildTimingLineMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[
   }
 
   return items;
+}
+
+type TimingLineSection = {
+  startTick: number;
+  endTick: number;
+  beatsPerBar: number;
+  stepsPerBeat: number;
+};
+
+/**
+ * BPM만 다른 timing segment를 박자선/마디선 기준 구간에서 병합한다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 반환값 : TimingLineSection[] : 박자/step 값 변화에만 반응하는 표시 구간
+ */
+function buildTimingLineSections(analysis: AnalysisResult): TimingLineSection[] {
+  const sections: TimingLineSection[] = [];
+
+  // BPM 변화는 초 단위 재생 속도만 바꾸므로, 세로선 기준 구간을 나누지 않는다.
+  for (const segment of analysis.timingTimeline) {
+    const startTick = timeFractionToNumber(segment.time.startTick);
+    const endTick = timeFractionToNumber(segment.time.endTick);
+    const lastSection = sections[sections.length - 1];
+
+    if (
+      lastSection !== undefined &&
+      lastSection.endTick === startTick &&
+      lastSection.beatsPerBar === segment.beatsPerBar &&
+      lastSection.stepsPerBeat === segment.stepsPerBeat
+    ) {
+      lastSection.endTick = endTick;
+      continue;
+    }
+
+    sections.push({
+      startTick,
+      endTick,
+      beatsPerBar: segment.beatsPerBar,
+      stepsPerBeat: segment.stepsPerBeat,
+    });
+  }
+
+  return sections;
 }
 
 /**
