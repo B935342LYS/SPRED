@@ -517,7 +517,12 @@ select:disabled {
 }
 
 .compact-stack {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
   min-width: 34px;
+  min-height: 26px;
 }
 
 .compact-stack span {
@@ -525,7 +530,9 @@ select:disabled {
 }
 
 .gliss-id-select {
+  flex: 0 0 44px;
   width: 44px;
+  min-width: 44px;
   text-align: center;
 }
 
@@ -629,6 +636,21 @@ select:disabled {
 .stacked-field select,
 .stacked-field input {
   width: 100%;
+}
+
+.stacked-field.compact-stack {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 72px;
+  min-height: 26px;
+}
+
+.stacked-field.compact-stack select.gliss-id-select {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
 }
 
 .tuplet-toolbar button {
