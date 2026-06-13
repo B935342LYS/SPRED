@@ -4,6 +4,7 @@ import { analyzeDocument } from "../src/core/analyze/analyze_full";
 import type {
   AnalysisResult,
   AnalyzedTimeSegment,
+  GlissEvent,
   NoteEvent,
 } from "../src/core/analyze/types";
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
@@ -199,6 +200,42 @@ const effectNoteEvent: NoteEvent = {
   glissAnchors: [],
   tuplet: null,
 };
+const effectGlissEvent: GlissEvent = {
+  eventKind: "gliss",
+  eventId: "basic:gliss:a:s1-note-60:1:s1-note-64:3",
+  trackId: "basic",
+  time: {
+    startTick: numberToTimeFraction(1),
+    endTick: numberToTimeFraction(3),
+  },
+  sourceCells: [
+    { rowId: "s1-note-60", col: 1 },
+    { rowId: "s1-note-64", col: 3 },
+  ],
+  startDisplay: {
+    rowId: "s1-note-60",
+    centOffset: 0,
+  },
+  endDisplay: {
+    rowId: "s1-note-64",
+    centOffset: 0,
+  },
+  startSound: {
+    midi: 60,
+    centOffset: 0,
+  },
+  endSound: {
+    midi: 64,
+    centOffset: 0,
+  },
+  glissId: "a",
+  startAnchorTick: numberToTimeFraction(1),
+  endAnchorTick: numberToTimeFraction(3),
+  fromKind: "start",
+  toKind: "end",
+  startAttach: "attack",
+  endAttach: "release",
+};
 const effectAnalysis: AnalysisResult = {
   timingTimeline: [
     {
@@ -218,7 +255,7 @@ const effectAnalysis: AnalysisResult = {
   trackResults: [
     {
       trackId: "basic",
-      events: [effectNoteEvent],
+      events: [effectNoteEvent, effectGlissEvent],
     },
   ],
   analysisIssues: [],
@@ -230,8 +267,12 @@ const effectSchedule = buildAudioSchedule({
 const effectScheduleEvent = effectSchedule.events[0];
 
 assert(effectScheduleEvent !== undefined, "Effect schedule should include the synthetic note.");
+assert(
+  effectScheduleEvent?.sourceEventKind === "note",
+  "First effect schedule event should be a note.",
+);
 
-if (effectScheduleEvent !== undefined) {
+if (effectScheduleEvent?.sourceEventKind === "note") {
   const tremolo = effectScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
   const vibrato = effectScheduleEvent.effects.find((effect) => effect.kind === "vibrato");
 
@@ -249,6 +290,20 @@ if (effectScheduleEvent !== undefined) {
     assertNear(vibrato.startSeconds, 0.125, "Vibrato should start on the second tick.");
     assertNear(vibrato.endSeconds, 0.375, "Vibrato should end with the note.");
   }
+}
+
+const glissScheduleEvent = effectSchedule.events.find(
+  (event) => event.sourceEventKind === "gliss",
+);
+
+assert(glissScheduleEvent !== undefined, "Schedule should include the synthetic gliss fallback.");
+
+if (glissScheduleEvent?.sourceEventKind === "gliss") {
+  assertNear(glissScheduleEvent.startSeconds, 0.125, "Gliss should start at its start anchor.");
+  assertNear(glissScheduleEvent.endSeconds, 0.375, "Gliss should end at its end anchor.");
+  assert(glissScheduleEvent.startMidi === 60, "Gliss should keep start MIDI.");
+  assert(glissScheduleEvent.endMidi === 64, "Gliss should keep end MIDI.");
+  assertNear(glissScheduleEvent.crossfadeSeconds, 0.02, "Gliss should use default crossfade.");
 }
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
@@ -274,8 +329,9 @@ if (loadResult.ok) {
   assert(schedule.events.length === 6, "Audio schedule should include 6 basic note events.");
   assertNear(schedule.durationSeconds, 125, "Fixture schedule duration should follow timing timeline.");
   assert(firstEvent !== undefined, "Audio schedule should have a first event.");
+  assert(firstEvent?.sourceEventKind === "note", "First fixture event should be a note.");
 
-  if (firstEvent !== undefined) {
+  if (firstEvent?.sourceEventKind === "note") {
     assert(firstEvent.eventId.length > 0, "Audio event should keep analyzer eventId.");
     assert(firstEvent.trackId === "basic", "Audio event should keep trackId.");
     assertNear(firstEvent.startSeconds, 0, "First note should start at 0s.");

@@ -49,21 +49,40 @@ export type AudioSchedule = {
   events: AudioScheduleEvent[];
 };
 
-/** analyzer의 NoteEvent에서 파생된 단일 발음 예약 정보. */
-export type AudioScheduleEvent = {
+/** audio schedule event 공통 필드. */
+export type AudioScheduleEventBase = {
   eventId: string;
   trackId: TrackId;
   startTick: TimeFraction;
   endTick: TimeFraction;
   startSeconds: number;
   endSeconds: number;
+  velocity: number;
+  sourceEventKind: "note" | "gliss";
+};
+
+/** analyzer의 NoteEvent에서 파생된 단일 발음 예약 정보. */
+export type AudioNoteScheduleEvent = AudioScheduleEventBase & {
+  sourceEventKind: "note";
   midi: number;
   centOffset: number;
-  velocity: number;
   effects: AudioScheduleEffect[];
   automation: AudioAutomationEvent[];
-  sourceEventKind: "note";
 };
+
+/** analyzer의 GlissEvent에서 파생된 fallback gliss 발음 예약 정보. */
+export type AudioGlissScheduleEvent = AudioScheduleEventBase & {
+  sourceEventKind: "gliss";
+  startMidi: number;
+  startCentOffset: number;
+  endMidi: number;
+  endCentOffset: number;
+  curve: "linear";
+  crossfadeSeconds: number;
+};
+
+/** audio backend가 예약할 수 있는 발음 이벤트. */
+export type AudioScheduleEvent = AudioNoteScheduleEvent | AudioGlissScheduleEvent;
 
 /** NoteEffectSegment에서 audio backend로 넘기는 구간 효과 정보. */
 export type AudioScheduleEffect =
