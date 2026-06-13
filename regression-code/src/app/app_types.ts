@@ -68,9 +68,13 @@ export type ScoreSelection = ScoreHit & {
   trackId: TrackId;
 };
 
+/** 현재 score가 앱에 들어온 출처. timestamp 저장 정책을 결정할 때 사용한다. */
+export type ScoreOrigin = "template" | "loaded" | "saved";
+
 /** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
 export type AppState = {
   document: RuntimeDocument;
+  scoreOrigin: ScoreOrigin;
   parsed: ParsedScoreDocument;
   analysis: AnalysisResult;
   renderInput: CanvasAnalyzedRenderInput;

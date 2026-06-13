@@ -17,7 +17,10 @@ import type {
   TickTimeMapper,
 } from "./audio_types";
 import type { TrackId } from "../core/score/types";
-import { createTickTimeMapper } from "./tick_time_mapper";
+import {
+  createTickTimeMapper,
+  timeFractionToNumber,
+} from "./tick_time_mapper";
 
 const DEFAULT_VELOCITY = 1;
 
@@ -129,6 +132,9 @@ function buildAudioScheduleEffects(
         kind: "tremolo",
         startSeconds,
         endSeconds,
+        durationTicks:
+          timeFractionToNumber(segment.time.endTick) -
+          timeFractionToNumber(segment.time.startTick),
         division: segment.trem.division,
       });
     }

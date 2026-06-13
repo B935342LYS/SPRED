@@ -50,7 +50,11 @@ async function boot(): Promise<void> {
 
   populateAbsolutePitchOptions(dom.absolutePitchSelect);
 
-  const sampleLoadResult = loadScoreTextAsInitialState(sampleScoreJson, "sample score");
+  const sampleLoadResult = loadScoreTextAsInitialState(
+    sampleScoreJson,
+    "sample score",
+    "template",
+  );
 
   if (!sampleLoadResult.ok) {
     throw new Error(sampleLoadResult.message);

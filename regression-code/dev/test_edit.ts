@@ -5,6 +5,10 @@ import { createInitialState } from "../src/app/app_runtime";
 import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
+import {
+  touchScoreTimestampsForSave,
+  touchScoreUpdatedAt,
+} from "../src/app/score_timestamp";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 
 /**
@@ -265,6 +269,43 @@ if (loadResult.ok && tupletResult.kind === "apply") {
 
     assert(noteCell?.rawText === "C4", "Batch edit should upsert note rawText.");
     assert(globalCell?.rawText === "120<", "Batch edit should upsert global rawText.");
+    assert(
+      batchApplyResult.score.musicData.updatedAt === loadResult.document.score.musicData.updatedAt,
+      "Batch edit should preserve musicData.updatedAt until explicit save.",
+    );
+
+    const touchedScore = touchScoreUpdatedAt(batchApplyResult.score, "2026-06-13T12:00:00.000Z");
+
+    assert(
+      touchedScore.musicData.createdAt === batchApplyResult.score.musicData.createdAt,
+      "Explicit save timestamp update should preserve createdAt.",
+    );
+    assert(
+      touchedScore.musicData.updatedAt === "2026-06-13T12:00:00.000Z",
+      "Explicit save timestamp update should set updatedAt.",
+    );
+
+    const templateSavedScore = touchScoreTimestampsForSave(
+      batchApplyResult.score,
+      "template",
+      "2026-06-13T13:00:00.000Z",
+    );
+    const loadedSavedScore = touchScoreTimestampsForSave(
+      batchApplyResult.score,
+      "loaded",
+      "2026-06-13T14:00:00.000Z",
+    );
+
+    assert(
+      templateSavedScore.musicData.createdAt === "2026-06-13T13:00:00.000Z" &&
+        templateSavedScore.musicData.updatedAt === "2026-06-13T13:00:00.000Z",
+      "Template score save should initialize createdAt and updatedAt together.",
+    );
+    assert(
+      loadedSavedScore.musicData.createdAt === batchApplyResult.score.musicData.createdAt &&
+        loadedSavedScore.musicData.updatedAt === "2026-06-13T14:00:00.000Z",
+      "Loaded score save should preserve createdAt and update updatedAt.",
+    );
   }
 }
 

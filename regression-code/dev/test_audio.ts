@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
-import type { AnalyzedTimeSegment } from "../src/core/analyze/types";
+import type {
+  AnalysisResult,
+  AnalyzedTimeSegment,
+  NoteEvent,
+} from "../src/core/analyze/types";
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import { createAudioEventQueue } from "../src/audio/audio_event_queue";
@@ -153,6 +157,99 @@ assertNear(multiMapper.tickToSeconds(fractionalTick), 1.125, "fractional tick sh
 assertNear(midiToFrequency(69, 0), 440, "A4 should be 440Hz.");
 assertNear(midiToFrequency(69, 100), midiToFrequency(70, 0), "+100 cents should match the next semitone.");
 assertNear(midiToFrequency(69, -100), midiToFrequency(68, 0), "-100 cents should match the previous semitone.");
+
+const effectNoteEvent: NoteEvent = {
+  eventKind: "note",
+  eventId: "basic:note:s1-note-60:0",
+  trackId: "basic",
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(3),
+  },
+  sourceCells: [{ rowId: "s1-note-60", col: 0 }],
+  text: "C4",
+  displayTextAnchors: [],
+  display: {
+    rowId: "s1-note-60",
+    centOffset: 0,
+  },
+  sound: {
+    midi: 60,
+    centOffset: 0,
+  },
+  effects: [
+    {
+      time: {
+        startTick: numberToTimeFraction(0),
+        endTick: numberToTimeFraction(1),
+      },
+      vib: false,
+      trem: { division: 3 },
+    },
+    {
+      time: {
+        startTick: numberToTimeFraction(1),
+        endTick: numberToTimeFraction(3),
+      },
+      vib: true,
+      trem: null,
+    },
+  ],
+  glissRole: null,
+  glissAnchors: [],
+  tuplet: null,
+};
+const effectAnalysis: AnalysisResult = {
+  timingTimeline: [
+    {
+      time: {
+        startTick: numberToTimeFraction(0),
+        endTick: numberToTimeFraction(4),
+      },
+      startBpm: 120,
+      endBpm: 120,
+      bpmCurve: "instant",
+      beatsPerBar: 4,
+      stepsPerBeat: 4,
+      sourceCells: [],
+    },
+  ],
+  dynamicsTimeline: [],
+  trackResults: [
+    {
+      trackId: "basic",
+      events: [effectNoteEvent],
+    },
+  ],
+  analysisIssues: [],
+};
+const effectSchedule = buildAudioSchedule({
+  analysis: effectAnalysis,
+  activeTrackIds: ["basic"],
+});
+const effectScheduleEvent = effectSchedule.events[0];
+
+assert(effectScheduleEvent !== undefined, "Effect schedule should include the synthetic note.");
+
+if (effectScheduleEvent !== undefined) {
+  const tremolo = effectScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
+  const vibrato = effectScheduleEvent.effects.find((effect) => effect.kind === "vibrato");
+
+  assert(tremolo !== undefined, "Schedule should preserve tremolo effect.");
+  assert(vibrato !== undefined, "Schedule should preserve vibrato effect.");
+
+  if (tremolo !== undefined) {
+    assert(tremolo.division === 3, "Tremolo schedule should keep division.");
+    assertNear(tremolo.durationTicks, 1, "Tremolo schedule should keep source duration in ticks.");
+    assertNear(tremolo.startSeconds, 0, "Tremolo should start at note start.");
+    assertNear(tremolo.endSeconds, 0.125, "One tick at BPM 120/SPB 4 should last 0.125s.");
+  }
+
+  if (vibrato !== undefined) {
+    assertNear(vibrato.startSeconds, 0.125, "Vibrato should start on the second tick.");
+    assertNear(vibrato.endSeconds, 0.375, "Vibrato should end with the note.");
+  }
+}
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");

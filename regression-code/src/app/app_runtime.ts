@@ -30,6 +30,7 @@ import {
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import type {
   AppState,
+  ScoreOrigin,
   ScoreSelection,
 } from "./app_types";
 
@@ -80,13 +81,18 @@ export function buildRuntimeArtifacts(document: RuntimeDocument): {
 /**
  * RuntimeDocument를 AppState 초기값으로 변환한다.
  * - 인수 : document : 로드된 런타임 문서
+ * - 인수 : scoreOrigin : 현재 score가 앱에 들어온 출처
  * - 반환값 : 첫 렌더에 필요한 앱 상태
  */
-export function createInitialState(document: RuntimeDocument): AppState {
+export function createInitialState(
+  document: RuntimeDocument,
+  scoreOrigin: ScoreOrigin = "loaded",
+): AppState {
   const artifacts = buildRuntimeArtifacts(document);
 
   return {
     document,
+    scoreOrigin,
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
@@ -106,11 +112,13 @@ export function createInitialState(document: RuntimeDocument): AppState {
  * JSON 문자열을 RuntimeDocument로 로드한 뒤 AppState 초기값으로 변환한다.
  * - 인수 : jsonText : ScoreFile JSON 문자열
  * - 인수 : sourceLabel : 사용자 상태 메시지에 표시할 로드 출처
+ * - 인수 : scoreOrigin : 현재 score가 앱에 들어온 출처
  * - 반환값 : 로드 성공 시 새 AppState, 실패 시 기존 상태에 표시할 오류 메시지
  */
 export function loadScoreTextAsInitialState(
   jsonText: string,
   sourceLabel: string,
+  scoreOrigin: ScoreOrigin = "loaded",
 ):
   | {
       ok: true;
@@ -132,7 +140,7 @@ export function loadScoreTextAsInitialState(
   return {
     ok: true,
     state: {
-      ...createInitialState(loadResult.document),
+      ...createInitialState(loadResult.document, scoreOrigin),
       statusMessage: {
         level: "info",
         text: `${sourceLabel} loaded.`,

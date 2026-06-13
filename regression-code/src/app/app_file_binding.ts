@@ -14,6 +14,7 @@ import {
   loadScoreFromLocalStorage,
   saveScoreToLocalStorage,
 } from "../infra/score_local_storage";
+import { touchScoreTimestampsForSave } from "./score_timestamp";
 import { syncLeftStatus } from "./app_ui_sync";
 
 /** file/local storage binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
@@ -35,10 +36,19 @@ export function bindFileControls(
 ): void {
   dom.jsonDownloadButton.addEventListener("click", () => {
     const state = session.getState();
+    const nextScore = touchScoreTimestampsForSave(
+      state.document.score,
+      state.scoreOrigin,
+    );
 
-    downloadScoreJson(state.document.score);
+    downloadScoreJson(nextScore);
     session.setState({
       ...state,
+      document: {
+        ...state.document,
+        score: nextScore,
+      },
+      scoreOrigin: "saved",
       statusMessage: {
         level: "info",
         text: "JSON downloaded.",
@@ -82,11 +92,20 @@ export function bindFileControls(
 
   dom.localSaveButton.addEventListener("click", () => {
     const state = session.getState();
+    const nextScore = touchScoreTimestampsForSave(
+      state.document.score,
+      state.scoreOrigin,
+    );
 
     try {
-      saveScoreToLocalStorage(state.document.score);
+      saveScoreToLocalStorage(nextScore);
       session.setState({
         ...state,
+        document: {
+          ...state.document,
+          score: nextScore,
+        },
+        scoreOrigin: "saved",
         statusMessage: {
           level: "info",
           text: "Score saved to local storage.",

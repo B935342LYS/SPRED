@@ -76,6 +76,7 @@ export type AudioScheduleEffect =
       kind: "tremolo";
       startSeconds: number;
       endSeconds: number;
+      durationTicks: number;
       division: number;
     };
 
