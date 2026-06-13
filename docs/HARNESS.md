@@ -250,7 +250,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
-- current near-term focus is stabilizing complex analyzer-renderer token flows before audio work
+- current near-term focus is stabilizing audio effect playback behavior and preparing report / presentation materials after the first audio effect pass
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
@@ -297,7 +297,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - renderer now displays `globalLines.cells` rawText as white text on global rows through `CanvasGlobalTextRenderItem`
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
-- current audio backend intentionally ignores gliss, vibrato, tremolo, dynamics automation, and sampled instrument playback; these remain later backend extensions
+- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, and gliss fallback bridge playback; dynamics automation, sampled instrument playback, and full voice-span gliss merging remain later backend extensions
 - `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `resume()`, `seekToSeconds()`, and `stop()`
 - seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
 - app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
@@ -315,12 +315,15 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.19-step4-audio-open-source-survey.md` records audio open-source survey and adoption candidates
 - `docs/implementation-memo/1.20-step4-playback-edit-global-visualization.md` records audio playback, edit UX, batch edit, and global rawText visualization progress
 - `docs/implementation-memo/1.21-step4-playback-layout-ui-progress.md` records pause/seek playback state, metadata/details UI, view helper, edit preview, app playback folder split, and layout compatibility planning progress
+- `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, and gliss fallback audio effect implementation decisions
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npm run typecheck`, `npm run build`, `npm run test:audio`
+- latest verified commands: `npm run typecheck`, `npm run test:audio`, `npm run test:score`, `npm run test:parse`, `npm run test:analyze`, `npm run test:edit`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- connect gliss pitch ramp, vibrato modulation, trem division, dynamics automation, and tuplet timing to the audio generator
+- expand manual and browser-level tests for vibrato, tremolo, and gliss fallback playback quality
+- connect dynamics automation and refined tuplet timing behavior to the audio generator
+- evaluate whether gliss fallback needs note ducking or selective voice-span merging after listening tests
 - add loop playback range selection and scheduler/controller support
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
