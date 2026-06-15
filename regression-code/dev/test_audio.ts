@@ -290,6 +290,11 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
   const tremolo = effectScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
   const vibrato = effectScheduleEvent.effects.find((effect) => effect.kind === "vibrato");
 
+  assertNear(
+    effectScheduleEvent.endSeconds,
+    0.0625,
+    "Gliss start anchor note should be clipped at the gliss start tick.",
+  );
   assert(tremolo !== undefined, "Schedule should preserve tremolo effect.");
   assert(vibrato !== undefined, "Schedule should preserve vibrato effect.");
 

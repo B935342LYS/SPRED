@@ -61,11 +61,24 @@ export function buildAudioScheduleWithMapper(
     }
 
     const noteEvents = trackResult.events.filter(isNoteEvent);
+    const glissEvents = trackResult.events.filter(isGlissEvent);
+    const noteClipEndTickByEvent = buildGlissStartNoteClipEndTickMap(
+      noteEvents,
+      glissEvents,
+    );
 
     // 선택된 track의 note와 gliss fallback 발음 이벤트를 audio schedule event로 변환한다.
     for (const event of trackResult.events) {
       if (isNoteEvent(event)) {
-        events.push(createAudioNoteScheduleEvent(event, mapper));
+        const noteScheduleEvent = createAudioNoteScheduleEvent(
+          event,
+          mapper,
+          noteClipEndTickByEvent.get(event) ?? null,
+        );
+
+        if (noteScheduleEvent !== null) {
+          events.push(noteScheduleEvent);
+        }
         continue;
       }
 
@@ -107,20 +120,27 @@ function isGlissEvent(event: AnalyzedEvent): event is GlissEvent {
  * NoteEvent 하나를 AudioNoteScheduleEvent로 변환한다.
  * - 인수 : event : analyzer가 만든 note event
  * - 인수 : mapper : tick/seconds 변환기
- * - 반환값 : AudioNoteScheduleEvent : backend 예약용 note event
+ * - 인수 : clipEndTick : gliss fallback 시작점 때문에 audio에서만 줄일 종료 tick
+ * - 반환값 : AudioNoteScheduleEvent : backend 예약용 note event 또는 길이가 없으면 null
  */
 function createAudioNoteScheduleEvent(
   event: NoteEvent,
   mapper: TickTimeMapper,
-): AudioNoteScheduleEvent {
+  clipEndTick: NoteEvent["time"]["endTick"] | null,
+): AudioNoteScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.time.startTick);
-  const endSeconds = mapper.tickToSeconds(event.time.endTick);
+  const effectiveEndTick = getClippedNoteEndTick(event, clipEndTick);
+  const endSeconds = mapper.tickToSeconds(effectiveEndTick);
+
+  if (endSeconds <= startSeconds) {
+    return null;
+  }
 
   return {
     eventId: event.eventId,
     trackId: event.trackId,
     startTick: event.time.startTick,
-    endTick: event.time.endTick,
+    endTick: effectiveEndTick,
     startSeconds,
     endSeconds,
     midi: event.sound.midi,
@@ -130,6 +150,90 @@ function createAudioNoteScheduleEvent(
     automation: [],
     sourceEventKind: "note" as const,
   };
+}
+
+/**
+ * gliss fallback 시작 anchor와 겹치는 note event의 audio 종료 tick을 찾는다.
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 반환값 : Map<NoteEvent, TimeFraction> : audio note 종료를 앞당길 tick lookup
+ */
+function buildGlissStartNoteClipEndTickMap(
+  noteEvents: NoteEvent[],
+  glissEvents: GlissEvent[],
+): Map<NoteEvent, NoteEvent["time"]["endTick"]> {
+  const clipEndTickByEvent = new Map<NoteEvent, NoteEvent["time"]["endTick"]>();
+
+  // gliss fallback이 시작되는 anchor note는 gliss 시작 시점에서 발음을 끊어 겹침을 줄인다.
+  for (const glissEvent of glissEvents) {
+    const noteEvent = findStartAnchorNoteEvent(glissEvent, noteEvents);
+
+    if (noteEvent === null) {
+      continue;
+    }
+
+    const currentClipEndTick = clipEndTickByEvent.get(noteEvent);
+    const nextClipEndTick = glissEvent.startAnchorTick;
+
+    if (
+      currentClipEndTick === undefined ||
+      timeFractionToNumber(nextClipEndTick) < timeFractionToNumber(currentClipEndTick)
+    ) {
+      clipEndTickByEvent.set(noteEvent, cloneTimeFraction(nextClipEndTick));
+    }
+  }
+
+  return clipEndTickByEvent;
+}
+
+/**
+ * gliss 시작 anchor가 속한 note event를 찾는다.
+ * - 인수 : glissEvent : analyzer가 만든 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 시작 anchor가 붙은 note event 또는 없으면 null
+ */
+function findStartAnchorNoteEvent(
+  glissEvent: GlissEvent,
+  noteEvents: NoteEvent[],
+): NoteEvent | null {
+  const startSource = glissEvent.sourceCells[0];
+
+  if (startSource === undefined) {
+    return null;
+  }
+
+  return noteEvents.find((noteEvent) =>
+    noteEvent.glissAnchors.some((anchor) =>
+      anchor.glissId === glissEvent.glissId &&
+      anchor.role === glissEvent.fromKind &&
+      sourceCellsMatch(anchor.source, startSource)
+    )
+  ) ?? null;
+}
+
+/**
+ * note event의 audio 종료 tick을 gliss 시작점 기준으로 제한한다.
+ * - 인수 : event : analyzer가 만든 note event
+ * - 인수 : clipEndTick : 후보 종료 tick
+ * - 반환값 : 실제 audio note 종료 tick
+ */
+function getClippedNoteEndTick(
+  event: NoteEvent,
+  clipEndTick: NoteEvent["time"]["endTick"] | null,
+): NoteEvent["time"]["endTick"] {
+  if (clipEndTick === null) {
+    return event.time.endTick;
+  }
+
+  const startTick = timeFractionToNumber(event.time.startTick);
+  const endTick = timeFractionToNumber(event.time.endTick);
+  const clippedEndTick = timeFractionToNumber(clipEndTick);
+
+  if (clippedEndTick <= startTick || clippedEndTick >= endTick) {
+    return event.time.endTick;
+  }
+
+  return cloneTimeFraction(clipEndTick);
 }
 
 /**
@@ -316,6 +420,18 @@ function rangesOverlap(
   rightEnd: number,
 ): boolean {
   return leftStart < rightEnd && rightStart < leftEnd;
+}
+
+/**
+ * TimeFraction을 얕은 공유 없이 복사한다.
+ * - 인수 : value : 복사할 시간 분수
+ * - 반환값 : 복제된 시간 분수
+ */
+function cloneTimeFraction(value: NoteEvent["time"]["endTick"]): NoteEvent["time"]["endTick"] {
+  return {
+    numerator: value.numerator,
+    denominator: value.denominator,
+  };
 }
 
 /**
