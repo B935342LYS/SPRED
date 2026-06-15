@@ -111,6 +111,20 @@ export function columnToX(column: number, layout: CanvasScoreLayout): number {
 }
 
 /**
+ * CSS pixel x 좌표를 column/tick 값으로 바꾼다.
+ * - 인수 : x : score canvas 내부 x 좌표
+ * - 인수 : layout : 공유 좌표 layout
+ * - 반환값 : column 또는 tick 값
+ */
+export function xToColumn(x: number, layout: CanvasScoreLayout): number {
+  if (!Number.isFinite(x) || layout.columnWidth <= 0) {
+    return 0;
+  }
+
+  return x / layout.columnWidth;
+}
+
+/**
  * renderer 입력 DTO에서 row 누적 좌표와 stage metric을 계산한다.
  * - 인수 : input : renderer 입력 DTO
  * - 인수 : options : UI/app controller에서 전달한 렌더 옵션

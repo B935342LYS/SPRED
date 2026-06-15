@@ -9,6 +9,7 @@ import type {
 import { syncLeftStatus } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
 import {
+  scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
   syncPlaybackStatus,
   syncPlaybackUi,
@@ -40,12 +41,103 @@ export function bindPlaybackControls(
   session: PlaybackBindingSession,
 ): PlaybackBindingControl {
   let playbackRafId: number | null = null;
+  let scrollSeekRafId: number | null = null;
+  let suppressScrollSeek = false;
 
   const stopPlaybackAnimation = (): void => {
     if (playbackRafId !== null) {
       cancelAnimationFrame(playbackRafId);
       playbackRafId = null;
     }
+  };
+
+  const scrollScoreAreaToSeconds = (
+    state: AppState,
+    playbackRuntime: AppPlaybackRuntime,
+    scoreSeconds: number,
+  ): void => {
+    suppressScrollSeek = true;
+    scrollToScoreSeconds(dom, state, playbackRuntime, scoreSeconds);
+    requestAnimationFrame(() => {
+      suppressScrollSeek = false;
+    });
+  };
+
+  const pausePlaybackForManualSeek = (
+    playbackRuntime: AppPlaybackRuntime,
+  ): void => {
+    if (!playbackRuntime.controller.isPlaying()) {
+      return;
+    }
+
+    suppressScrollSeek = false;
+    playbackRuntime.controller.pause();
+    stopPlaybackAnimation();
+  };
+
+  const pausePlaybackForScoreAreaInteraction = (): void => {
+    const state = session.getState();
+    const playbackRuntime = session.getPlaybackRuntime();
+
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    pausePlaybackForManualSeek(playbackRuntime);
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
+  const syncSeekFromUserScroll = (): void => {
+    const state = session.getState();
+    const playbackRuntime = session.getPlaybackRuntime();
+
+    if (
+      suppressScrollSeek ||
+      state.busy.kind !== "idle" ||
+      state.layout === null
+    ) {
+      return;
+    }
+
+    if (scrollSeekRafId !== null) {
+      return;
+    }
+
+    scrollSeekRafId = requestAnimationFrame(() => {
+      scrollSeekRafId = null;
+
+      const nextState = session.getState();
+      const nextPlaybackRuntime = session.getPlaybackRuntime();
+
+      if (
+        suppressScrollSeek ||
+        nextState.busy.kind !== "idle" ||
+        nextState.layout === null
+      ) {
+        return;
+      }
+
+      pausePlaybackForManualSeek(nextPlaybackRuntime);
+
+      const scoreSeconds = scrollLeftToScoreSeconds(dom, nextState, nextPlaybackRuntime);
+
+      syncSeekUi(dom, nextState, nextPlaybackRuntime, scoreSeconds);
+      nextPlaybackRuntime.controller.seekToSeconds(scoreSeconds)
+        .catch((error: unknown) => {
+          const currentState = session.getState();
+          const message = error instanceof Error ? error.message : "Unknown scroll seek error.";
+
+          session.setState({
+            ...currentState,
+            statusMessage: {
+              level: "error",
+              text: message,
+            },
+          });
+          syncPlaybackStatus(dom, "error");
+          syncLeftStatus(dom, session.getState());
+        });
+    });
   };
 
   const updatePlaybackScroll = (): void => {
@@ -61,10 +153,23 @@ export function bindPlaybackControls(
     const currentScoreSeconds = playbackRuntime.controller.getCurrentScoreSeconds();
 
     // score canvas의 왼쪽 edge를 재생 기준선으로 두고 현재 tick이 그 위치에 오도록 스크롤한다.
-    scrollToScoreSeconds(dom, state, playbackRuntime, currentScoreSeconds);
+    scrollScoreAreaToSeconds(state, playbackRuntime, currentScoreSeconds);
     syncSeekUi(dom, state, playbackRuntime, currentScoreSeconds);
     playbackRafId = requestAnimationFrame(updatePlaybackScroll);
   };
+
+  dom.scoreArea.addEventListener("scroll", syncSeekFromUserScroll);
+  dom.scoreArea.addEventListener("pointerdown", pausePlaybackForScoreAreaInteraction, {
+    capture: true,
+  });
+  dom.scoreArea.addEventListener("wheel", pausePlaybackForScoreAreaInteraction, {
+    capture: true,
+    passive: true,
+  });
+  dom.scoreArea.addEventListener("touchstart", pausePlaybackForScoreAreaInteraction, {
+    capture: true,
+    passive: true,
+  });
 
   dom.playButton.addEventListener("click", () => {
     const state = session.getState();
@@ -80,8 +185,7 @@ export function bindPlaybackControls(
       playbackRuntime.controller.pause();
       stopPlaybackAnimation();
       syncPlaybackUi(dom, state, playbackRuntime);
-      scrollToScoreSeconds(
-        dom,
+      scrollScoreAreaToSeconds(
         state,
         playbackRuntime,
         playbackRuntime.controller.getCurrentScoreSeconds(),
@@ -99,8 +203,7 @@ export function bindPlaybackControls(
         const nextPlaybackRuntime = session.getPlaybackRuntime();
 
         syncPlaybackUi(dom, nextState, nextPlaybackRuntime);
-        scrollToScoreSeconds(
-          dom,
+        scrollScoreAreaToSeconds(
           nextState,
           nextPlaybackRuntime,
           nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
@@ -131,7 +234,7 @@ export function bindPlaybackControls(
     stopPlaybackAnimation();
     playbackRuntime.controller.stop();
     syncPlaybackUi(dom, state, playbackRuntime);
-    scrollToScoreSeconds(dom, state, playbackRuntime, 0);
+    scrollScoreAreaToSeconds(state, playbackRuntime, 0);
   });
 
   dom.seekInput.addEventListener("input", () => {
@@ -139,8 +242,9 @@ export function bindPlaybackControls(
     const playbackRuntime = session.getPlaybackRuntime();
     const scoreSeconds = Number(dom.seekInput.value);
 
+    pausePlaybackForManualSeek(playbackRuntime);
     syncSeekUi(dom, state, playbackRuntime, scoreSeconds);
-    scrollToScoreSeconds(dom, state, playbackRuntime, scoreSeconds);
+    scrollScoreAreaToSeconds(state, playbackRuntime, scoreSeconds);
   });
 
   dom.seekInput.addEventListener("change", () => {
@@ -153,8 +257,7 @@ export function bindPlaybackControls(
         const nextPlaybackRuntime = session.getPlaybackRuntime();
 
         syncPlaybackUi(dom, state, nextPlaybackRuntime);
-        scrollToScoreSeconds(
-          dom,
+        scrollScoreAreaToSeconds(
           state,
           nextPlaybackRuntime,
           nextPlaybackRuntime.controller.getCurrentScoreSeconds(),

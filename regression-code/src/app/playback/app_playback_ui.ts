@@ -4,7 +4,8 @@
 
 import type { AppDom, AppState } from "../app_types";
 import { syncLayoutScroll } from "../app_ui_sync";
-import { columnToX } from "../../renderer/canvas_coordinate";
+import { columnToX, xToColumn } from "../../renderer/canvas_coordinate";
+import { numberToTimeFraction } from "../../audio/tick_time_mapper";
 import type { AppPlaybackRuntime } from "./app_playback";
 
 /**
@@ -172,4 +173,27 @@ export function scrollToScoreSeconds(
 
   dom.scoreArea.scrollLeft = columnToX(currentTickNumber, state.layout);
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+}
+
+/**
+ * score area의 horizontal scroll 위치를 score seconds로 변환한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : playbackRuntime : seconds/tick 변환기를 포함한 playback runtime
+ * - 반환값 : scroll 위치에 해당하는 score seconds
+ */
+export function scrollLeftToScoreSeconds(
+  dom: AppDom,
+  state: AppState,
+  playbackRuntime: AppPlaybackRuntime,
+): number {
+  if (state.layout === null) {
+    return playbackRuntime.controller.getCurrentScoreSeconds();
+  }
+
+  const durationSeconds = playbackRuntime.timeMapper.getDurationSeconds();
+  const tick = xToColumn(dom.scoreArea.scrollLeft, state.layout);
+  const seconds = playbackRuntime.timeMapper.tickToSeconds(numberToTimeFraction(tick));
+
+  return Math.min(Math.max(seconds, 0), Math.max(0, durationSeconds));
 }
