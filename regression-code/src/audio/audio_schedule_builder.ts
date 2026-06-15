@@ -9,6 +9,7 @@ import type {
   GlissEvent,
   NoteEffectSegment,
   NoteEvent,
+  SourceCellRef,
 } from "../core/analyze/types";
 import type {
   AudioBuildInput,
@@ -59,6 +60,8 @@ export function buildAudioScheduleWithMapper(
       continue;
     }
 
+    const noteEvents = trackResult.events.filter(isNoteEvent);
+
     // 선택된 track의 note와 gliss fallback 발음 이벤트를 audio schedule event로 변환한다.
     for (const event of trackResult.events) {
       if (isNoteEvent(event)) {
@@ -67,7 +70,7 @@ export function buildAudioScheduleWithMapper(
       }
 
       if (isGlissEvent(event)) {
-        const glissScheduleEvent = createAudioGlissScheduleEvent(event, mapper);
+        const glissScheduleEvent = createAudioGlissScheduleEvent(event, mapper, noteEvents);
 
         if (glissScheduleEvent !== null) {
           events.push(glissScheduleEvent);
@@ -133,11 +136,13 @@ function createAudioNoteScheduleEvent(
  * GlissEvent 하나를 AudioGlissScheduleEvent로 변환한다.
  * - 인수 : event : analyzer가 만든 gliss event
  * - 인수 : mapper : tick/seconds 변환기
+ * - 인수 : noteEvents : gliss 시작 anchor의 tremolo 정보를 찾기 위한 같은 track note event 목록
  * - 반환값 : backend 예약용 gliss fallback event 또는 길이가 없으면 null
  */
 function createAudioGlissScheduleEvent(
   event: GlissEvent,
   mapper: TickTimeMapper,
+  noteEvents: NoteEvent[],
 ): AudioGlissScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
   const endSeconds = mapper.tickToSeconds(event.endAnchorTick);
@@ -161,7 +166,87 @@ function createAudioGlissScheduleEvent(
     endCentOffset: event.endSound.centOffset,
     curve: "linear",
     crossfadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
+    effects: buildGlissTremoloEffects(event, mapper, noteEvents),
   };
+}
+
+/**
+ * gliss 시작 anchor에 걸린 tremolo를 gliss fallback 전체 구간의 audio effect로 변환한다.
+ * - 인수 : event : analyzer가 만든 gliss event
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : AudioScheduleEffect[] : gliss fallback에 적용할 tremolo effect 목록
+ */
+function buildGlissTremoloEffects(
+  event: GlissEvent,
+  mapper: TickTimeMapper,
+  noteEvents: NoteEvent[],
+): AudioScheduleEffect[] {
+  const tremDivision = findStartAnchorTremoloDivision(event, noteEvents);
+
+  if (tremDivision === null) {
+    return [];
+  }
+
+  return [
+    {
+      kind: "tremolo",
+      startSeconds: mapper.tickToSeconds(event.startAnchorTick),
+      endSeconds: mapper.tickToSeconds(event.endAnchorTick),
+      durationTicks:
+        timeFractionToNumber(event.endAnchorTick) -
+        timeFractionToNumber(event.startAnchorTick),
+      division: tremDivision,
+    },
+  ];
+}
+
+/**
+ * gliss 시작 anchor가 속한 note effect에서 tremolo division을 찾는다.
+ * - 인수 : glissEvent : analyzer가 만든 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : tremolo division 또는 없으면 null
+ */
+function findStartAnchorTremoloDivision(
+  glissEvent: GlissEvent,
+  noteEvents: NoteEvent[],
+): number | null {
+  const startSource = glissEvent.sourceCells[0];
+
+  if (startSource === undefined) {
+    return null;
+  }
+
+  for (const noteEvent of noteEvents) {
+    const startAnchor = noteEvent.glissAnchors.find((anchor) =>
+      anchor.glissId === glissEvent.glissId &&
+      anchor.role === glissEvent.fromKind &&
+      sourceCellsMatch(anchor.source, startSource)
+    );
+
+    if (startAnchor === undefined) {
+      continue;
+    }
+
+    const anchorStartTick = timeFractionToNumber(startAnchor.time.startTick);
+    const anchorEndTick = timeFractionToNumber(startAnchor.time.endTick);
+    const tremEffect = noteEvent.effects.find((effect) =>
+      effect.trem !== null &&
+      effect.trem !== undefined &&
+      rangesOverlap(
+        anchorStartTick,
+        anchorEndTick,
+        timeFractionToNumber(effect.time.startTick),
+        timeFractionToNumber(effect.time.endTick),
+      )
+    );
+
+    if (tremEffect?.trem !== null && tremEffect?.trem !== undefined) {
+      return tremEffect.trem.division;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -202,6 +287,35 @@ function buildAudioScheduleEffects(
 
     return effects;
   });
+}
+
+/**
+ * 두 source cell 참조가 같은 일반 cell 또는 같은 tuplet slot을 가리키는지 확인한다.
+ * - 인수 : left : 왼쪽 source cell 참조
+ * - 인수 : right : 오른쪽 source cell 참조
+ * - 반환값 : row/col/slotIndex가 모두 같은지 여부
+ */
+function sourceCellsMatch(left: SourceCellRef, right: SourceCellRef): boolean {
+  return left.rowId === right.rowId &&
+    left.col === right.col &&
+    (left.slotIndex ?? null) === (right.slotIndex ?? null);
+}
+
+/**
+ * 두 배타적 tick 범위가 겹치는지 확인한다.
+ * - 인수 : leftStart : 첫 범위 시작 tick
+ * - 인수 : leftEnd : 첫 범위 배타적 끝 tick
+ * - 인수 : rightStart : 둘째 범위 시작 tick
+ * - 인수 : rightEnd : 둘째 범위 배타적 끝 tick
+ * - 반환값 : 두 범위에 공통 구간이 있는지 여부
+ */
+function rangesOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number,
+): boolean {
+  return leftStart < rightEnd && rightStart < leftEnd;
 }
 
 /**

@@ -79,6 +79,7 @@ export type AudioGlissScheduleEvent = AudioScheduleEventBase & {
   endCentOffset: number;
   curve: "linear";
   crossfadeSeconds: number;
+  effects: AudioScheduleEffect[];
 };
 
 /** audio backend가 예약할 수 있는 발음 이벤트. */

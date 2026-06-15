@@ -197,19 +197,33 @@ const effectNoteEvent: NoteEvent = {
     },
   ],
   glissRole: null,
-  glissAnchors: [],
+  glissAnchors: [
+    {
+      glissId: "a",
+      role: "start",
+      source: { rowId: "s1-note-60", col: 0 },
+      time: {
+        startTick: numberToTimeFraction(0),
+        endTick: numberToTimeFraction(1),
+      },
+      display: {
+        rowId: "s1-note-60",
+        centOffset: 0,
+      },
+    },
+  ],
   tuplet: null,
 };
 const effectGlissEvent: GlissEvent = {
   eventKind: "gliss",
-  eventId: "basic:gliss:a:s1-note-60:1:s1-note-64:3",
+  eventId: "basic:gliss:a:s1-note-60:0:s1-note-64:3",
   trackId: "basic",
   time: {
-    startTick: numberToTimeFraction(1),
+    startTick: numberToTimeFraction(0),
     endTick: numberToTimeFraction(3),
   },
   sourceCells: [
-    { rowId: "s1-note-60", col: 1 },
+    { rowId: "s1-note-60", col: 0 },
     { rowId: "s1-note-64", col: 3 },
   ],
   startDisplay: {
@@ -229,7 +243,7 @@ const effectGlissEvent: GlissEvent = {
     centOffset: 0,
   },
   glissId: "a",
-  startAnchorTick: numberToTimeFraction(1),
+  startAnchorTick: numberToTimeFraction(0.5),
   endAnchorTick: numberToTimeFraction(3),
   fromKind: "start",
   toKind: "end",
@@ -299,11 +313,21 @@ const glissScheduleEvent = effectSchedule.events.find(
 assert(glissScheduleEvent !== undefined, "Schedule should include the synthetic gliss fallback.");
 
 if (glissScheduleEvent?.sourceEventKind === "gliss") {
-  assertNear(glissScheduleEvent.startSeconds, 0.125, "Gliss should start at its start anchor.");
+  const tremolo = glissScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
+
+  assertNear(glissScheduleEvent.startSeconds, 0.0625, "Gliss should start at its start anchor.");
   assertNear(glissScheduleEvent.endSeconds, 0.375, "Gliss should end at its end anchor.");
   assert(glissScheduleEvent.startMidi === 60, "Gliss should keep start MIDI.");
   assert(glissScheduleEvent.endMidi === 64, "Gliss should keep end MIDI.");
   assertNear(glissScheduleEvent.crossfadeSeconds, 0.02, "Gliss should use default crossfade.");
+  assert(tremolo !== undefined, "Gliss should inherit tremolo from its start anchor.");
+
+  if (tremolo !== undefined) {
+    assert(tremolo.division === 3, "Gliss tremolo should keep start anchor division.");
+    assertNear(tremolo.startSeconds, 0.0625, "Gliss tremolo should start with the gliss.");
+    assertNear(tremolo.endSeconds, 0.375, "Gliss tremolo should end with the gliss.");
+    assertNear(tremolo.durationTicks, 2.5, "Gliss tremolo duration should follow gliss ticks.");
+  }
 }
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);

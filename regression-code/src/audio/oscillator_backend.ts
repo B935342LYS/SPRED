@@ -213,10 +213,12 @@ export function createOscillatorBackend(
     const endTime = startTime + durationSeconds;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
+    const tremoloGain = hasTremolo ? audioContext.createGain() : null;
     const activeNode: ActiveOscillatorNode = {
       oscillator,
       gain,
-      tremoloGain: null,
+      tremoloGain,
       auxiliaryNodes: [],
       auxiliaryOscillators: [],
     };
@@ -234,6 +236,7 @@ export function createOscillatorBackend(
       midiToFrequency(event.endMidi, event.endCentOffset),
       endTime,
     );
+    applyTremoloEffects(event, tremoloGain, startTime, endTime);
 
     // fallback gliss는 독립 oscillator를 짧게 fade in/out해 note 경계의 끊김을 완화한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
@@ -247,7 +250,12 @@ export function createOscillatorBackend(
     );
     gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
 
-    oscillator.connect(gain);
+    if (tremoloGain !== null) {
+      oscillator.connect(tremoloGain);
+      tremoloGain.connect(gain);
+    } else {
+      oscillator.connect(gain);
+    }
     gain.connect(getMasterGain());
     activeNodes.add(activeNode);
     oscillator.addEventListener("ended", () => {
@@ -399,7 +407,7 @@ function applyVibratoEffects(
  * - 반환값 : 없음
  */
 function applyTremoloEffects(
-  event: AudioNoteScheduleEvent,
+  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
   tremoloGain: GainNode | null,
   startTime: number,
   endTime: number,
@@ -501,7 +509,7 @@ function scheduleTremoloGate(
  */
 function clampEffectTimeRange(
   effect: AudioScheduleEffect,
-  event: AudioNoteScheduleEvent,
+  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
   startTime: number,
   endTime: number,
 ): { startTime: number; endTime: number } | null {
