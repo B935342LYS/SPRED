@@ -21,7 +21,10 @@ import {
   normalizeMicroPitchInput,
   resolveAutoDefaultText,
 } from "../pitch_label";
-import { setSelectedNumberRamp } from "./edit_number";
+import {
+  normalizeNumberRawInput,
+  setSelectedNumberRamp,
+} from "./edit_number";
 
 /** edit panel binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
 export type EditPanelBindingSession = {
@@ -96,7 +99,15 @@ export function bindEditPanelControls(
     syncDefaultEditInput();
   });
 
-  dom.numberRawInput.addEventListener("input", session.resetRepeatedClickCycle);
+  dom.numberRawInput.addEventListener("input", () => {
+    const normalizedValue = normalizeNumberRawInput(dom.numberRawInput.value);
+
+    if (dom.numberRawInput.value !== normalizedValue) {
+      dom.numberRawInput.value = normalizedValue;
+    }
+
+    session.resetRepeatedClickCycle();
+  });
   dom.numberRampButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const ramp = button.dataset.ramp;

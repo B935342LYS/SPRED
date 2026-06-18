@@ -5,6 +5,7 @@ import { createInitialState } from "../src/app/app_runtime";
 import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
+import { normalizeNumberRawInput } from "../src/app/edit/edit_number";
 import {
   touchScoreTimestampsForSave,
   touchScoreUpdatedAt,
@@ -179,6 +180,12 @@ assert(
   tupletResult.kind === "apply" &&
     tupletResult.rawText === "/3(C4@n(60)||-@n(60))",
   "Tuplet draft should compose pletHead rawText.",
+);
+assert(
+  normalizeNumberRawInput("999") === "999" &&
+    normalizeNumberRawInput("1000") === "100" &&
+    normalizeNumberRawInput("12a3") === "123",
+  "Number raw input should keep only the first three digits.",
 );
 
 assert(loadResult.ok, "Runtime document should load for tuplet placement test.");

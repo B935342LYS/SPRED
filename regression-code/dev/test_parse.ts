@@ -39,6 +39,44 @@ if (!result.ok) {
     process.exitCode = 1;
   }
 
+  const globalLimitSamples = [
+    { rowId: "global-bpm", rawText: "999<", expectedKind: "linearGlobalValue" },
+    { rowId: "global-bpm", rawText: "1000", expectedCode: "invalid_bpm_range" },
+    { rowId: "global-bpb", rawText: "999", expectedKind: "instantGlobalValue" },
+    { rowId: "global-bpb", rawText: "1000", expectedCode: "invalid_beats_per_bar_range" },
+    { rowId: "global-spb", rawText: "999", expectedKind: "instantGlobalValue" },
+    { rowId: "global-spb", rawText: "1000", expectedCode: "invalid_steps_per_beat_range" },
+  ] as const;
+
+  // global timing 계열의 parser 상한은 999 포함, 1000 이상 거부로 고정한다.
+  const unexpectedGlobalLimitResults = globalLimitSamples
+    .map((sample) => ({
+      sample,
+      parsedCell: parseGlobalCell({
+        rowId: sample.rowId,
+        col: 0,
+        rawText: sample.rawText,
+      }, {
+        rowById: result.document.indexes.rowById,
+      }),
+    }))
+    .filter(({ sample, parsedCell }) => {
+      if ("expectedCode" in sample) {
+        return parsedCell.kind !== "invalid" || parsedCell.error.code !== sample.expectedCode;
+      }
+
+      return parsedCell.kind !== sample.expectedKind;
+    });
+
+  console.log("Global limit sample parse completed.");
+  console.log(`global limit samples: ${globalLimitSamples.length}`);
+  console.log(`unexpected global limit results: ${unexpectedGlobalLimitResults.length}`);
+
+  if (unexpectedGlobalLimitResults.length > 0) {
+    console.error(unexpectedGlobalLimitResults);
+    process.exitCode = 1;
+  }
+
   // fixture의 모든 트랙 셀을 단일 note parser에 통과시켜 기본 note 경로를 확인한다.
   const parsedNoteCells = result.document.score.tracks.flatMap((track) =>
     track.cells.map((cell) =>

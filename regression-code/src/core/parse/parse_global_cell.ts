@@ -14,6 +14,11 @@ import type {
   ParsedGlobalRamp,
 } from "./types";
 
+const MAX_BPM = 999;
+const MAX_BEATS_PER_BAR = 999;
+const MAX_STEPS_PER_BEAT = 999;
+const MAX_DYNAMICS = 150;
+
 /**
  * 전역 셀 하나의 rawText를 ParsedGlobalCell로 파싱한다.
  * - 인수 : input : 전역 셀 좌표와 원본 문자열
@@ -140,13 +145,13 @@ function parseBpmCell(
     );
   }
 
-  // 숫자 형식이 맞아도 0 이하는 tempo 기준값으로 사용할 수 없다.
-  if (numberParse.value <= 0) {
+  // 숫자 형식이 맞아도 parser 기준 범위를 벗어나면 timing 기준값으로 사용할 수 없다.
+  if (numberParse.value <= 0 || numberParse.value > MAX_BPM) {
     return invalidGlobalCell(
       rawText,
       "invalid_bpm_range",
       0,
-      "BPM must be greater than 0.",
+      `BPM must be greater than 0 and at most ${MAX_BPM}.`,
     );
   }
 
@@ -183,13 +188,13 @@ function parseDynamicsCell(
     );
   }
 
-  // 150 초과 값은 문법 문제가 아니라 dynamics 범위 문제로 구분한다.
-  if (integerParse.value > 150) {
+  // dynamics 상한 초과 값은 문법 문제가 아니라 dynamics 범위 문제로 구분한다.
+  if (integerParse.value > MAX_DYNAMICS) {
     return invalidGlobalCell(
       rawText,
       "invalid_dynamics_range",
       0,
-      "Dynamics must be between 0 and 150.",
+      `Dynamics must be between 0 and ${MAX_DYNAMICS}.`,
     );
   }
 
@@ -220,6 +225,15 @@ function parseBeatsPerBarCell(rawText: string): ParsedGlobalCell {
     );
   }
 
+  if (integerParse.value > MAX_BEATS_PER_BAR) {
+    return invalidGlobalCell(
+      rawText,
+      "invalid_beats_per_bar_range",
+      0,
+      `beatsPerBar must be between 1 and ${MAX_BEATS_PER_BAR}.`,
+    );
+  }
+
   return {
     kind: "instantGlobalValue",
     rawText,
@@ -243,6 +257,15 @@ function parseStepsPerBeatCell(rawText: string): ParsedGlobalCell {
       "invalid_number",
       integerParse.charIndex,
       "stepsPerBeat must be a positive integer.",
+    );
+  }
+
+  if (integerParse.value > MAX_STEPS_PER_BEAT) {
+    return invalidGlobalCell(
+      rawText,
+      "invalid_steps_per_beat_range",
+      0,
+      `stepsPerBeat must be between 1 and ${MAX_STEPS_PER_BEAT}.`,
     );
   }
 

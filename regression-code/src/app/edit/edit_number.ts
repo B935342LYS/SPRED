@@ -65,6 +65,15 @@ export function getNumberRampToken(ramp: NumberEditRamp): string {
 }
 
 /**
+ * number UI 입력값을 세 자리 숫자 문자열로 정규화한다.
+ * - 인수 : value : number input에 들어온 원본 문자열
+ * - 반환값 : 숫자만 남기고 앞 세 자리까지만 유지한 문자열
+ */
+export function normalizeNumberRawInput(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 3);
+}
+
+/**
  * number UI 입력값을 클릭한 global row에 적용할 rawText로 만든다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : state : 현재 앱 상태
