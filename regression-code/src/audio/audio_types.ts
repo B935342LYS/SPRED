@@ -58,6 +58,7 @@ export type AudioScheduleEventBase = {
   startSeconds: number;
   endSeconds: number;
   velocity: number;
+  automation: AudioAutomationEvent[];
   sourceEventKind: "note" | "gliss";
 };
 
@@ -67,7 +68,6 @@ export type AudioNoteScheduleEvent = AudioScheduleEventBase & {
   midi: number;
   centOffset: number;
   effects: AudioScheduleEffect[];
-  automation: AudioAutomationEvent[];
 };
 
 /** analyzer의 GlissEvent에서 파생된 fallback gliss 발음 예약 정보. */

@@ -178,7 +178,11 @@ export function buildCanvasGlobalTextRenderItems(
 export function buildCanvasMarkerItems(
   analysis: AnalysisResult,
 ): CanvasMarkerItem[] {
-  const items: CanvasMarkerItem[] = buildTimingLineMarkerItems(analysis);
+  const items: CanvasMarkerItem[] = [
+    ...buildDynamicsGuideMarkerItems(analysis),
+    ...buildTimingLineMarkerItems(analysis),
+    ...buildBpmChangeMarkerItems(analysis),
+  ];
   const connectedGlissAnchorKeys = new Set<string>();
   const noteEvents = collectNoteEvents(analysis);
 
@@ -269,6 +273,192 @@ export function buildCanvasMarkerItems(
     }
     return getMarkerSortTrackId(left).localeCompare(getMarkerSortTrackId(right));
   });
+}
+
+/**
+ * timing timeline에서 BPM 변화 세로선 marker item을 만든다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 반환값 : CanvasMarkerItem[] : BPM 변화 지점 marker 목록
+ */
+function buildBpmChangeMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[] {
+  const items: CanvasMarkerItem[] = [];
+  const segments = analysis.timingTimeline
+    .map((segment) => ({
+      startTick: timeFractionToNumber(segment.time.startTick),
+      endTick: timeFractionToNumber(segment.time.endTick),
+      startBpm: segment.startBpm,
+      endBpm: segment.endBpm,
+      curve: segment.bpmCurve,
+    }))
+    .sort((left, right) => left.startTick - right.startTick);
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+
+    if (segment.startTick <= 0 || segment.endTick <= segment.startTick) {
+      continue;
+    }
+
+    const previous = segments[index - 1];
+    const direction = getBpmRampDirection(segment.startBpm, segment.endBpm);
+    const startsNewRamp = segment.curve === "linear" &&
+      direction !== null &&
+      !(
+        previous !== undefined &&
+        isContinuingBpmRamp(previous, segment, direction)
+      );
+
+    if (
+      previous !== undefined &&
+      isCompletedBpmRampBoundary(previous, segment) &&
+      !startsNewRamp
+    ) {
+      items.push({
+        kind: "bpmChange",
+        tick: segment.startTick,
+        changeKind: "instant",
+      });
+    }
+
+    if (segment.curve === "linear" && direction !== null) {
+      if (!startsNewRamp) {
+        continue;
+      }
+
+      items.push({
+        kind: "bpmChange",
+        tick: segment.startTick,
+        changeKind: direction,
+      });
+      continue;
+    }
+
+    if (
+      previous !== undefined &&
+      previous.curve !== "linear" &&
+      Math.abs(previous.endBpm - segment.startBpm) >= 1e-9
+    ) {
+      items.push({
+        kind: "bpmChange",
+        tick: segment.startTick,
+        changeKind: "instant",
+      });
+    }
+  }
+
+  return items;
+}
+
+/**
+ * dynamics timeline에서 dynamics row 가이드 marker item을 만든다.
+ * - 인수 : analysis : analyzer가 확정한 문서 분석 결과
+ * - 반환값 : CanvasMarkerItem[] : dynamics 두께 표시 marker 목록
+ */
+function buildDynamicsGuideMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[] {
+  const items: CanvasMarkerItem[] = [];
+
+  for (const segment of analysis.dynamicsTimeline) {
+    const rowId = segment.sourceCells[0]?.rowId;
+    const startTick = timeFractionToNumber(segment.time.startTick);
+    const endTick = timeFractionToNumber(segment.time.endTick);
+
+    if (rowId === undefined || endTick <= startTick) {
+      continue;
+    }
+
+    items.push({
+      kind: "dynamicsGuide",
+      rowId,
+      startTick,
+      endTick,
+      startValue: segment.startValue,
+      endValue: segment.endValue,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * 직전 BPM linear ramp가 현재 segment 시작점에서 종료되는지 확인한다.
+ * - 인수 : previous : 직전 timing segment
+ * - 인수 : current : 현재 timing segment
+ * - 반환값 : ramp 종료 지점 marker를 그릴지 여부
+ */
+function isCompletedBpmRampBoundary(
+  previous: {
+    endTick: number;
+    startBpm: number;
+    endBpm: number;
+    curve: "instant" | "linear";
+  },
+  current: {
+    startTick: number;
+    startBpm: number;
+    endBpm: number;
+    curve: "instant" | "linear";
+  },
+): boolean {
+  if (
+    previous.curve !== "linear" ||
+    previous.endTick !== current.startTick ||
+    Math.abs(previous.endBpm - current.startBpm) >= 1e-9
+  ) {
+    return false;
+  }
+
+  const previousDirection = getBpmRampDirection(previous.startBpm, previous.endBpm);
+  const currentDirection = getBpmRampDirection(current.startBpm, current.endBpm);
+
+  return previousDirection !== null &&
+    (current.curve !== "linear" || currentDirection !== previousDirection);
+}
+
+/**
+ * BPM segment의 증가/감소 방향을 marker 종류로 변환한다.
+ * - 인수 : startBpm : segment 시작 BPM
+ * - 인수 : endBpm : segment 종료 BPM
+ * - 반환값 : accel/rit 또는 변화가 없으면 null
+ */
+function getBpmRampDirection(
+  startBpm: number,
+  endBpm: number,
+): "accel" | "rit" | null {
+  if (endBpm > startBpm) {
+    return "accel";
+  }
+
+  if (endBpm < startBpm) {
+    return "rit";
+  }
+
+  return null;
+}
+
+/**
+ * 박자/step 경계 때문에 쪼개진 동일 BPM ramp의 후속 segment인지 확인한다.
+ * - 인수 : previous : 직전 timing segment
+ * - 인수 : current : 현재 timing segment
+ * - 인수 : direction : 현재 BPM 변화 방향
+ * - 반환값 : 같은 ramp의 연속 segment 여부
+ */
+function isContinuingBpmRamp(
+  previous: {
+    endTick: number;
+    startBpm: number;
+    endBpm: number;
+    curve: "instant" | "linear";
+  },
+  current: {
+    startTick: number;
+    startBpm: number;
+  },
+  direction: "accel" | "rit",
+): boolean {
+  return previous.curve === "linear" &&
+    previous.endTick === current.startTick &&
+    Math.abs(previous.endBpm - current.startBpm) < 1e-9 &&
+    getBpmRampDirection(previous.startBpm, previous.endBpm) === direction;
 }
 
 /**
@@ -523,6 +713,10 @@ function getMarkerSortTick(item: CanvasMarkerItem): number {
     return item.startTick;
   }
 
+  if (item.kind === "dynamicsGuide") {
+    return item.startTick;
+  }
+
   if (item.kind === "glissOrphanAnchor") {
     return item.tick;
   }
@@ -542,6 +736,10 @@ function getMarkerSortTick(item: CanvasMarkerItem): number {
 function getMarkerSortRowId(item: CanvasMarkerItem): string {
   if (item.kind === "gliss") {
     return item.startRowId;
+  }
+
+  if (item.kind === "dynamicsGuide") {
+    return item.rowId;
   }
 
   if (item.kind === "glissOrphanAnchor") {

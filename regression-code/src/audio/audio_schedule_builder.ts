@@ -5,6 +5,7 @@
 
 import type {
   AnalyzedEvent,
+  AnalyzedDynamicsSegment,
   AnalysisResult,
   GlissEvent,
   NoteEffectSegment,
@@ -23,11 +24,13 @@ import type {
 import type { TrackId } from "../core/score/types";
 import {
   createTickTimeMapper,
+  numberToTimeFraction,
   timeFractionToNumber,
 } from "./tick_time_mapper";
 
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
+const DEFAULT_DYNAMICS_GAIN = 1;
 
 /**
  * analyzer 결과에서 audio schedule을 만든다.
@@ -74,6 +77,7 @@ export function buildAudioScheduleWithMapper(
           event,
           mapper,
           noteClipEndTickByEvent.get(event) ?? null,
+          analysis.dynamicsTimeline,
         );
 
         if (noteScheduleEvent !== null) {
@@ -83,7 +87,12 @@ export function buildAudioScheduleWithMapper(
       }
 
       if (isGlissEvent(event)) {
-        const glissScheduleEvent = createAudioGlissScheduleEvent(event, mapper, noteEvents);
+        const glissScheduleEvent = createAudioGlissScheduleEvent(
+          event,
+          mapper,
+          noteEvents,
+          analysis.dynamicsTimeline,
+        );
 
         if (glissScheduleEvent !== null) {
           events.push(glissScheduleEvent);
@@ -127,6 +136,7 @@ function createAudioNoteScheduleEvent(
   event: NoteEvent,
   mapper: TickTimeMapper,
   clipEndTick: NoteEvent["time"]["endTick"] | null,
+  dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioNoteScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.time.startTick);
   const effectiveEndTick = getClippedNoteEndTick(event, clipEndTick);
@@ -147,7 +157,12 @@ function createAudioNoteScheduleEvent(
     centOffset: event.sound.centOffset,
     velocity: DEFAULT_VELOCITY,
     effects: buildAudioScheduleEffects(event.effects, mapper),
-    automation: [],
+    automation: buildDynamicsGainAutomation(
+      dynamicsTimeline,
+      event.time.startTick,
+      effectiveEndTick,
+      mapper,
+    ),
     sourceEventKind: "note" as const,
   };
 }
@@ -247,6 +262,7 @@ function createAudioGlissScheduleEvent(
   event: GlissEvent,
   mapper: TickTimeMapper,
   noteEvents: NoteEvent[],
+  dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioGlissScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
   const endSeconds = mapper.tickToSeconds(event.endAnchorTick);
@@ -271,7 +287,100 @@ function createAudioGlissScheduleEvent(
     curve: "linear",
     crossfadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
     effects: buildGlissTremoloEffects(event, mapper, noteEvents),
+    automation: buildDynamicsGainAutomation(
+      dynamicsTimeline,
+      event.startAnchorTick,
+      event.endAnchorTick,
+      mapper,
+    ),
   };
+}
+
+/**
+ * dynamics timeline을 발음 event 내부 gain automation으로 변환한다.
+ * - 인수 : dynamicsTimeline : analyzer가 만든 dynamics segment 목록
+ * - 인수 : eventStartTick : 발음 event 시작 tick
+ * - 인수 : eventEndTick : 발음 event 끝 tick
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : AudioAutomationEvent[] : event 구간과 겹치는 gain ramp 목록
+ */
+function buildDynamicsGainAutomation(
+  dynamicsTimeline: AnalyzedDynamicsSegment[],
+  eventStartTick: NoteEvent["time"]["startTick"],
+  eventEndTick: NoteEvent["time"]["endTick"],
+  mapper: TickTimeMapper,
+): AudioScheduleEvent["automation"] {
+  const eventStart = timeFractionToNumber(eventStartTick);
+  const eventEnd = timeFractionToNumber(eventEndTick);
+  const automation: AudioScheduleEvent["automation"] = [];
+
+  if (eventEnd <= eventStart) {
+    return automation;
+  }
+
+  for (const segment of dynamicsTimeline) {
+    const segmentStart = timeFractionToNumber(segment.time.startTick);
+    const segmentEnd = timeFractionToNumber(segment.time.endTick);
+    const overlapStart = Math.max(eventStart, segmentStart);
+    const overlapEnd = Math.min(eventEnd, segmentEnd);
+
+    if (overlapEnd <= overlapStart) {
+      continue;
+    }
+
+    const startValue = interpolateDynamicsValue(segment, overlapStart);
+    const endValue = interpolateDynamicsValue(segment, overlapEnd);
+
+    automation.push({
+      kind: "gainRamp",
+      startSeconds: mapper.tickToSeconds(numberToTimeFraction(overlapStart)),
+      endSeconds: mapper.tickToSeconds(numberToTimeFraction(overlapEnd)),
+      startValue: dynamicsValueToGain(startValue),
+      endValue: dynamicsValueToGain(endValue),
+      curve: Math.abs(startValue - endValue) < 1e-9 ? "instant" : segment.curve,
+    });
+  }
+
+  return automation;
+}
+
+/**
+ * dynamics segment 안의 특정 tick에서 dynamics 값을 선형 보간한다.
+ * - 인수 : segment : dynamics analyzer segment
+ * - 인수 : tick : 값을 구할 tick number
+ * - 반환값 : number : 0~150 범위의 dynamics 값
+ */
+function interpolateDynamicsValue(
+  segment: AnalyzedDynamicsSegment,
+  tick: number,
+): number {
+  const segmentStart = timeFractionToNumber(segment.time.startTick);
+  const segmentEnd = timeFractionToNumber(segment.time.endTick);
+
+  if (
+    segment.curve === "instant" ||
+    segmentEnd <= segmentStart ||
+    Math.abs(segment.endValue - segment.startValue) < 1e-9
+  ) {
+    return segment.startValue;
+  }
+
+  const ratio = (tick - segmentStart) / (segmentEnd - segmentStart);
+
+  return segment.startValue + (segment.endValue - segment.startValue) * ratio;
+}
+
+/**
+ * dynamics raw value를 audio gain 배율로 변환한다.
+ * - 인수 : value : dynamics row 값. 현재 parser 기준 0~150 정수이다.
+ * - 반환값 : number : 100을 기본 음량 1로 보는 gain 배율
+ */
+function dynamicsValueToGain(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_DYNAMICS_GAIN;
+  }
+
+  return Math.min(Math.max(value, 0), 150) / 100;
 }
 
 /**

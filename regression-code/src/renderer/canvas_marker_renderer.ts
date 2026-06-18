@@ -34,10 +34,23 @@ export function drawScoreMarkers(
 
   const rowById = createLayoutRowMap(layout);
 
-  // marker item 종류별로 score 좌표를 계산해 marker layer에 그린다.
+  // dynamics guide는 전역 rawText와 foreground marker 아래에 먼저 그린다.
+  for (const item of items) {
+    if (item.kind === "dynamicsGuide") {
+      drawDynamicsGuideMarker(context, layout, rowById, item);
+    }
+  }
+
+  // beat/bar grid marker는 global timeline foreground marker보다 먼저 그린다.
   for (const item of items) {
     if (item.kind === "beat" || item.kind === "bar") {
       drawTimingLineMarker(context, layout, item);
+    }
+  }
+
+  for (const item of items) {
+    if (item.kind === "bpmChange") {
+      drawBpmChangeMarker(context, layout, item);
     } else if (item.kind === "gliss") {
       drawGlissMarker(context, layout, rowById, item);
     } else if (item.kind === "glissOrphanAnchor") {
@@ -118,6 +131,85 @@ function drawTimingLineMarker(
   context.moveTo(x + 0.5, 0);
   context.lineTo(x + 0.5, layout.stageHeight);
   context.stroke();
+  context.restore();
+}
+
+/**
+ * BPM 변화 marker item을 score 전체 높이의 세로선으로 그린다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : item : BPM 변화 marker item
+ * - 반환값 : 없음
+ */
+function drawBpmChangeMarker(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  item: Extract<CanvasMarkerItem, { kind: "bpmChange" }>,
+): void {
+  const x = columnToX(item.tick, layout);
+
+  if (x < 0 || x > layout.stageWidth) {
+    return;
+  }
+
+  context.save();
+  context.strokeStyle = getBpmChangeColor(item.changeKind);
+  context.lineWidth = CANVAS_METRICS.bpmChangeLineWidth;
+  context.beginPath();
+  context.moveTo(x + 0.5, 0);
+  context.lineTo(x + 0.5, layout.stageHeight);
+  context.stroke();
+  context.restore();
+}
+
+/**
+ * dynamics segment를 dynamics row 안의 두께 가이드로 그린다.
+ * - 인수 : context : marker layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : rowById : layout row 조회 Map
+ * - 인수 : item : dynamics guide marker item
+ * - 반환값 : 없음
+ */
+function drawDynamicsGuideMarker(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  rowById: Map<string, CanvasLayoutRow>,
+  item: Extract<CanvasMarkerItem, { kind: "dynamicsGuide" }>,
+): void {
+  const row = rowById.get(item.rowId);
+
+  if (
+    row === undefined ||
+    row.kind !== "global" ||
+    item.endTick <= item.startTick
+  ) {
+    return;
+  }
+
+  const x0 = columnToX(item.startTick, layout);
+  const x1 = columnToX(item.endTick, layout);
+
+  if (x1 <= x0) {
+    return;
+  }
+
+  const centerY = row.y + row.height / 2;
+  const startThickness = getDynamicsThickness(item.startValue, row.height);
+  const endThickness = getDynamicsThickness(item.endValue, row.height);
+
+  if (startThickness <= 0 && endThickness <= 0) {
+    return;
+  }
+
+  context.save();
+  context.fillStyle = CANVAS_COLORS.dynamicsGuide;
+  context.beginPath();
+  context.moveTo(x0, centerY - startThickness / 2);
+  context.lineTo(x1, centerY - endThickness / 2);
+  context.lineTo(x1, centerY + endThickness / 2);
+  context.lineTo(x0, centerY + startThickness / 2);
+  context.closePath();
+  context.fill();
   context.restore();
 }
 
@@ -330,6 +422,39 @@ function createOrphanAnchorRanges(
   }
 
   return ranges;
+}
+
+/**
+ * BPM 변화 marker 종류에 맞는 색상을 반환한다.
+ * - 인수 : changeKind : instant/accel/rit 변화 종류
+ * - 반환값 : CSS 색상 문자열
+ */
+function getBpmChangeColor(
+  changeKind: Extract<CanvasMarkerItem, { kind: "bpmChange" }>["changeKind"],
+): string {
+  if (changeKind === "accel") {
+    return CANVAS_COLORS.bpmAccelLine;
+  }
+
+  if (changeKind === "rit") {
+    return CANVAS_COLORS.bpmRitLine;
+  }
+
+  return CANVAS_COLORS.bpmInstantLine;
+}
+
+/**
+ * dynamics 값을 row 안의 표시 두께로 변환한다.
+ * - 인수 : value : dynamics 값. parser 기준 0~150이다.
+ * - 인수 : rowHeight : dynamics row 높이
+ * - 반환값 : dynamics guide 두께
+ */
+function getDynamicsThickness(value: number, rowHeight: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(rowHeight) || rowHeight <= 0) {
+    return 0;
+  }
+
+  return rowHeight * (Math.min(Math.max(value, 0), 150) / 150);
 }
 
 /**

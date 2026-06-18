@@ -1030,6 +1030,114 @@ function testGlobalTimelineAnalysis(sourceText: string): void {
     assert(thirdDynamics.curve === "instant", "Unmatched dynamics start should degrade to instant.");
     assert(thirdDynamics.startValue === 80, "Unmatched dynamics start should use its numeric value.");
   }
+
+  const markerItems = buildCanvasMarkerItems(timelineAnalysis.analysis);
+  const bpmMarkers = markerItems.filter((item) => item.kind === "bpmChange");
+  const dynamicsGuides = markerItems.filter((item) => item.kind === "dynamicsGuide");
+
+  assert(bpmMarkers.length === 2, "Fixture should draw one BPM marker per change column except the initial col 0 start.");
+  assert(
+    bpmMarkers[0]?.kind === "bpmChange" &&
+      bpmMarkers[0].tick === 8 &&
+      bpmMarkers[0].changeKind === "rit",
+    "BPM endStart marker should collapse to one green rit marker at the new ramp start column.",
+  );
+  assert(
+    bpmMarkers[1]?.kind === "bpmChange" &&
+      bpmMarkers[1].tick === 16 &&
+      bpmMarkers[1].changeKind === "instant",
+    "BPM ramp end should draw a sky-blue marker at the final end column.",
+  );
+  assert(dynamicsGuides.length === 3, "Dynamics timeline should convert to three dynamics guide markers.");
+  assert(
+    dynamicsGuides[0]?.kind === "dynamicsGuide" &&
+      dynamicsGuides[0].rowId === "global-dyn" &&
+      dynamicsGuides[0].startTick === 0 &&
+      dynamicsGuides[0].endTick === 8 &&
+      dynamicsGuides[0].startValue === 100 &&
+      dynamicsGuides[0].endValue === 60,
+    "First dynamics guide should keep row, tick range, and ramp values.",
+  );
+}
+
+/**
+ * BPM marker 변환이 초기값 제외, instant, accel, rit, ramp split 중복 제거를 지키는지 검증한다.
+ * - 반환값 : 없음
+ */
+function testBpmMarkerConversion(): void {
+  const markerItems = buildCanvasMarkerItems({
+    timingTimeline: [
+      {
+        time: { startTick: { numerator: 0, denominator: 1 }, endTick: { numerator: 4, denominator: 1 } },
+        startBpm: 120,
+        endBpm: 120,
+        bpmCurve: "instant",
+        beatsPerBar: 4,
+        stepsPerBeat: 4,
+        sourceCells: [],
+      },
+      {
+        time: { startTick: { numerator: 4, denominator: 1 }, endTick: { numerator: 8, denominator: 1 } },
+        startBpm: 140,
+        endBpm: 140,
+        bpmCurve: "instant",
+        beatsPerBar: 4,
+        stepsPerBeat: 4,
+        sourceCells: [],
+      },
+      {
+        time: { startTick: { numerator: 8, denominator: 1 }, endTick: { numerator: 12, denominator: 1 } },
+        startBpm: 140,
+        endBpm: 160,
+        bpmCurve: "linear",
+        beatsPerBar: 4,
+        stepsPerBeat: 4,
+        sourceCells: [],
+      },
+      {
+        time: { startTick: { numerator: 12, denominator: 1 }, endTick: { numerator: 16, denominator: 1 } },
+        startBpm: 160,
+        endBpm: 180,
+        bpmCurve: "linear",
+        beatsPerBar: 3,
+        stepsPerBeat: 4,
+        sourceCells: [],
+      },
+      {
+        time: { startTick: { numerator: 16, denominator: 1 }, endTick: { numerator: 20, denominator: 1 } },
+        startBpm: 180,
+        endBpm: 120,
+        bpmCurve: "linear",
+        beatsPerBar: 3,
+        stepsPerBeat: 4,
+        sourceCells: [],
+      },
+    ],
+    dynamicsTimeline: [],
+    trackResults: [],
+    analysisIssues: [],
+  });
+  const bpmMarkers = markerItems.filter((item) => item.kind === "bpmChange");
+
+  assert(bpmMarkers.length === 3, "Synthetic timing should create one BPM marker per instant/ramp-start column.");
+  assert(
+    bpmMarkers[0]?.kind === "bpmChange" &&
+      bpmMarkers[0].tick === 4 &&
+      bpmMarkers[0].changeKind === "instant",
+    "Instant BPM change should draw a sky-blue marker at tick 4.",
+  );
+  assert(
+    bpmMarkers[1]?.kind === "bpmChange" &&
+      bpmMarkers[1].tick === 8 &&
+      bpmMarkers[1].changeKind === "accel",
+    "Increasing BPM ramp should draw a red marker at tick 8.",
+  );
+  assert(
+    bpmMarkers[2]?.kind === "bpmChange" &&
+      bpmMarkers[2].tick === 16 &&
+      bpmMarkers[2].changeKind === "rit",
+    "BPM ramp endStart should collapse to one green marker at tick 16.",
+  );
 }
 
 if (!result.ok) {
@@ -1154,4 +1262,5 @@ if (!result.ok) {
   testTupletExtendOnlyAnalysis(jsonText);
   testTupletGlissAnalysis(jsonText);
   testGlobalTimelineAnalysis(jsonText);
+  testBpmMarkerConversion();
 }

@@ -4,6 +4,7 @@
  */
 
 import type {
+  AudioAutomationEvent,
   AudioBackend,
   AudioGlissScheduleEvent,
   AudioNoteScheduleEvent,
@@ -23,6 +24,7 @@ type ActiveOscillatorNode = {
   oscillator: OscillatorNode;
   gain: GainNode;
   tremoloGain: GainNode | null;
+  dynamicsGain: GainNode;
   auxiliaryNodes: AudioNode[];
   auxiliaryOscillators: OscillatorNode[];
 };
@@ -100,6 +102,7 @@ export function createOscillatorBackend(
       for (const activeNode of activeNodes) {
         try {
           activeNode.gain.gain.cancelScheduledValues(0);
+          activeNode.dynamicsGain.gain.cancelScheduledValues(0);
           activeNode.gain.gain.setValueAtTime(SILENT_GAIN, audioContext?.currentTime ?? 0);
           activeNode.oscillator.stop();
           for (const oscillator of activeNode.auxiliaryOscillators) {
@@ -145,12 +148,14 @@ export function createOscillatorBackend(
     const endTime = startTime + durationSeconds;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const dynamicsGain = audioContext.createGain();
     const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
     const tremoloGain = hasTremolo ? audioContext.createGain() : null;
     const activeNode: ActiveOscillatorNode = {
       oscillator,
       gain,
       tremoloGain,
+      dynamicsGain,
       auxiliaryNodes: [],
       auxiliaryOscillators: [],
     };
@@ -163,6 +168,7 @@ export function createOscillatorBackend(
 
     applyVibratoEffects(audioContext, event, oscillator, startTime, endTime, activeNode);
     applyTremoloEffects(event, tremoloGain, startTime, endTime);
+    applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
 
     // 기본 note envelope는 tremolo gate와 분리해 note 전체 attack/release만 담당한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
@@ -178,11 +184,12 @@ export function createOscillatorBackend(
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
-      tremoloGain.connect(gain);
+      tremoloGain.connect(dynamicsGain);
     } else {
-      oscillator.connect(gain);
+      oscillator.connect(dynamicsGain);
     }
 
+    dynamicsGain.connect(gain);
     gain.connect(getMasterGain());
     activeNodes.add(activeNode);
     oscillator.addEventListener("ended", () => {
@@ -213,12 +220,14 @@ export function createOscillatorBackend(
     const endTime = startTime + durationSeconds;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
+    const dynamicsGain = audioContext.createGain();
     const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
     const tremoloGain = hasTremolo ? audioContext.createGain() : null;
     const activeNode: ActiveOscillatorNode = {
       oscillator,
       gain,
       tremoloGain,
+      dynamicsGain,
       auxiliaryNodes: [],
       auxiliaryOscillators: [],
     };
@@ -237,6 +246,7 @@ export function createOscillatorBackend(
       endTime,
     );
     applyTremoloEffects(event, tremoloGain, startTime, endTime);
+    applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
 
     // fallback gliss는 독립 oscillator를 짧게 fade in/out해 note 경계의 끊김을 완화한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
@@ -252,10 +262,11 @@ export function createOscillatorBackend(
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
-      tremoloGain.connect(gain);
+      tremoloGain.connect(dynamicsGain);
     } else {
-      oscillator.connect(gain);
+      oscillator.connect(dynamicsGain);
     }
+    dynamicsGain.connect(gain);
     gain.connect(getMasterGain());
     activeNodes.add(activeNode);
     oscillator.addEventListener("ended", () => {
@@ -314,6 +325,12 @@ export function createOscillatorBackend(
 
     try {
       activeNode.gain.disconnect();
+    } catch {
+      // 이미 disconnect된 node는 추가 처리가 필요 없다.
+    }
+
+    try {
+      activeNode.dynamicsGain.disconnect();
     } catch {
       // 이미 disconnect된 node는 추가 처리가 필요 없다.
     }
@@ -396,6 +413,53 @@ function applyVibratoEffects(
   activeNode.auxiliaryNodes.push(depth);
   lfo.start(startTime);
   lfo.stop(endTime + 0.02);
+}
+
+/**
+ * dynamics timeline에서 온 gain automation을 별도 dynamics gain node에 예약한다.
+ * - 인수 : event : 예약 대상 note 또는 gliss event
+ * - 인수 : dynamicsGain : dynamics 전용 GainNode
+ * - 인수 : startTime : event 시작 audio time
+ * - 인수 : endTime : event 종료 audio time
+ * - 반환값 : 없음
+ */
+function applyDynamicsAutomation(
+  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  dynamicsGain: GainNode,
+  startTime: number,
+  endTime: number,
+): void {
+  dynamicsGain.gain.setValueAtTime(1, startTime);
+
+  const gainAutomations = event.automation
+    .filter((automation): automation is Extract<AudioAutomationEvent, { kind: "gainRamp" }> =>
+      automation.kind === "gainRamp",
+    )
+    .sort((left, right) => left.startSeconds - right.startSeconds);
+
+  for (const automation of gainAutomations) {
+    const automationRange = clampAutomationTimeRange(
+      automation,
+      event,
+      startTime,
+      endTime,
+    );
+
+    if (automationRange === null) {
+      continue;
+    }
+
+    const startValue = clampDynamicsGain(automation.startValue);
+    const endValue = clampDynamicsGain(automation.endValue);
+
+    dynamicsGain.gain.setValueAtTime(startValue, automationRange.startTime);
+
+    if (automation.curve === "linear") {
+      dynamicsGain.gain.linearRampToValueAtTime(endValue, automationRange.endTime);
+    } else {
+      dynamicsGain.gain.setValueAtTime(startValue, automationRange.endTime);
+    }
+  }
 }
 
 /**
@@ -529,6 +593,35 @@ function clampEffectTimeRange(
 }
 
 /**
+ * automation의 score seconds 구간을 현재 예약된 event의 audio time 구간으로 제한한다.
+ * - 인수 : automation : schedule automation
+ * - 인수 : event : automation이 속한 event
+ * - 인수 : startTime : event 시작 audio time
+ * - 인수 : endTime : event 종료 audio time
+ * - 반환값 : 유효한 audio time 구간 또는 null
+ */
+function clampAutomationTimeRange(
+  automation: AudioAutomationEvent,
+  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  startTime: number,
+  endTime: number,
+): { startTime: number; endTime: number } | null {
+  const automationStartTime = startTime + automation.startSeconds - event.startSeconds;
+  const automationEndTime = startTime + automation.endSeconds - event.startSeconds;
+  const clampedStartTime = Math.max(startTime, automationStartTime);
+  const clampedEndTime = Math.min(endTime, automationEndTime);
+
+  if (clampedEndTime <= clampedStartTime) {
+    return null;
+  }
+
+  return {
+    startTime: clampedStartTime,
+    endTime: clampedEndTime,
+  };
+}
+
+/**
  * 현재 브라우저의 AudioContext 생성자를 가져온다.
  * - 인수 : 없음
  * - 반환값 : AudioContext 생성자
@@ -557,6 +650,19 @@ function clamp01(value: number): number {
   }
 
   return Math.min(Math.max(value, 0), 1);
+}
+
+/**
+ * dynamics gain automation 값을 허용 범위로 제한한다.
+ * - 인수 : value : dynamics timeline에서 변환된 gain 배율
+ * - 반환값 : 0 이상 1.5 이하 gain 배율
+ */
+function clampDynamicsGain(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(Math.max(value, 0), 1.5);
 }
 
 /**

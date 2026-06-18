@@ -216,6 +216,19 @@ export type CanvasMarkerItem =
       tick: number;
     }
   | {
+      kind: "bpmChange";
+      tick: number;
+      changeKind: "instant" | "accel" | "rit";
+    }
+  | {
+      kind: "dynamicsGuide";
+      rowId: string;
+      startTick: number;
+      endTick: number;
+      startValue: number;
+      endValue: number;
+    }
+  | {
       kind: "gliss";
       startRowId: string;
       startCentOffset: number;

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
 import type {
   AnalysisResult,
+  AnalyzedDynamicsSegment,
   AnalyzedTimeSegment,
   GlissEvent,
   NoteEvent,
@@ -103,6 +104,34 @@ function createLinearSegment(
     bpmCurve: "linear",
     beatsPerBar: 4,
     stepsPerBeat,
+    sourceCells: [],
+  };
+}
+
+/**
+ * dynamics timeline segment를 만든다.
+ * - 인수 : startTick : segment 시작 tick
+ * - 인수 : endTick : segment 끝 tick
+ * - 인수 : startValue : 시작 dynamics 값
+ * - 인수 : endValue : 종료 dynamics 값
+ * - 인수 : curve : 값 변화 방식
+ * - 반환값 : AnalyzedDynamicsSegment : 테스트용 dynamics segment
+ */
+function createDynamicsSegment(
+  startTick: number,
+  endTick: number,
+  startValue: number,
+  endValue: number,
+  curve: "instant" | "linear",
+): AnalyzedDynamicsSegment {
+  return {
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    startValue,
+    endValue,
+    curve,
     sourceCells: [],
   };
 }
@@ -265,7 +294,10 @@ const effectAnalysis: AnalysisResult = {
       sourceCells: [],
     },
   ],
-  dynamicsTimeline: [],
+  dynamicsTimeline: [
+    createDynamicsSegment(0, 2, 50, 150, "linear"),
+    createDynamicsSegment(2, 4, 80, 80, "instant"),
+  ],
   trackResults: [
     {
       trackId: "basic",
@@ -289,6 +321,9 @@ assert(
 if (effectScheduleEvent?.sourceEventKind === "note") {
   const tremolo = effectScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
   const vibrato = effectScheduleEvent.effects.find((effect) => effect.kind === "vibrato");
+  const dynamicsAutomation = effectScheduleEvent.automation.find(
+    (automation) => automation.kind === "gainRamp",
+  );
 
   assertNear(
     effectScheduleEvent.endSeconds,
@@ -297,6 +332,7 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
   );
   assert(tremolo !== undefined, "Schedule should preserve tremolo effect.");
   assert(vibrato !== undefined, "Schedule should preserve vibrato effect.");
+  assert(dynamicsAutomation !== undefined, "Schedule should include note dynamics automation.");
 
   if (tremolo !== undefined) {
     assert(tremolo.division === 3, "Tremolo schedule should keep division.");
@@ -309,6 +345,13 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
     assertNear(vibrato.startSeconds, 0.125, "Vibrato should start on the second tick.");
     assertNear(vibrato.endSeconds, 0.375, "Vibrato should end with the note.");
   }
+
+  if (dynamicsAutomation !== undefined && dynamicsAutomation.kind === "gainRamp") {
+    assertNear(dynamicsAutomation.startSeconds, 0, "Note dynamics should start with the note.");
+    assertNear(dynamicsAutomation.endSeconds, 0.0625, "Note dynamics should end at clipped note end.");
+    assertNear(dynamicsAutomation.startValue, 0.5, "Dynamics 50 should map to gain 0.5.");
+    assertNear(dynamicsAutomation.endValue, 0.75, "Dynamics should interpolate to gain 0.75 at tick 0.5.");
+  }
 }
 
 const glissScheduleEvent = effectSchedule.events.find(
@@ -319,6 +362,9 @@ assert(glissScheduleEvent !== undefined, "Schedule should include the synthetic 
 
 if (glissScheduleEvent?.sourceEventKind === "gliss") {
   const tremolo = glissScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
+  const dynamicsAutomation = glissScheduleEvent.automation.filter(
+    (automation) => automation.kind === "gainRamp",
+  );
 
   assertNear(glissScheduleEvent.startSeconds, 0.0625, "Gliss should start at its start anchor.");
   assertNear(glissScheduleEvent.endSeconds, 0.375, "Gliss should end at its end anchor.");
@@ -326,12 +372,27 @@ if (glissScheduleEvent?.sourceEventKind === "gliss") {
   assert(glissScheduleEvent.endMidi === 64, "Gliss should keep end MIDI.");
   assertNear(glissScheduleEvent.crossfadeSeconds, 0.02, "Gliss should use default crossfade.");
   assert(tremolo !== undefined, "Gliss should inherit tremolo from its start anchor.");
+  assert(dynamicsAutomation.length === 2, "Gliss should split dynamics automation by timeline segments.");
 
   if (tremolo !== undefined) {
     assert(tremolo.division === 3, "Gliss tremolo should keep start anchor division.");
     assertNear(tremolo.startSeconds, 0.0625, "Gliss tremolo should start with the gliss.");
     assertNear(tremolo.endSeconds, 0.375, "Gliss tremolo should end with the gliss.");
     assertNear(tremolo.durationTicks, 2.5, "Gliss tremolo duration should follow gliss ticks.");
+  }
+
+  if (dynamicsAutomation[0]?.kind === "gainRamp") {
+    assertNear(dynamicsAutomation[0].startSeconds, 0.0625, "Gliss first dynamics ramp should start at the gliss start.");
+    assertNear(dynamicsAutomation[0].endSeconds, 0.25, "Gliss first dynamics ramp should end at dynamics boundary.");
+    assertNear(dynamicsAutomation[0].startValue, 0.75, "Gliss dynamics should interpolate start gain.");
+    assertNear(dynamicsAutomation[0].endValue, 1.5, "Dynamics 150 should map to gain 1.5.");
+  }
+
+  if (dynamicsAutomation[1]?.kind === "gainRamp") {
+    assertNear(dynamicsAutomation[1].startSeconds, 0.25, "Gliss second dynamics segment should start at tick 2.");
+    assertNear(dynamicsAutomation[1].endSeconds, 0.375, "Gliss second dynamics segment should end at gliss end.");
+    assertNear(dynamicsAutomation[1].startValue, 0.8, "Dynamics 80 should map to gain 0.8.");
+    assertNear(dynamicsAutomation[1].endValue, 0.8, "Instant dynamics should keep the same gain.");
   }
 }
 
