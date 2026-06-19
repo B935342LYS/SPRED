@@ -289,6 +289,7 @@ function buildBpmChangeMarkerItems(analysis: AnalysisResult): CanvasMarkerItem[]
       startBpm: segment.startBpm,
       endBpm: segment.endBpm,
       curve: segment.bpmCurve,
+      startsAtBpmSource: isSegmentStartBpmSource(segment),
     }))
     .sort((left, right) => left.startTick - right.startTick);
 
@@ -452,13 +453,36 @@ function isContinuingBpmRamp(
   current: {
     startTick: number;
     startBpm: number;
+    startsAtBpmSource: boolean | null;
   },
   direction: "accel" | "rit",
 ): boolean {
+  if (current.startsAtBpmSource === true) {
+    return false;
+  }
+
   return previous.curve === "linear" &&
     previous.endTick === current.startTick &&
     Math.abs(previous.endBpm - current.startBpm) < 1e-9 &&
     getBpmRampDirection(previous.startBpm, previous.endBpm) === direction;
+}
+
+/**
+ * timing segment가 실제 BPM ramp 시작 cell에서 시작하는지 확인한다.
+ * - 인수 : segment : analyzer가 만든 timing segment
+ * - 반환값 : true/false 또는 source cell 정보가 없으면 null
+ */
+function isSegmentStartBpmSource(
+  segment: AnalysisResult["timingTimeline"][number],
+): boolean | null {
+  const startTick = timeFractionToNumber(segment.time.startTick);
+  const firstSourceCell = segment.sourceCells[0];
+
+  if (firstSourceCell === undefined || segment.bpmCurve !== "linear") {
+    return null;
+  }
+
+  return firstSourceCell.col === startTick;
 }
 
 /**

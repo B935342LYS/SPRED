@@ -1138,6 +1138,59 @@ function testBpmMarkerConversion(): void {
       bpmMarkers[2].changeKind === "rit",
     "BPM ramp endStart should collapse to one green marker at tick 16.",
   );
+
+  const sameDirectionEndStartMarkers = buildCanvasMarkerItems({
+    timingTimeline: [
+      {
+        time: { startTick: { numerator: 0, denominator: 1 }, endTick: { numerator: 4, denominator: 1 } },
+        startBpm: 100,
+        endBpm: 110,
+        bpmCurve: "linear",
+        beatsPerBar: 4,
+        stepsPerBeat: 4,
+        sourceCells: [
+          { rowId: "global-bpm", col: 0 },
+          { rowId: "global-bpm", col: 8 },
+        ],
+      },
+      {
+        time: { startTick: { numerator: 4, denominator: 1 }, endTick: { numerator: 8, denominator: 1 } },
+        startBpm: 110,
+        endBpm: 120,
+        bpmCurve: "linear",
+        beatsPerBar: 3,
+        stepsPerBeat: 4,
+        sourceCells: [
+          { rowId: "global-bpm", col: 0 },
+          { rowId: "global-bpm", col: 8 },
+          { rowId: "global-bpb", col: 4 },
+        ],
+      },
+      {
+        time: { startTick: { numerator: 8, denominator: 1 }, endTick: { numerator: 16, denominator: 1 } },
+        startBpm: 120,
+        endBpm: 150,
+        bpmCurve: "linear",
+        beatsPerBar: 3,
+        stepsPerBeat: 4,
+        sourceCells: [
+          { rowId: "global-bpm", col: 8 },
+          { rowId: "global-bpm", col: 16 },
+        ],
+      },
+    ],
+    dynamicsTimeline: [],
+    trackResults: [],
+    analysisIssues: [],
+  }).filter((item) => item.kind === "bpmChange");
+
+  assert(
+    sameDirectionEndStartMarkers.length === 1 &&
+      sameDirectionEndStartMarkers[0]?.kind === "bpmChange" &&
+      sameDirectionEndStartMarkers[0].tick === 8 &&
+      sameDirectionEndStartMarkers[0].changeKind === "accel",
+    "Same-direction BPM endStart should draw one accel marker while split continuation stays hidden.",
+  );
 }
 
 if (!result.ok) {
