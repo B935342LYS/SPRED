@@ -1010,6 +1010,70 @@ select:disabled {
   font-size: 12px;
 }
 
+.layout-new-preset-button {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.layout-preset-section .layout-field-row .details-field {
+  flex: 1 1 180px;
+}
+
+.layout-section-title-row {
+  align-items: start;
+  justify-content: space-between;
+}
+
+.layout-section-title-row .inline-field {
+  align-self: start;
+  min-height: 30px;
+}
+
+.layout-section-title-row .inline-field select {
+  height: 30px;
+  min-height: 30px;
+}
+
+.layout-add-row-controls {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.layout-add-row-controls .details-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.layout-add-row-controls .details-field.compact {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.layout-add-row-controls .layout-row-midi-select {
+  width: 74px;
+  min-width: 74px;
+}
+
+.layout-add-row-controls .layout-row-height-input {
+  width: 74px;
+  min-width: 74px;
+}
+
+.layout-add-row-controls button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .layout-open-field {
   min-height: 32px;
   padding: 0 8px;
@@ -1028,7 +1092,7 @@ select:disabled {
 .layout-table-head,
 .layout-table-row {
   display: grid;
-  grid-template-columns: minmax(54px, 0.8fr) minmax(92px, 1.4fr) repeat(3, minmax(42px, 0.7fr));
+  grid-template-columns: minmax(54px, 0.8fr) minmax(92px, 1.3fr) repeat(3, minmax(66px, 0.75fr));
   gap: 6px;
   align-items: center;
   min-width: 0;
@@ -1054,6 +1118,15 @@ select:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.layout-string-pitch-select {
+  width: 66px;
+  min-width: 66px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 4px;
+  font-size: 12px;
 }
 
 .layout-row-section,
@@ -1123,6 +1196,6 @@ select:disabled {
 
   .layout-table-head,
   .layout-table-row {
-    grid-template-columns: minmax(46px, 0.8fr) minmax(74px, 1.2fr) repeat(3, minmax(36px, 0.7fr));
+    grid-template-columns: minmax(46px, 0.8fr) minmax(74px, 1.2fr) repeat(3, minmax(66px, 0.7fr));
   }
 }

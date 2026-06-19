@@ -449,11 +449,12 @@
                             </select>
                         </label>
                         <label class="details-field">
-                            Name
+                            Preset Name
                             <input class="layout-preset-name-input" type="text" maxlength="80" placeholder="Layout name">
                         </label>
                     </div>
                     <div class="layout-button-row">
+                        <button type="button" class="layout-new-preset-button">New Preset</button>
                         <button type="button" class="layout-local-save-button">Local Save</button>
                         <button type="button" class="layout-local-load-button">Local Load</button>
                         <button type="button" class="layout-file-save-button">File Save</button>
@@ -467,14 +468,17 @@
                     <div class="layout-field-row">
                         <label class="details-field">
                             Family
-                            <input class="layout-family-input" type="text" maxlength="80">
-                        </label>
-                        <label class="details-field">
-                            Name
-                            <input class="layout-inst-name-input" type="text" maxlength="80">
+                            <select class="layout-family-input">
+                                <option value="otamatone">Otamatone</option>
+                                <option value="haegeum">Haegeum</option>
+                                <option value="violin">Violin</option>
+                                <option value="cello">Cello</option>
+                                <option value="gayageum">Gayageum</option>
+                                <option value="custom">Custom</option>
+                            </select>
                         </label>
                         <label class="switch-field layout-open-field">
-                            <input class="layout-supports-open-input" type="checkbox">
+                            <input class="layout-supports-open-input" type="checkbox" disabled>
                             Open string
                         </label>
                     </div>
@@ -503,7 +507,7 @@
 
                 <section class="layout-section layout-add-row-section" aria-label="Add layout row">
                     <h3>Add Row</h3>
-                    <div class="layout-field-row">
+                    <div class="layout-field-row layout-add-row-controls">
                         <label class="details-field compact">
                             Type
                             <select class="layout-row-type-select">
@@ -512,22 +516,16 @@
                             </select>
                         </label>
                         <label class="details-field compact">
-                            Height
+                            Height (px)
                             <input class="layout-row-height-input" type="number" min="1" max="1100" step="1" value="7">
                         </label>
                         <label class="details-field">
                             Pitch
                             <select class="layout-row-midi-select"></select>
                         </label>
-                        <label class="details-field compact">
-                            Insert
-                            <select class="layout-insert-position-select">
-                                <option value="below">below selected</option>
-                                <option value="above">above selected</option>
-                            </select>
-                        </label>
+                        <button type="button" class="layout-add-row-below-button">Insert Below Selected</button>
+                        <button type="button" class="layout-add-row-above-button">Insert Above Selected</button>
                     </div>
-                    <button type="button" class="layout-add-row-button">Add Row</button>
                 </section>
             </div>
 
@@ -536,8 +534,8 @@
             <div class="dialog-action-row">
                 <button type="button" class="layout-reset-button">Reset</button>
                 <span class="dialog-action-spacer"></span>
-                <button type="button" class="layout-cancel-button">Cancel</button>
                 <button type="submit" class="layout-apply-button">Apply</button>
+                <button type="button" class="layout-cancel-button">Cancel</button>
             </div>
         </form>
     </dialog>

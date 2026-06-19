@@ -16,6 +16,7 @@ import {
   syncFullscreenButton,
   toggleFullscreen,
 } from "./app_view_actions";
+import { formatPitchName } from "./pitch_label";
 import {
   syncLayoutScroll,
   syncLeftStatus,
@@ -99,8 +100,11 @@ function populateLayoutDialogShell(dom: AppDom, state: AppState): void {
   const instData = state.document.score.instData;
 
   dom.layoutPresetNameInput.value = instData.instName;
-  dom.layoutFamilyInput.value = instData.family;
-  dom.layoutInstNameInput.value = instData.instName;
+  if (!Array.from(dom.layoutFamilyInput.options).some((option) => option.value === instData.family)) {
+    dom.layoutFamilyInput.value = "custom";
+  } else {
+    dom.layoutFamilyInput.value = instData.family;
+  }
   dom.layoutSupportsOpenInput.checked = instData.supportsOpen;
   dom.layoutStringSelect.replaceChildren();
   dom.layoutStringList.replaceChildren();
@@ -139,20 +143,47 @@ function createStringSummaryRow(
   supportsOpen: boolean,
 ): HTMLElement {
   const row = document.createElement("div");
-  const openText = supportsOpen && stringInfo.openMidi !== undefined
-    ? String(stringInfo.openMidi)
-    : "-";
 
   row.className = "layout-table-row";
   row.append(
     createLayoutCell(stringInfo.stringId),
     createLayoutCell(stringInfo.stringName),
-    createLayoutCell(String(stringInfo.minMidi)),
-    createLayoutCell(String(stringInfo.maxMidi)),
-    createLayoutCell(openText),
+    createPitchSelect(stringInfo.minMidi, "Min MIDI"),
+    createPitchSelect(stringInfo.maxMidi, "Max MIDI"),
+    createPitchSelect(stringInfo.openMidi ?? stringInfo.minMidi, "Open MIDI", true),
   );
 
   return row;
+}
+
+/**
+ * layout instrument string row에서 MIDI 값을 계이름 dropdown으로 표시한다.
+ * - 인수 : selectedMidi : 현재 선택된 MIDI note number
+ * - 인수 : label : 접근성 label
+ * - 반환값 : 0..127 MIDI 선택지를 가진 select 요소
+ */
+function createPitchSelect(
+  selectedMidi: number,
+  label: string,
+  disabled = false,
+): HTMLSelectElement {
+  const select = document.createElement("select");
+
+  select.className = "layout-string-pitch-select";
+  select.setAttribute("aria-label", label);
+  select.disabled = disabled;
+
+  for (let midi = 127; midi >= 0; midi -= 1) {
+    const option = document.createElement("option");
+
+    option.value = String(midi);
+    option.textContent = formatPitchName(midi, "sharp");
+    select.appendChild(option);
+  }
+
+  select.value = String(selectedMidi);
+
+  return select;
 }
 
 /**
@@ -285,8 +316,22 @@ export function bindViewControls(
   dom.layoutResetButton.addEventListener("click", () => {
     populateLayoutDialogShell(dom, session.getState());
   });
-  dom.layoutAddRowButton.addEventListener("click", () => {
-    setLayoutDialogNotice(dom, "Add Row will be connected after the layout draft module is implemented.");
+  dom.layoutNewPresetButton.addEventListener("click", () => {
+    const presetIndex = dom.layoutPresetSelect.options.length + 1;
+    const option = document.createElement("option");
+
+    option.value = `draft-${presetIndex}`;
+    option.textContent = `New layout ${presetIndex}`;
+    dom.layoutPresetSelect.appendChild(option);
+    dom.layoutPresetSelect.value = option.value;
+    dom.layoutPresetNameInput.value = option.textContent;
+    setLayoutDialogNotice(dom, "Preset creation is a draft UI action. Storage will be connected later.");
+  });
+  dom.layoutAddRowBelowButton.addEventListener("click", () => {
+    setLayoutDialogNotice(dom, "Insert Below will be connected after the layout draft module is implemented.");
+  });
+  dom.layoutAddRowAboveButton.addEventListener("click", () => {
+    setLayoutDialogNotice(dom, "Insert Above will be connected after the layout draft module is implemented.");
   });
   dom.layoutLocalSaveButton.addEventListener("click", () => {
     setLayoutDialogNotice(dom, "Local Save will be connected after layout presets are implemented.");

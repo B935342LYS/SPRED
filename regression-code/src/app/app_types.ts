@@ -142,14 +142,14 @@ export type AppDom = {
   layoutResetButton: HTMLButtonElement;
   layoutApplyButton: HTMLButtonElement;
   layoutPresetSelect: HTMLSelectElement;
+  layoutNewPresetButton: HTMLButtonElement;
   layoutPresetNameInput: HTMLInputElement;
   layoutLocalSaveButton: HTMLButtonElement;
   layoutLocalLoadButton: HTMLButtonElement;
   layoutFileSaveButton: HTMLButtonElement;
   layoutFileLoadButton: HTMLButtonElement;
   layoutFileLoadInput: HTMLInputElement;
-  layoutFamilyInput: HTMLInputElement;
-  layoutInstNameInput: HTMLInputElement;
+  layoutFamilyInput: HTMLSelectElement;
   layoutSupportsOpenInput: HTMLInputElement;
   layoutStringList: HTMLElement;
   layoutStringSelect: HTMLSelectElement;
@@ -157,8 +157,8 @@ export type AppDom = {
   layoutRowTypeSelect: HTMLSelectElement;
   layoutRowHeightInput: HTMLInputElement;
   layoutRowMidiSelect: HTMLSelectElement;
-  layoutInsertPositionSelect: HTMLSelectElement;
-  layoutAddRowButton: HTMLButtonElement;
+  layoutAddRowBelowButton: HTMLButtonElement;
+  layoutAddRowAboveButton: HTMLButtonElement;
   layoutStatusLine: HTMLElement;
   playButton: HTMLButtonElement;
   stopButton: HTMLButtonElement;
