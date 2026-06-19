@@ -95,21 +95,6 @@ export function populateAbsolutePitchOptions(select: HTMLSelectElement): void {
 }
 
 /**
- * layout note row 선택용 MIDI note 선택지를 채운다.
- * - 인수 : select : layout pitch 선택 DOM 요소
- * - 반환값 : 없음
- */
-export function populateLayoutPitchOptions(select: HTMLSelectElement): void {
-  for (let midi = 127; midi >= 0; midi -= 1) {
-    const option = document.createElement("option");
-
-    option.value = String(midi);
-    option.textContent = formatPitchName(midi, "sharp");
-    select.appendChild(option);
-  }
-}
-
-/**
  * microPitch 직접 입력값을 parser 허용 형식인 소수점 이하 1자리 이내로 정리한다.
  * - 인수 : value : 사용자가 입력한 microPitch 문자열
  * - 반환값 : 불필요한 문자와 두 번째 이하 소수 자릿수를 제거한 문자열

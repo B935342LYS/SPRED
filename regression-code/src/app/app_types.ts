@@ -153,10 +153,11 @@ export type AppDom = {
   layoutSupportsOpenInput: HTMLInputElement;
   layoutStringList: HTMLElement;
   layoutStringSelect: HTMLSelectElement;
+  layoutNoteHeightInput: HTMLInputElement;
   layoutRowList: HTMLElement;
+  layoutPreview: HTMLElement;
   layoutRowTypeSelect: HTMLSelectElement;
   layoutRowHeightInput: HTMLInputElement;
-  layoutRowMidiSelect: HTMLSelectElement;
   layoutAddRowBelowButton: HTMLButtonElement;
   layoutAddRowAboveButton: HTMLButtonElement;
   layoutStatusLine: HTMLElement;

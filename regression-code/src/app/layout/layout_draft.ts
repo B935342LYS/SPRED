@@ -26,7 +26,7 @@ export type LayoutInsertPosition = "above" | "below";
 export type LayoutAddRowInput = {
   rowType: "note" | "gap";
   height: number;
-  midi: number;
+  midi?: number;
   position: LayoutInsertPosition;
 };
 
@@ -161,6 +161,64 @@ export function updateLayoutDraftRowHeight(
       selectedRowId: rowId,
     },
     message: `Updated ${rowId} height.`,
+  };
+}
+
+/**
+ * layout draft의 공통 note row height를 반환한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 반환값 : 첫 note row height 또는 기본값
+ */
+export function getLayoutDraftCommonNoteHeight(
+  draft: LayoutDraftBundle,
+): number {
+  return draft.rowDefinitions.find((row) => row.type === "note")?.height ?? 7;
+}
+
+/**
+ * layout draft의 모든 note row 높이를 같은 값으로 변경한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : height : 모든 note row에 적용할 height px
+ * - 반환값 : 변경된 draft 또는 오류 메시지
+ */
+export function updateLayoutDraftCommonNoteHeight(
+  draft: LayoutDraftBundle,
+  height: number,
+): LayoutDraftMutationResult {
+  const heightError = validateRowHeight(height);
+
+  if (heightError !== null) {
+    return heightError;
+  }
+
+  let didUpdate = false;
+  const rowDefinitions = draft.rowDefinitions.map((row) => {
+    if (row.type !== "note") {
+      return row;
+    }
+
+    didUpdate = true;
+    return {
+      ...row,
+      height,
+    };
+  });
+
+  if (!didUpdate) {
+    return {
+      ok: false,
+      level: "warning",
+      message: "There are no note rows to resize.",
+    };
+  }
+
+  return {
+    ok: true,
+    draft: {
+      ...draft,
+      rowDefinitions,
+    },
+    message: `Updated all note rows to ${height}px.`,
   };
 }
 
@@ -321,7 +379,17 @@ function addNoteRow(
     };
   }
 
-  if (!Number.isInteger(input.midi) || input.midi < 0 || input.midi > 127) {
+  const midi = input.midi ?? resolveAutoNoteMidi(draft, input.position);
+
+  if (midi === null) {
+    return {
+      ok: false,
+      level: "warning",
+      message: "Select a note or gap row before adding an automatic note row.",
+    };
+  }
+
+  if (!Number.isInteger(midi) || midi < 0 || midi > 127) {
     return {
       ok: false,
       level: "warning",
@@ -329,17 +397,45 @@ function addNoteRow(
     };
   }
 
-  if (draft.rowDefinitions.some((row) => row.type === "note" && row.stringId === stringId && row.midi === input.midi)) {
+  if (draft.rowDefinitions.some((row) => row.type === "note" && row.stringId === stringId && row.midi === midi)) {
     return {
       ok: false,
       level: "warning",
-      message: `${formatPitchName(input.midi, "sharp")} already exists in ${stringId}.`,
+      message: `${formatPitchName(midi, "sharp")} already exists in ${stringId}.`,
     };
   }
 
-  const row = createNoteRow(stringId, input.midi, input.height);
+  const row = createNoteRow(stringId, midi, input.height);
 
   return insertDraftRow(draft, row, input.position, `Added note row ${row.displayLabel}.`);
+}
+
+/**
+ * 선택 row와 삽입 방향을 기준으로 새 note row MIDI를 자동 계산한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : position : 선택 row 위/아래 삽입 위치
+ * - 반환값 : 자동 계산된 MIDI 또는 계산 불가 결과
+ */
+function resolveAutoNoteMidi(
+  draft: LayoutDraftBundle,
+  position: LayoutInsertPosition,
+): number | null {
+  if (draft.selectedStringId === null) {
+    return null;
+  }
+
+  const insertIndex = resolveInsertIndex(draft, position);
+  const baseNote = position === "above"
+    ? findNearestNoteRow(draft.rowDefinitions, draft.selectedStringId, insertIndex, 1)
+      ?? findNearestNoteRow(draft.rowDefinitions, draft.selectedStringId, insertIndex - 1, -1)
+    : findNearestNoteRow(draft.rowDefinitions, draft.selectedStringId, insertIndex - 1, -1)
+      ?? findNearestNoteRow(draft.rowDefinitions, draft.selectedStringId, insertIndex, 1);
+
+  if (baseNote === null) {
+    return null;
+  }
+
+  return position === "above" ? baseNote.midi + 1 : baseNote.midi - 1;
 }
 
 /**

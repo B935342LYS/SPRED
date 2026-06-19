@@ -17,7 +17,6 @@ import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
 import {
   populateAbsolutePitchOptions,
-  populateLayoutPitchOptions,
 } from "./pitch_label";
 import {
   renderApp,
@@ -50,7 +49,6 @@ async function boot(): Promise<void> {
   const dom = collectAppDom();
 
   populateAbsolutePitchOptions(dom.absolutePitchSelect);
-  populateLayoutPitchOptions(dom.layoutRowMidiSelect);
 
   const sampleLoadResult = loadScoreTextAsInitialState(
     sampleScoreJson,

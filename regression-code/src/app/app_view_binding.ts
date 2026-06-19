@@ -22,9 +22,11 @@ import {
   addLayoutDraftRow,
   createLayoutDraftBundle,
   deleteLayoutDraftRow,
+  getLayoutDraftCommonNoteHeight,
   getRowsForSelectedString,
   selectLayoutDraftRow,
   selectLayoutDraftString,
+  updateLayoutDraftCommonNoteHeight,
   updateLayoutDraftRowHeight,
   type LayoutDraftMutationResult,
   type LayoutInsertPosition,
@@ -34,6 +36,7 @@ import type {
   LayoutEditableRowDefinition,
 } from "./layout/layout_types";
 import { formatPitchName } from "./pitch_label";
+import { colorForLabelMidi } from "../renderer/canvas_note_colors";
 import {
   syncLayoutScroll,
   syncLeftStatus,
@@ -46,7 +49,17 @@ export type ViewBindingSession = {
   render(): void;
 };
 
+/** layout preview row drag 중 보관하는 pointer 기준값. */
+type LayoutPreviewDragState = {
+  dom: AppDom;
+  rowId: string;
+  startY: number;
+  startHeight: number;
+  lastHeight: number;
+};
+
 let activeLayoutDraft: LayoutDraftBundle | null = null;
+let activeLayoutPreviewDrag: LayoutPreviewDragState | null = null;
 
 /**
  * 현재 score 높이에 맞춰 zoom을 갱신하고 상태 메시지를 반영한다.
@@ -143,7 +156,10 @@ function syncLayoutDialogFromDraft(
   }
 
   dom.layoutStringSelect.value = draft.selectedStringId ?? "";
+  dom.layoutNoteHeightInput.value = String(getLayoutDraftCommonNoteHeight(draft));
+  syncLayoutAddRowHeightState(dom);
   renderLayoutDraftRows(dom, draft);
+  renderLayoutDraftPreview(dom, draft);
 }
 
 /**
@@ -265,6 +281,181 @@ function renderLayoutDraftRows(dom: AppDom, draft: LayoutDraftBundle): void {
 }
 
 /**
+ * layout dialog의 선택 string row를 작은 세로 preview로 렌더링한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : draft : 현재 layout draft
+ * - 반환값 : 없음
+ */
+function renderLayoutDraftPreview(dom: AppDom, draft: LayoutDraftBundle): void {
+  const rows = getRowsForSelectedString(draft);
+
+  dom.layoutPreview.replaceChildren();
+
+  if (rows.length === 0) {
+    dom.layoutPreview.appendChild(createLayoutEmptyState("No rows to preview."));
+    return;
+  }
+
+  const stack = document.createElement("div");
+
+  stack.className = "layout-preview-stack";
+
+  for (const row of rows) {
+    const rowElement = createLayoutPreviewRow(dom, draft, row);
+
+    stack.appendChild(rowElement);
+  }
+
+  dom.layoutPreview.appendChild(stack);
+}
+
+/**
+ * layout preview row 하나를 만든다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : row : 표시할 note/gap row
+ * - 반환값 : preview row 요소
+ */
+function createLayoutPreviewRow(
+  dom: AppDom,
+  draft: LayoutDraftBundle,
+  row: LayoutEditableRowDefinition,
+): HTMLElement {
+  const rowElement = document.createElement("div");
+  const leftPadding = document.createElement("span");
+  const label = document.createElement("span");
+  const rightPadding = document.createElement("span");
+  const handle = document.createElement("button");
+
+  rowElement.className = "layout-preview-row";
+  rowElement.dataset.rowType = row.type;
+  rowElement.dataset.selected = draft.selectedRowId === row.rowId ? "true" : "false";
+  rowElement.style.height = `${row.height}px`;
+
+  leftPadding.className = "layout-preview-padding-cell";
+  label.className = "layout-preview-row-label";
+  rightPadding.className = "layout-preview-padding-cell layout-preview-right-padding-cell";
+
+  if (row.type === "note") {
+    rowElement.style.setProperty("--layout-preview-label-bg", colorForLabelMidi(row.midi));
+    label.textContent = row.displayLabel;
+  } else {
+    label.textContent = "";
+  }
+
+  handle.type = "button";
+  handle.className = "layout-preview-resize-handle";
+  handle.setAttribute("aria-label", `Resize ${row.rowId}`);
+
+  rowElement.append(leftPadding, label, rightPadding, handle);
+
+  rowElement.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLButtonElement) {
+      return;
+    }
+
+    applyLayoutDraftChange(dom, {
+      ok: true,
+      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      message: `Selected ${row.rowId}.`,
+    });
+  });
+  handle.addEventListener("pointerdown", (event) => {
+    beginLayoutPreviewResize(dom, event, row);
+  });
+
+  return rowElement;
+}
+
+/**
+ * layout preview row resize drag를 시작한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : event : resize handle pointerdown event
+ * - 인수 : row : 높이를 조절할 draft row
+ * - 반환값 : 없음
+ */
+function beginLayoutPreviewResize(
+  dom: AppDom,
+  event: PointerEvent,
+  row: LayoutEditableRowDefinition,
+): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  activeLayoutPreviewDrag = {
+    dom,
+    rowId: row.rowId,
+    startY: event.clientY,
+    startHeight: row.height,
+    lastHeight: row.height,
+  };
+
+  applyLayoutDraftChange(dom, {
+    ok: true,
+    draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+    message: `Drag to resize ${row.rowId}.`,
+  });
+
+  window.addEventListener("pointermove", handleLayoutPreviewResizeMove);
+  window.addEventListener("pointerup", handleLayoutPreviewResizeEnd);
+  window.addEventListener("pointercancel", handleLayoutPreviewResizeEnd);
+}
+
+/**
+ * layout preview row resize drag 중 pointer 이동을 draft height로 변환한다.
+ * - 인수 : event : pointermove event
+ * - 반환값 : 없음
+ */
+function handleLayoutPreviewResizeMove(event: PointerEvent): void {
+  if (activeLayoutPreviewDrag === null) {
+    return;
+  }
+
+  const drag = activeLayoutPreviewDrag;
+  const delta = Math.round(event.clientY - drag.startY);
+  const nextHeight = Math.max(1, Math.min(500, drag.startHeight + delta));
+
+  if (nextHeight === drag.lastHeight) {
+    return;
+  }
+
+  const draft = requireActiveLayoutDraft();
+  const targetRow = draft.rowDefinitions.find((row) => row.rowId === drag.rowId);
+  const result = targetRow?.type === "note"
+    ? updateLayoutDraftCommonNoteHeight(draft, nextHeight)
+    : updateLayoutDraftRowHeight(draft, drag.rowId, nextHeight);
+
+  if (!result.ok) {
+    return;
+  }
+
+  activeLayoutPreviewDrag = {
+    ...drag,
+    lastHeight: nextHeight,
+  };
+  activeLayoutDraft = result.draft;
+  syncLayoutDialogFromDraft(
+    drag.dom,
+    activeLayoutDraft,
+    targetRow?.type === "note"
+      ? `Updated all note rows to ${nextHeight}px.`
+      : `Resized ${drag.rowId} to ${nextHeight}px.`,
+  );
+}
+
+/**
+ * layout preview row resize drag를 끝내고 전역 pointer listener를 해제한다.
+ * - 인수 : 없음
+ * - 반환값 : 없음
+ */
+function handleLayoutPreviewResizeEnd(): void {
+  activeLayoutPreviewDrag = null;
+  window.removeEventListener("pointermove", handleLayoutPreviewResizeMove);
+  window.removeEventListener("pointerup", handleLayoutPreviewResizeEnd);
+  window.removeEventListener("pointercancel", handleLayoutPreviewResizeEnd);
+}
+
+/**
  * layout row list의 머리글을 만든다.
  * - 인수 : 없음
  * - 반환값 : row list head 요소
@@ -299,7 +490,7 @@ function createLayoutDraftRowElement(
 ): HTMLElement {
   const element = document.createElement("div");
   const selectInput = document.createElement("input");
-  const heightInput = document.createElement("input");
+  const heightCell = document.createElement("span");
   const deleteButton = document.createElement("button");
 
   element.className = "layout-row-table-row";
@@ -312,13 +503,28 @@ function createLayoutDraftRowElement(
   selectInput.checked = draft.selectedRowId === row.rowId;
   selectInput.setAttribute("aria-label", `Select ${row.rowId}`);
 
-  heightInput.type = "number";
-  heightInput.min = "1";
-  heightInput.max = "1100";
-  heightInput.step = "1";
-  heightInput.value = String(row.height);
-  heightInput.className = "layout-row-height-edit";
-  heightInput.setAttribute("aria-label", `Height for ${row.rowId}`);
+  if (row.type === "gap") {
+    const heightInput = document.createElement("input");
+
+    heightInput.type = "number";
+    heightInput.min = "1";
+    heightInput.max = "500";
+    heightInput.step = "1";
+    heightInput.value = String(row.height);
+    heightInput.className = "layout-row-height-edit";
+    heightInput.setAttribute("aria-label", `Height for ${row.rowId}`);
+    heightInput.addEventListener("change", () => {
+      applyLayoutDraftChange(
+        dom,
+        updateLayoutDraftRowHeight(
+          requireActiveLayoutDraft(),
+          row.rowId,
+          Number(heightInput.value),
+        ),
+      );
+    });
+    heightCell.appendChild(heightInput);
+  }
 
   deleteButton.type = "button";
   deleteButton.textContent = "Delete";
@@ -329,7 +535,7 @@ function createLayoutDraftRowElement(
     createLayoutCell(row.type),
     createLayoutCell(row.rowId),
     createLayoutCell(formatLayoutRowPitch(row)),
-    wrapLayoutControl(heightInput),
+    heightCell,
     wrapLayoutControl(deleteButton),
   );
 
@@ -351,16 +557,6 @@ function createLayoutDraftRowElement(
       draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
       message: `Selected ${row.rowId}.`,
     });
-  });
-  heightInput.addEventListener("change", () => {
-    applyLayoutDraftChange(
-      dom,
-      updateLayoutDraftRowHeight(
-        requireActiveLayoutDraft(),
-        row.rowId,
-        Number(heightInput.value),
-      ),
-    );
   });
   deleteButton.addEventListener("click", () => {
     applyLayoutDraftChange(dom, deleteLayoutDraftRow(requireActiveLayoutDraft(), row.rowId));
@@ -467,15 +663,29 @@ function addLayoutRowFromDialog(
   dom: AppDom,
   position: LayoutInsertPosition,
 ): void {
+  const rowType = dom.layoutRowTypeSelect.value === "gap" ? "gap" : "note";
+
   applyLayoutDraftChange(
     dom,
     addLayoutDraftRow(requireActiveLayoutDraft(), {
-      rowType: dom.layoutRowTypeSelect.value === "gap" ? "gap" : "note",
-      height: Number(dom.layoutRowHeightInput.value),
-      midi: Number(dom.layoutRowMidiSelect.value),
+      rowType,
+      height: rowType === "note"
+        ? Number(dom.layoutNoteHeightInput.value)
+        : Number(dom.layoutRowHeightInput.value),
       position,
     }),
   );
+}
+
+/**
+ * Add Row의 height 입력이 gap row 추가에만 쓰인다는 점을 UI 상태에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 반환값 : 없음
+ */
+function syncLayoutAddRowHeightState(dom: AppDom): void {
+  const isGap = dom.layoutRowTypeSelect.value === "gap";
+
+  dom.layoutRowHeightInput.disabled = !isGap;
 }
 
 /**
@@ -544,10 +754,12 @@ export function bindViewControls(
   });
 
   dom.layoutCloseButton.addEventListener("click", () => {
+    handleLayoutPreviewResizeEnd();
     dom.layoutDialog.close();
     activeLayoutDraft = null;
   });
   dom.layoutCancelButton.addEventListener("click", () => {
+    handleLayoutPreviewResizeEnd();
     dom.layoutDialog.close();
     activeLayoutDraft = null;
   });
@@ -562,7 +774,17 @@ export function bindViewControls(
       message: `Selected string ${dom.layoutStringSelect.value}.`,
     });
   });
+  dom.layoutNoteHeightInput.addEventListener("change", () => {
+    applyLayoutDraftChange(
+      dom,
+      updateLayoutDraftCommonNoteHeight(
+        requireActiveLayoutDraft(),
+        Number(dom.layoutNoteHeightInput.value),
+      ),
+    );
+  });
   dom.layoutResetButton.addEventListener("click", () => {
+    handleLayoutPreviewResizeEnd();
     activeLayoutDraft = createLayoutDraftBundle(session.getState().document.score);
     syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft was reset to the current score.");
   });
@@ -582,6 +804,9 @@ export function bindViewControls(
   });
   dom.layoutAddRowAboveButton.addEventListener("click", () => {
     addLayoutRowFromDialog(dom, "above");
+  });
+  dom.layoutRowTypeSelect.addEventListener("change", () => {
+    syncLayoutAddRowHeightState(dom);
   });
   dom.layoutLocalSaveButton.addEventListener("click", () => {
     setLayoutDialogNotice(dom, "Local Save will be connected after layout presets are implemented.");
