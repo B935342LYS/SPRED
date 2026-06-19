@@ -307,6 +307,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - center player metadata now reads from `ScoreFile.musicData`, and the Details dialog can edit musicData fields except creation/update timestamps
 - beat and bar marker rendering now uses timing row data, treats bar markers as stronger than beat markers at the same tick, and does not let BPM-only segment changes reset the beat/bar grid
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
+- `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, user layout preset storage model, simplified draft-bundle apply flow, and reusable existing module boundaries
+- the first layout editor UI shell is implemented: `Modify` opens a `Layout` dialog, layout edit types exist, instrument/string shell values are populated, and Add Row / preset controls are visually stabilized while draft/apply/storage actions remain placeholders
 - root layout test fixtures have been added for a 2-octave layout with fixed 21px gap rows and a 3-octave layout without gap rows
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
@@ -316,6 +318,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.20-step4-playback-edit-global-visualization.md` records audio playback, edit UX, batch edit, and global rawText visualization progress
 - `docs/implementation-memo/1.21-step4-playback-layout-ui-progress.md` records pause/seek playback state, metadata/details UI, view helper, edit preview, app playback folder split, and layout compatibility planning progress
 - `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, and gliss fallback audio effect implementation decisions
+- `docs/implementation-memo/1.25-step5-layout-editor-ui-shell.md` records the layout editor UI shell, current placeholder boundaries, and the next layout draft step
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - latest verified commands: `npm run typecheck`, `npm run test:audio`, `npm run test:score`, `npm run test:parse`, `npm run test:analyze`, `npm run test:edit`, `npm run build`
 
@@ -329,7 +332,7 @@ Deferred planned work:
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
-- implement layout replacement UI and the explicit confirmation flow for deleting cells that are incompatible with the target layout
+- connect layout draft rendering/editing, layout apply, and the explicit confirmation flow for deleting cells that are incompatible with the target layout
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes
