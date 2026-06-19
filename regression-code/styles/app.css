@@ -1120,6 +1120,69 @@ select:disabled {
   white-space: nowrap;
 }
 
+.layout-row-table-head,
+.layout-row-table-row {
+  display: grid;
+  grid-template-columns: 28px minmax(52px, 0.45fr) minmax(180px, 1.35fr) minmax(104px, 0.8fr) 72px 72px;
+  gap: 6px;
+  align-items: center;
+  min-width: 560px;
+}
+
+.layout-row-table-head {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.layout-row-table-row {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.layout-row-table-row[data-row-type="gap"] {
+  background: #eeeeee;
+  color: #5f646d;
+}
+
+.layout-row-table-row[data-selected="true"] {
+  border-color: var(--accent);
+  background: #fffaf1;
+}
+
+.layout-row-table-row[data-row-type="gap"][data-selected="true"] {
+  background: #e4e4e4;
+}
+
+.layout-row-table-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layout-row-height-edit {
+  width: 64px;
+  min-width: 64px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.layout-row-delete-button {
+  width: 64px;
+  min-width: 64px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
 .layout-string-pitch-select {
   width: 66px;
   min-width: 66px;

@@ -6,7 +6,9 @@ import type {
   AppDom,
   AppState,
 } from "./app_types";
-import type { InstrumentString } from "../core/score/types";
+import type {
+  InstrumentString,
+} from "../core/score/types";
 import { applyMusicDataEditToState } from "./app_runtime";
 import {
   fitScoreHeightZoom,
@@ -16,6 +18,21 @@ import {
   syncFullscreenButton,
   toggleFullscreen,
 } from "./app_view_actions";
+import {
+  addLayoutDraftRow,
+  createLayoutDraftBundle,
+  deleteLayoutDraftRow,
+  getRowsForSelectedString,
+  selectLayoutDraftRow,
+  selectLayoutDraftString,
+  updateLayoutDraftRowHeight,
+  type LayoutDraftMutationResult,
+  type LayoutInsertPosition,
+} from "./layout/layout_draft";
+import type {
+  LayoutDraftBundle,
+  LayoutEditableRowDefinition,
+} from "./layout/layout_types";
 import { formatPitchName } from "./pitch_label";
 import {
   syncLayoutScroll,
@@ -28,6 +45,8 @@ export type ViewBindingSession = {
   setState(nextState: AppState): void;
   render(): void;
 };
+
+let activeLayoutDraft: LayoutDraftBundle | null = null;
 
 /**
  * 현재 score 높이에 맞춰 zoom을 갱신하고 상태 메시지를 반영한다.
@@ -91,15 +110,22 @@ export function applyDetailsDialog(
 }
 
 /**
- * layout dialog의 instrument/string 영역을 현재 score 값으로 채운다.
+ * layout dialog의 instrument/string/row 영역을 현재 draft 값으로 채운다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : state : 현재 앱 상태
+ * - 인수 : draft : 현재 layout dialog draft
+ * - 인수 : message : 상태 줄에 표시할 문구
+ * - 인수 : level : 상태 문구 중요도
  * - 반환값 : 없음
  */
-function populateLayoutDialogShell(dom: AppDom, state: AppState): void {
-  const instData = state.document.score.instData;
+function syncLayoutDialogFromDraft(
+  dom: AppDom,
+  draft: LayoutDraftBundle,
+  message = "Layout draft is ready.",
+  level: "info" | "warning" | "error" = "info",
+): void {
+  const instData = draft.instData;
 
-  dom.layoutPresetNameInput.value = instData.instName;
+  dom.layoutPresetNameInput.value = draft.layoutPresetDisplayName;
   if (!Array.from(dom.layoutFamilyInput.options).some((option) => option.value === instData.family)) {
     dom.layoutFamilyInput.value = "custom";
   } else {
@@ -108,14 +134,16 @@ function populateLayoutDialogShell(dom: AppDom, state: AppState): void {
   dom.layoutSupportsOpenInput.checked = instData.supportsOpen;
   dom.layoutStringSelect.replaceChildren();
   dom.layoutStringList.replaceChildren();
-  dom.layoutRowList.replaceChildren(createLayoutEmptyState("Row draft is not connected yet."));
-  dom.layoutStatusLine.textContent = "Layout editor shell opened. Draft editing is not connected yet.";
-  dom.layoutStatusLine.dataset.level = "info";
+  dom.layoutStatusLine.textContent = message;
+  dom.layoutStatusLine.dataset.level = level;
 
   for (const stringInfo of instData.strings) {
     dom.layoutStringSelect.appendChild(createStringOption(stringInfo));
     dom.layoutStringList.appendChild(createStringSummaryRow(stringInfo, instData.supportsOpen));
   }
+
+  dom.layoutStringSelect.value = draft.selectedStringId ?? "";
+  renderLayoutDraftRows(dom, draft);
 }
 
 /**
@@ -214,14 +242,204 @@ function createLayoutEmptyState(message: string): HTMLElement {
 }
 
 /**
+ * layout dialog의 선택 string row 목록을 렌더링한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : draft : 현재 layout draft
+ * - 반환값 : 없음
+ */
+function renderLayoutDraftRows(dom: AppDom, draft: LayoutDraftBundle): void {
+  const rows = getRowsForSelectedString(draft);
+
+  dom.layoutRowList.replaceChildren();
+
+  if (rows.length === 0) {
+    dom.layoutRowList.appendChild(createLayoutEmptyState("No editable rows for this string."));
+    return;
+  }
+
+  dom.layoutRowList.appendChild(createLayoutRowTableHead());
+
+  for (const row of rows) {
+    dom.layoutRowList.appendChild(createLayoutDraftRowElement(dom, draft, row));
+  }
+}
+
+/**
+ * layout row list의 머리글을 만든다.
+ * - 인수 : 없음
+ * - 반환값 : row list head 요소
+ */
+function createLayoutRowTableHead(): HTMLElement {
+  const head = document.createElement("div");
+
+  head.className = "layout-row-table-head";
+  head.append(
+    createLayoutCell(""),
+    createLayoutCell("Type"),
+    createLayoutCell("Row ID"),
+    createLayoutCell("Pitch"),
+    createLayoutCell("Height"),
+    createLayoutCell(""),
+  );
+
+  return head;
+}
+
+/**
+ * layout draft row 하나를 표시하는 DOM 요소를 만든다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : row : 표시할 note/gap row
+ * - 반환값 : row DOM 요소
+ */
+function createLayoutDraftRowElement(
+  dom: AppDom,
+  draft: LayoutDraftBundle,
+  row: LayoutEditableRowDefinition,
+): HTMLElement {
+  const element = document.createElement("div");
+  const selectInput = document.createElement("input");
+  const heightInput = document.createElement("input");
+  const deleteButton = document.createElement("button");
+
+  element.className = "layout-row-table-row";
+  element.dataset.selected = draft.selectedRowId === row.rowId ? "true" : "false";
+  element.dataset.rowType = row.type;
+
+  selectInput.type = "radio";
+  selectInput.name = "layout-row-selection";
+  selectInput.value = row.rowId;
+  selectInput.checked = draft.selectedRowId === row.rowId;
+  selectInput.setAttribute("aria-label", `Select ${row.rowId}`);
+
+  heightInput.type = "number";
+  heightInput.min = "1";
+  heightInput.max = "1100";
+  heightInput.step = "1";
+  heightInput.value = String(row.height);
+  heightInput.className = "layout-row-height-edit";
+  heightInput.setAttribute("aria-label", `Height for ${row.rowId}`);
+
+  deleteButton.type = "button";
+  deleteButton.textContent = "Delete";
+  deleteButton.className = "layout-row-delete-button";
+
+  element.append(
+    wrapLayoutControl(selectInput),
+    createLayoutCell(row.type),
+    createLayoutCell(row.rowId),
+    createLayoutCell(formatLayoutRowPitch(row)),
+    wrapLayoutControl(heightInput),
+    wrapLayoutControl(deleteButton),
+  );
+
+  // row 클릭은 radio와 같은 선택 동작으로 처리한다.
+  element.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) {
+      return;
+    }
+
+    applyLayoutDraftChange(dom, {
+      ok: true,
+      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      message: `Selected ${row.rowId}.`,
+    });
+  });
+  selectInput.addEventListener("change", () => {
+    applyLayoutDraftChange(dom, {
+      ok: true,
+      draft: selectLayoutDraftRow(requireActiveLayoutDraft(), row.rowId),
+      message: `Selected ${row.rowId}.`,
+    });
+  });
+  heightInput.addEventListener("change", () => {
+    applyLayoutDraftChange(
+      dom,
+      updateLayoutDraftRowHeight(
+        requireActiveLayoutDraft(),
+        row.rowId,
+        Number(heightInput.value),
+      ),
+    );
+  });
+  deleteButton.addEventListener("click", () => {
+    applyLayoutDraftChange(dom, deleteLayoutDraftRow(requireActiveLayoutDraft(), row.rowId));
+  });
+
+  return element;
+}
+
+/**
+ * row list 안에 들어갈 control을 고정 크기 cell에 감싼다.
+ * - 인수 : control : input 또는 button 요소
+ * - 반환값 : control을 담은 span 요소
+ */
+function wrapLayoutControl(control: HTMLElement): HTMLSpanElement {
+  const cell = document.createElement("span");
+
+  cell.appendChild(control);
+
+  return cell;
+}
+
+/**
+ * note row의 pitch 표시 문자열을 만든다.
+ * - 인수 : row : 표시할 note/gap row
+ * - 반환값 : note pitch 문자열. gap row는 사용자에게 내부 MIDI range를 표시하지 않는다.
+ */
+function formatLayoutRowPitch(row: LayoutEditableRowDefinition): string {
+  if (row.type === "note") {
+    return `${row.displayLabel} (${row.midi})`;
+  }
+
+  return "";
+}
+
+/**
+ * active layout draft를 반환한다.
+ * - 인수 : 없음
+ * - 반환값 : 현재 열린 layout dialog draft
+ */
+function requireActiveLayoutDraft(): LayoutDraftBundle {
+  if (activeLayoutDraft === null) {
+    throw new Error("Layout draft is not initialized.");
+  }
+
+  return activeLayoutDraft;
+}
+
+/**
+ * layout draft 변경 결과를 dialog에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : result : draft 변경 결과
+ * - 반환값 : 없음
+ */
+function applyLayoutDraftChange(
+  dom: AppDom,
+  result: LayoutDraftMutationResult,
+): void {
+  if (!result.ok) {
+    setLayoutDialogNotice(dom, result.message, result.level);
+    return;
+  }
+
+  activeLayoutDraft = result.draft;
+  syncLayoutDialogFromDraft(dom, activeLayoutDraft, result.message);
+}
+
+/**
  * 아직 구현되지 않은 layout dialog action에 대한 상태 문구를 표시한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : message : 사용자에게 표시할 안내 문구
  * - 반환값 : 없음
  */
-function setLayoutDialogNotice(dom: AppDom, message: string): void {
+function setLayoutDialogNotice(
+  dom: AppDom,
+  message: string,
+  level: "warning" | "error" = "warning",
+): void {
   dom.layoutStatusLine.textContent = message;
-  dom.layoutStatusLine.dataset.level = "warning";
+  dom.layoutStatusLine.dataset.level = level;
 }
 
 /**
@@ -234,8 +452,30 @@ export function openLayoutDialog(
   dom: AppDom,
   session: Pick<ViewBindingSession, "getState">,
 ): void {
-  populateLayoutDialogShell(dom, session.getState());
+  activeLayoutDraft = createLayoutDraftBundle(session.getState().document.score);
+  syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft is ready.");
   dom.layoutDialog.showModal();
+}
+
+/**
+ * layout row 추가 입력을 읽어 draft에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : position : 선택 row 위/아래 삽입 위치
+ * - 반환값 : 없음
+ */
+function addLayoutRowFromDialog(
+  dom: AppDom,
+  position: LayoutInsertPosition,
+): void {
+  applyLayoutDraftChange(
+    dom,
+    addLayoutDraftRow(requireActiveLayoutDraft(), {
+      rowType: dom.layoutRowTypeSelect.value === "gap" ? "gap" : "note",
+      height: Number(dom.layoutRowHeightInput.value),
+      midi: Number(dom.layoutRowMidiSelect.value),
+      position,
+    }),
+  );
 }
 
 /**
@@ -305,16 +545,26 @@ export function bindViewControls(
 
   dom.layoutCloseButton.addEventListener("click", () => {
     dom.layoutDialog.close();
+    activeLayoutDraft = null;
   });
   dom.layoutCancelButton.addEventListener("click", () => {
     dom.layoutDialog.close();
+    activeLayoutDraft = null;
   });
   dom.layoutForm.addEventListener("submit", (event) => {
     event.preventDefault();
     setLayoutDialogNotice(dom, "Layout Apply will be connected in the next implementation step.");
   });
+  dom.layoutStringSelect.addEventListener("change", () => {
+    applyLayoutDraftChange(dom, {
+      ok: true,
+      draft: selectLayoutDraftString(requireActiveLayoutDraft(), dom.layoutStringSelect.value),
+      message: `Selected string ${dom.layoutStringSelect.value}.`,
+    });
+  });
   dom.layoutResetButton.addEventListener("click", () => {
-    populateLayoutDialogShell(dom, session.getState());
+    activeLayoutDraft = createLayoutDraftBundle(session.getState().document.score);
+    syncLayoutDialogFromDraft(dom, activeLayoutDraft, "Layout draft was reset to the current score.");
   });
   dom.layoutNewPresetButton.addEventListener("click", () => {
     const presetIndex = dom.layoutPresetSelect.options.length + 1;
@@ -328,10 +578,10 @@ export function bindViewControls(
     setLayoutDialogNotice(dom, "Preset creation is a draft UI action. Storage will be connected later.");
   });
   dom.layoutAddRowBelowButton.addEventListener("click", () => {
-    setLayoutDialogNotice(dom, "Insert Below will be connected after the layout draft module is implemented.");
+    addLayoutRowFromDialog(dom, "below");
   });
   dom.layoutAddRowAboveButton.addEventListener("click", () => {
-    setLayoutDialogNotice(dom, "Insert Above will be connected after the layout draft module is implemented.");
+    addLayoutRowFromDialog(dom, "above");
   });
   dom.layoutLocalSaveButton.addEventListener("click", () => {
     setLayoutDialogNotice(dom, "Local Save will be connected after layout presets are implemented.");
