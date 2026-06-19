@@ -330,7 +330,7 @@
                     <select aria-label="Layout preset">
                         <option>Default Layout</option>
                     </select>
-                    <button type="button">Modify</button>
+                    <button class="layout-modify-button" type="button">Modify</button>
                     <button type="button">Save</button>
                     <button type="button">Reset</button>
                 </div>
@@ -426,6 +426,118 @@
             <div class="dialog-action-row">
                 <button type="button" class="details-cancel-button">Cancel</button>
                 <button type="submit" class="details-save-button">Save</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Layout Dialog -->
+    <dialog id="layout-editor" class="layout-dialog">
+        <form class="layout-form">
+            <div class="dialog-title-row">
+                <h2>Layout</h2>
+                <button type="button" class="layout-close-button" aria-label="Close">Close</button>
+            </div>
+
+            <div class="layout-dialog-grid">
+                <section class="layout-section layout-preset-section" aria-label="Layout preset">
+                    <h3>Preset</h3>
+                    <div class="layout-field-row">
+                        <label class="details-field">
+                            Current
+                            <select class="layout-preset-select">
+                                <option value="">Current score layout</option>
+                            </select>
+                        </label>
+                        <label class="details-field">
+                            Name
+                            <input class="layout-preset-name-input" type="text" maxlength="80" placeholder="Layout name">
+                        </label>
+                    </div>
+                    <div class="layout-button-row">
+                        <button type="button" class="layout-local-save-button">Local Save</button>
+                        <button type="button" class="layout-local-load-button">Local Load</button>
+                        <button type="button" class="layout-file-save-button">File Save</button>
+                        <button type="button" class="layout-file-load-button">File Load</button>
+                        <input class="layout-file-load-input" type="file" accept="application/json,.json" hidden>
+                    </div>
+                </section>
+
+                <section class="layout-section layout-instrument-section" aria-label="Instrument layout settings">
+                    <h3>Instrument</h3>
+                    <div class="layout-field-row">
+                        <label class="details-field">
+                            Family
+                            <input class="layout-family-input" type="text" maxlength="80">
+                        </label>
+                        <label class="details-field">
+                            Name
+                            <input class="layout-inst-name-input" type="text" maxlength="80">
+                        </label>
+                        <label class="switch-field layout-open-field">
+                            <input class="layout-supports-open-input" type="checkbox">
+                            Open string
+                        </label>
+                    </div>
+                    <div class="layout-string-table" aria-label="Instrument strings">
+                        <div class="layout-table-head">
+                            <span>String</span>
+                            <span>Name</span>
+                            <span>Min</span>
+                            <span>Max</span>
+                            <span>Open</span>
+                        </div>
+                        <div class="layout-string-list"></div>
+                    </div>
+                </section>
+
+                <section class="layout-section layout-row-section" aria-label="Layout rows">
+                    <div class="layout-section-title-row">
+                        <h3>Rows</h3>
+                        <label class="inline-field">
+                            String
+                            <select class="layout-string-select"></select>
+                        </label>
+                    </div>
+                    <div class="layout-row-list" aria-label="Editable row list"></div>
+                </section>
+
+                <section class="layout-section layout-add-row-section" aria-label="Add layout row">
+                    <h3>Add Row</h3>
+                    <div class="layout-field-row">
+                        <label class="details-field compact">
+                            Type
+                            <select class="layout-row-type-select">
+                                <option value="note">note</option>
+                                <option value="gap">gap</option>
+                            </select>
+                        </label>
+                        <label class="details-field compact">
+                            Height
+                            <input class="layout-row-height-input" type="number" min="1" max="1100" step="1" value="7">
+                        </label>
+                        <label class="details-field">
+                            Pitch
+                            <select class="layout-row-midi-select"></select>
+                        </label>
+                        <label class="details-field compact">
+                            Insert
+                            <select class="layout-insert-position-select">
+                                <option value="below">below selected</option>
+                                <option value="above">above selected</option>
+                            </select>
+                        </label>
+                    </div>
+                    <button type="button" class="layout-add-row-button">Add Row</button>
+                </section>
+            </div>
+
+            <p class="layout-status-line" role="status" aria-live="polite">Layout editing is not connected yet.</p>
+
+            <div class="dialog-action-row">
+                <button type="button" class="layout-reset-button">Reset</button>
+                <span class="dialog-action-spacer"></span>
+                <button type="button" class="layout-cancel-button">Cancel</button>
+                <button type="submit" class="layout-apply-button">Apply</button>
             </div>
         </form>
     </dialog>

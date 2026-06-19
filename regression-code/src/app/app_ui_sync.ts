@@ -196,6 +196,7 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.localLoadButton.disabled = isBusy;
   dom.fullscreenButton.disabled = isBusy;
   dom.fitHeightButton.disabled = isBusy;
+  dom.layoutModifyButton.disabled = isBusy;
   dom.detailsButton.disabled = isBusy;
   dom.seekInput.disabled = isBusy;
   syncCurrentRawTextPreview(dom, state);
