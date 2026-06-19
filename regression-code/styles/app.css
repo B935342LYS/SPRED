@@ -1290,7 +1290,6 @@ select:disabled {
 .layout-preview-resize-handle {
   position: absolute;
   right: 0;
-  bottom: -3px;
   left: 0;
   z-index: 2;
   height: 7px;
@@ -1300,6 +1299,14 @@ select:disabled {
   border-radius: 0;
   background: transparent;
   cursor: ns-resize;
+}
+
+.layout-preview-resize-handle-top {
+  top: -3px;
+}
+
+.layout-preview-resize-handle-bottom {
+  bottom: -3px;
 }
 
 .layout-preview-resize-handle::before {

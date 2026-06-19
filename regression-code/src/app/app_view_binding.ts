@@ -53,6 +53,7 @@ export type ViewBindingSession = {
 type LayoutPreviewDragState = {
   dom: AppDom;
   rowId: string;
+  edge: "top" | "bottom";
   startY: number;
   startHeight: number;
   lastHeight: number;
@@ -325,7 +326,6 @@ function createLayoutPreviewRow(
   const leftPadding = document.createElement("span");
   const label = document.createElement("span");
   const rightPadding = document.createElement("span");
-  const handle = document.createElement("button");
 
   rowElement.className = "layout-preview-row";
   rowElement.dataset.rowType = row.type;
@@ -343,11 +343,20 @@ function createLayoutPreviewRow(
     label.textContent = "";
   }
 
-  handle.type = "button";
-  handle.className = "layout-preview-resize-handle";
-  handle.setAttribute("aria-label", `Resize ${row.rowId}`);
+  rowElement.append(leftPadding, label, rightPadding);
 
-  rowElement.append(leftPadding, label, rightPadding, handle);
+  if (row.type === "gap") {
+    const topHandle = createLayoutPreviewGapResizeHandle(row.rowId, "top");
+    const bottomHandle = createLayoutPreviewGapResizeHandle(row.rowId, "bottom");
+
+    rowElement.append(topHandle, bottomHandle);
+    topHandle.addEventListener("pointerdown", (event) => {
+      beginLayoutPreviewResize(dom, event, row, "top");
+    });
+    bottomHandle.addEventListener("pointerdown", (event) => {
+      beginLayoutPreviewResize(dom, event, row, "bottom");
+    });
+  }
 
   rowElement.addEventListener("click", (event) => {
     if (event.target instanceof HTMLButtonElement) {
@@ -360,11 +369,27 @@ function createLayoutPreviewRow(
       message: `Selected ${row.rowId}.`,
     });
   });
-  handle.addEventListener("pointerdown", (event) => {
-    beginLayoutPreviewResize(dom, event, row);
-  });
 
   return rowElement;
+}
+
+/**
+ * gap row의 위/아래 resize handle을 만든다.
+ * - 인수 : rowId : 조절할 gap rowId
+ * - 인수 : edge : gap row의 위쪽 또는 아래쪽 경계
+ * - 반환값 : pointer drag를 받을 button 요소
+ */
+function createLayoutPreviewGapResizeHandle(
+  rowId: string,
+  edge: "top" | "bottom",
+): HTMLButtonElement {
+  const handle = document.createElement("button");
+
+  handle.type = "button";
+  handle.className = `layout-preview-resize-handle layout-preview-resize-handle-${edge}`;
+  handle.setAttribute("aria-label", `Resize ${rowId}`);
+
+  return handle;
 }
 
 /**
@@ -372,12 +397,14 @@ function createLayoutPreviewRow(
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : event : resize handle pointerdown event
  * - 인수 : row : 높이를 조절할 draft row
+ * - 인수 : edge : gap row의 위쪽 또는 아래쪽 경계
  * - 반환값 : 없음
  */
 function beginLayoutPreviewResize(
   dom: AppDom,
   event: PointerEvent,
   row: LayoutEditableRowDefinition,
+  edge: "top" | "bottom",
 ): void {
   event.preventDefault();
   event.stopPropagation();
@@ -385,6 +412,7 @@ function beginLayoutPreviewResize(
   activeLayoutPreviewDrag = {
     dom,
     rowId: row.rowId,
+    edge,
     startY: event.clientY,
     startHeight: row.height,
     lastHeight: row.height,
@@ -413,17 +441,15 @@ function handleLayoutPreviewResizeMove(event: PointerEvent): void {
 
   const drag = activeLayoutPreviewDrag;
   const delta = Math.round(event.clientY - drag.startY);
-  const nextHeight = Math.max(1, Math.min(500, drag.startHeight + delta));
+  const signedDelta = drag.edge === "top" ? -delta : delta;
+  const nextHeight = Math.max(1, Math.min(500, drag.startHeight + signedDelta));
 
   if (nextHeight === drag.lastHeight) {
     return;
   }
 
   const draft = requireActiveLayoutDraft();
-  const targetRow = draft.rowDefinitions.find((row) => row.rowId === drag.rowId);
-  const result = targetRow?.type === "note"
-    ? updateLayoutDraftCommonNoteHeight(draft, nextHeight)
-    : updateLayoutDraftRowHeight(draft, drag.rowId, nextHeight);
+  const result = updateLayoutDraftRowHeight(draft, drag.rowId, nextHeight);
 
   if (!result.ok) {
     return;
@@ -437,9 +463,7 @@ function handleLayoutPreviewResizeMove(event: PointerEvent): void {
   syncLayoutDialogFromDraft(
     drag.dom,
     activeLayoutDraft,
-    targetRow?.type === "note"
-      ? `Updated all note rows to ${nextHeight}px.`
-      : `Resized ${drag.rowId} to ${nextHeight}px.`,
+    `Resized ${drag.rowId} to ${nextHeight}px.`,
   );
 }
 
