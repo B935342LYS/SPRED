@@ -18,6 +18,8 @@ import type {
 
 const MIN_ROW_HEIGHT = 1;
 const MAX_ROW_HEIGHT = 500;
+const MIN_GAP_BOUNDARY_MIDI = -1;
+const MAX_GAP_BOUNDARY_MIDI = 128;
 
 /** layout row 삽입 위치. */
 export type LayoutInsertPosition = "above" | "below";
@@ -273,6 +275,14 @@ export function deleteLayoutDraftRow(
     };
   }
 
+  if (target.type === "note") {
+    const deleteCheck = validateNoteRowDeletion(draft, target);
+
+    if (deleteCheck !== null) {
+      return deleteCheck;
+    }
+  }
+
   const rowDefinitions = draft.rowDefinitions.filter((row) => row.rowId !== rowId);
   const selectedRowId = findFirstRowIdForString(rowDefinitions, draft.selectedStringId);
 
@@ -285,6 +295,42 @@ export function deleteLayoutDraftRow(
     },
     message: `Deleted draft row ${target.rowId}. Score cells are not changed until Apply is implemented.`,
   };
+}
+
+/**
+ * note row 삭제가 선택 string의 양끝 삭제 정책에 맞는지 검사한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : target : 삭제 대상 note row
+ * - 반환값 : 삭제 불가 오류 또는 null
+ */
+function validateNoteRowDeletion(
+  draft: LayoutDraftBundle,
+  target: NoteRowDefinition,
+): Extract<LayoutDraftMutationResult, { ok: false }> | null {
+  const noteRows = draft.rowDefinitions.filter(
+    (row): row is NoteRowDefinition => row.type === "note" && row.stringId === target.stringId,
+  );
+
+  if (noteRows.length <= 1) {
+    return {
+      ok: false,
+      level: "warning",
+      message: "At least one note row must remain.",
+    };
+  }
+
+  const firstRow = noteRows[0];
+  const lastRow = noteRows[noteRows.length - 1];
+
+  if (target.rowId !== firstRow?.rowId && target.rowId !== lastRow?.rowId) {
+    return {
+      ok: false,
+      level: "warning",
+      message: "Only the top or bottom note row can be deleted.",
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -459,31 +505,129 @@ function addGapRow(
   }
 
   const insertIndex = resolveInsertIndex(draft, input.position);
+  const neighborError = validateNoAdjacentGapRows(draft, stringId, insertIndex);
+
+  if (neighborError !== null) {
+    return neighborError;
+  }
+
   const upperNote = findNearestNoteRow(draft.rowDefinitions, stringId, insertIndex - 1, -1);
   const lowerNote = findNearestNoteRow(draft.rowDefinitions, stringId, insertIndex, 1);
+  const gapBoundary = resolveGapBoundaryMidi(upperNote, lowerNote);
 
-  if (upperNote === null || lowerNote === null) {
+  if (gapBoundary === null) {
     return {
       ok: false,
       level: "warning",
-      message: "Gap rows can be inserted only between two note rows on the selected string.",
+      message: "Gap rows need at least one neighboring note row.",
     };
   }
 
-  const fromMidi = Math.min(upperNote.midi, lowerNote.midi);
-  const toMidi = Math.max(upperNote.midi, lowerNote.midi);
+  const { fromMidi, toMidi } = gapBoundary;
+  const boundaryError = validateGapBoundaryMidi(fromMidi, toMidi);
+
+  if (boundaryError !== null) {
+    return boundaryError;
+  }
 
   if (draft.rowDefinitions.some((row) => row.type === "gap" && row.stringId === stringId && row.fromMidi === fromMidi && row.toMidi === toMidi)) {
     return {
       ok: false,
       level: "warning",
-      message: `Gap ${formatPitchName(fromMidi, "sharp")}-${formatPitchName(toMidi, "sharp")} already exists.`,
+      message: `Gap ${fromMidi}-${toMidi} already exists.`,
     };
   }
 
   const row = createGapRow(stringId, fromMidi, toMidi, input.height);
 
   return insertDraftRow(draft, row, input.position, `Added gap row ${row.rowId}.`);
+}
+
+/**
+ * 삽입 위치 바로 위/아래에 gap row가 있는지 확인한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : stringId : 선택 stringId
+ * - 인수 : insertIndex : rowDefinitions 삽입 index
+ * - 반환값 : 연속 gap 오류 또는 null
+ */
+function validateNoAdjacentGapRows(
+  draft: LayoutDraftBundle,
+  stringId: StringId,
+  insertIndex: number,
+): Extract<LayoutDraftMutationResult, { ok: false }> | null {
+  const previousRow = draft.rowDefinitions[insertIndex - 1];
+  const nextRow = draft.rowDefinitions[insertIndex];
+  const hasAdjacentGap = [previousRow, nextRow].some(
+    (row) => row?.type === "gap" && row.stringId === stringId,
+  );
+
+  if (!hasAdjacentGap) {
+    return null;
+  }
+
+  return {
+    ok: false,
+    level: "warning",
+    message: "Gap rows cannot be adjacent.",
+  };
+}
+
+/**
+ * 인접 note row에서 gap row의 boundary MIDI 값을 계산한다.
+ * - 인수 : upperNote : 삽입 위치 위쪽에서 찾은 note row
+ * - 인수 : lowerNote : 삽입 위치 아래쪽에서 찾은 note row
+ * - 반환값 : gap row fromMidi/toMidi 또는 계산 불가 결과
+ */
+function resolveGapBoundaryMidi(
+  upperNote: NoteRowDefinition | null,
+  lowerNote: NoteRowDefinition | null,
+): { fromMidi: number; toMidi: number } | null {
+  if (upperNote !== null && lowerNote !== null) {
+    return {
+      fromMidi: Math.min(upperNote.midi, lowerNote.midi),
+      toMidi: Math.max(upperNote.midi, lowerNote.midi),
+    };
+  }
+
+  if (upperNote !== null) {
+    return {
+      fromMidi: upperNote.midi - 1,
+      toMidi: upperNote.midi,
+    };
+  }
+
+  if (lowerNote !== null) {
+    return {
+      fromMidi: lowerNote.midi,
+      toMidi: lowerNote.midi + 1,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * gap row boundary MIDI가 layout gap 허용 범위인지 검사한다.
+ * - 인수 : fromMidi : gap row 낮은 boundary MIDI
+ * - 인수 : toMidi : gap row 높은 boundary MIDI
+ * - 반환값 : 범위 오류 또는 null
+ */
+function validateGapBoundaryMidi(
+  fromMidi: number,
+  toMidi: number,
+): Extract<LayoutDraftMutationResult, { ok: false }> | null {
+  if (
+    fromMidi < MIN_GAP_BOUNDARY_MIDI ||
+    toMidi > MAX_GAP_BOUNDARY_MIDI
+  ) {
+    return {
+      ok: false,
+      level: "warning",
+      message: `Gap boundary MIDI must be from ${MIN_GAP_BOUNDARY_MIDI} to ${MAX_GAP_BOUNDARY_MIDI}.`,
+    };
+  }
+
+  return null;
 }
 
 /**

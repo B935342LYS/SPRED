@@ -71,6 +71,10 @@ const GLOBAL_KINDS: GlobalKind[] = [
   "stepsPerBeat",
   "dynamics",
 ];
+const MIN_NOTE_MIDI = 0;
+const MAX_NOTE_MIDI = 127;
+const MIN_GAP_BOUNDARY_MIDI = -1;
+const MAX_GAP_BOUNDARY_MIDI = 128;
 
 /**
  * ScoreFile의 최소 구조와 핵심 참조 무결성을 검증한다.
@@ -297,6 +301,15 @@ function validateRows(
 
   // rowById는 이후 global/track cell의 rowId 참조 검증에 재사용된다.
   for (const row of rows) {
+    const rowFieldError = validateRowFields(row);
+
+    if (rowFieldError !== null) {
+      return {
+        ok: false,
+        error: rowFieldError,
+      };
+    }
+
     // 같은 rowId가 두 행을 가리키면 셀 좌표의 기준이 모호해진다.
     if (rowById.has(row.rowId)) {
       return {
@@ -316,6 +329,37 @@ function validateRows(
     ok: true,
     rowById,
   };
+}
+
+/**
+ * rowDefinition 내부 필드의 최소 범위를 확인한다.
+ * - 인수 : row : 검사할 row definition
+ * - 반환값 : 범위/형태 오류 또는 null
+ */
+function validateRowFields(row: RowDefinition): ScoreValidationError | null {
+  if (!Number.isInteger(row.height) || row.height < 1) {
+    return invalidShape(`Row height must be a positive integer: ${row.rowId}.`, "layout.rowDefinitions");
+  }
+
+  if (row.type === "note") {
+    if (!Number.isInteger(row.midi) || row.midi < MIN_NOTE_MIDI || row.midi > MAX_NOTE_MIDI) {
+      return invalidShape(`Note row midi out of range: ${row.rowId}.`, "layout.rowDefinitions");
+    }
+  }
+
+  if (row.type === "gap") {
+    if (
+      !Number.isInteger(row.fromMidi) ||
+      !Number.isInteger(row.toMidi) ||
+      row.fromMidi < MIN_GAP_BOUNDARY_MIDI ||
+      row.toMidi > MAX_GAP_BOUNDARY_MIDI ||
+      row.fromMidi >= row.toMidi
+    ) {
+      return invalidShape(`Gap row boundary midi out of range: ${row.rowId}.`, "layout.rowDefinitions");
+    }
+  }
+
+  return null;
 }
 
 /**

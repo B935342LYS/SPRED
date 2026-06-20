@@ -515,7 +515,7 @@ function createLayoutDraftRowElement(
   const element = document.createElement("div");
   const selectInput = document.createElement("input");
   const heightCell = document.createElement("span");
-  const deleteButton = document.createElement("button");
+  const deleteCell = document.createElement("span");
 
   element.className = "layout-row-table-row";
   element.dataset.selected = draft.selectedRowId === row.rowId ? "true" : "false";
@@ -550,9 +550,17 @@ function createLayoutDraftRowElement(
     heightCell.appendChild(heightInput);
   }
 
-  deleteButton.type = "button";
-  deleteButton.textContent = "Delete";
-  deleteButton.className = "layout-row-delete-button";
+  if (canShowLayoutRowDeleteButton(draft, row)) {
+    const deleteButton = document.createElement("button");
+
+    deleteButton.type = "button";
+    deleteButton.textContent = "Delete";
+    deleteButton.className = "layout-row-delete-button";
+    deleteButton.addEventListener("click", () => {
+      applyLayoutDraftChange(dom, deleteLayoutDraftRow(requireActiveLayoutDraft(), row.rowId));
+    });
+    deleteCell.appendChild(deleteButton);
+  }
 
   element.append(
     wrapLayoutControl(selectInput),
@@ -560,7 +568,7 @@ function createLayoutDraftRowElement(
     createLayoutCell(row.rowId),
     createLayoutCell(formatLayoutRowPitch(row)),
     heightCell,
-    wrapLayoutControl(deleteButton),
+    deleteCell,
   );
 
   // row 클릭은 radio와 같은 선택 동작으로 처리한다.
@@ -582,11 +590,33 @@ function createLayoutDraftRowElement(
       message: `Selected ${row.rowId}.`,
     });
   });
-  deleteButton.addEventListener("click", () => {
-    applyLayoutDraftChange(dom, deleteLayoutDraftRow(requireActiveLayoutDraft(), row.rowId));
-  });
-
   return element;
+}
+
+/**
+ * row list에서 delete 버튼을 표시할지 결정한다.
+ * - 인수 : draft : 현재 layout draft
+ * - 인수 : row : 표시 중인 note/gap row
+ * - 반환값 : delete 버튼 표시 여부
+ */
+function canShowLayoutRowDeleteButton(
+  draft: LayoutDraftBundle,
+  row: LayoutEditableRowDefinition,
+): boolean {
+  if (row.type === "gap") {
+    return true;
+  }
+
+  const noteRows = draft.rowDefinitions.filter(
+    (candidate) => candidate.type === "note" && candidate.stringId === row.stringId,
+  );
+
+  if (noteRows.length <= 1) {
+    return false;
+  }
+
+  return row.rowId === noteRows[0]?.rowId
+    || row.rowId === noteRows[noteRows.length - 1]?.rowId;
 }
 
 /**
