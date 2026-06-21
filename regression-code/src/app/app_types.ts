@@ -119,6 +119,7 @@ export type AppDom = {
   zoomInput: HTMLInputElement;
   fullscreenButton: HTMLButtonElement;
   fitHeightButton: HTMLButtonElement;
+  layoutPresetToolbarSelect: HTMLSelectElement;
   layoutModifyButton: HTMLButtonElement;
   detailsButton: HTMLButtonElement;
   detailsDialog: HTMLDialogElement;

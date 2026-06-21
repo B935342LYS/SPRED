@@ -33,6 +33,8 @@ import type {
   ScoreOrigin,
   ScoreSelection,
 } from "./app_types";
+import { applyLayoutDraftToScore } from "./layout/layout_apply";
+import type { LayoutDraftBundle } from "./layout/layout_types";
 
 /**
  * 현재 score의 표시 열 범위를 사용자 메시지로 만든다.
@@ -171,6 +173,52 @@ export function applyMusicDataEditToState(
     statusMessage: {
       level: "info",
       text: "Score details updated.",
+    },
+  };
+}
+
+/**
+ * 레이아웃 draft를 ScoreFile에 적용하고 full rebuild 산출물을 만든다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : draft : Layout dialog에서 확정한 layout draft
+ * - 인수 : allowCellDeletion : 삭제될 track cell이 있을 때 적용을 허용할지 여부
+ * - 반환값 : full rebuild가 반영된 앱 상태
+ */
+export function applyLayoutDraftEditToState(
+  state: AppState,
+  draft: LayoutDraftBundle,
+  allowCellDeletion: boolean,
+): AppState {
+  const applyResult = applyLayoutDraftToScore(state.document.score, draft, {
+    allowCellDeletion,
+  });
+
+  if (!applyResult.ok) {
+    return {
+      ...state,
+      statusMessage: {
+        level: applyResult.level,
+        text: applyResult.message,
+      },
+    };
+  }
+
+  const nextDocument = createRuntimeDocument(applyResult.score);
+  const artifacts = buildRuntimeArtifacts(nextDocument);
+
+  return {
+    ...state,
+    document: nextDocument,
+    parsed: artifacts.parsed,
+    analysis: artifacts.analysis,
+    renderInput: artifacts.renderInput,
+    selection: null,
+    layout: null,
+    statusMessage: {
+      level: "info",
+      text: applyResult.deletedCells.totalCount > 0
+        ? `Layout applied. Deleted ${applyResult.deletedCells.totalCount} track cell(s).`
+        : "Layout applied.",
     },
   };
 }

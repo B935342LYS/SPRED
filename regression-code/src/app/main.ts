@@ -9,12 +9,11 @@ import {
   loadScoreTextAsInitialState,
 } from "./app_runtime";
 import { bindFileControls } from "./app_file_binding";
-import {
-  bindViewControls,
-} from "./app_view_binding";
+import { bindViewControls } from "./app_view_binding";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
+import { syncLayoutToolbarPresetSelectForCurrentScore } from "./layout/layout_dialog_binding";
 import {
   populateAbsolutePitchOptions,
 } from "./pitch_label";
@@ -71,6 +70,7 @@ async function boot(): Promise<void> {
     syncMusicMetadata(dom, state);
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);

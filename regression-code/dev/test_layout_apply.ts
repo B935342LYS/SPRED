@@ -1,0 +1,214 @@
+import { readFileSync } from "node:fs";
+
+import {
+  applyLayoutDraftToScore,
+  calculateLayoutCellDeletionSummary,
+} from "../src/app/layout/layout_apply";
+import {
+  createLayoutDraftBundle,
+  deleteLayoutDraftRow,
+} from "../src/app/layout/layout_draft";
+import {
+  createLayoutDraftFromPreset,
+  createLayoutPresetFileName,
+  createUserLayoutPresetData,
+  parseUserLayoutPresetJson,
+} from "../src/app/layout/layout_preset";
+import {
+  loadLayoutPresetSlotFromLocalStorage,
+  loadLayoutPresetSlotsFromLocalStorage,
+  saveLayoutPresetSlotToLocalStorage,
+} from "../src/infra/layout_preset_storage";
+import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+
+/**
+ * 조건이 거짓이면 테스트 실패 상태를 기록한다.
+ * - 인수 : condition : 통과 조건
+ * - 인수 : message : 실패 시 출력할 메시지
+ * - 반환값 : 없음
+ */
+function assert(condition: boolean, message: string): void {
+  if (!condition) {
+    console.error(message);
+    process.exitCode = 1;
+  }
+}
+
+/**
+ * Node 테스트 환경에서 layout preset storage가 사용할 localStorage mock을 설치한다.
+ * - 인수 : 없음
+ * - 반환값 : 없음
+ */
+function installLocalStorageMock(): void {
+  const storage = new Map<string, string>();
+
+  globalThis.localStorage = {
+    getItem(key: string): string | null {
+      return storage.get(key) ?? null;
+    },
+    setItem(key: string, value: string): void {
+      storage.set(key, value);
+    },
+    removeItem(key: string): void {
+      storage.delete(key);
+    },
+    clear(): void {
+      storage.clear();
+    },
+    key(index: number): string | null {
+      return Array.from(storage.keys())[index] ?? null;
+    },
+    get length(): number {
+      return storage.size;
+    },
+  };
+}
+
+const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
+const jsonText = readFileSync(fixtureUrl, "utf8");
+const loadResult = loadRuntimeDocument(jsonText);
+
+installLocalStorageMock();
+
+assert(loadResult.ok, "Runtime document should load for layout apply test.");
+
+if (loadResult.ok) {
+  const score = loadResult.document.score;
+  const draft = createLayoutDraftBundle(score);
+  const presetResult = createUserLayoutPresetData(draft, score.instData.presetId);
+
+  assert(presetResult.ok, "Layout preset data should be created from a valid draft.");
+
+  if (presetResult.ok) {
+    const presetJson = JSON.stringify(presetResult.value);
+    const parsedPresetResult = parseUserLayoutPresetJson(presetJson);
+
+    assert(parsedPresetResult.ok, "Layout preset JSON should parse after serialization.");
+
+    if (parsedPresetResult.ok) {
+      const restoredDraft = createLayoutDraftFromPreset(parsedPresetResult.value, draft);
+      const emptySlots = loadLayoutPresetSlotsFromLocalStorage(score.instData.presetId);
+
+      assert(
+        restoredDraft.layoutPresetDisplayName === draft.layoutPresetDisplayName,
+        "Layout preset restore should keep display name.",
+      );
+      assert(
+        restoredDraft.rowDefinitions.length === draft.rowDefinitions.length,
+        "Layout preset restore should keep editable row count.",
+      );
+      assert(
+        createLayoutPresetFileName(parsedPresetResult.value).endsWith(".json"),
+        "Layout preset file name should use .json extension.",
+      );
+      assert(
+        emptySlots.length === 3 && emptySlots.every((slot) => slot.preset === null),
+        "Local layout preset storage should expose three empty slots initially.",
+      );
+
+      const savedSlots = saveLayoutPresetSlotToLocalStorage(parsedPresetResult.value, 2);
+      const loadedSlotPreset = loadLayoutPresetSlotFromLocalStorage(score.instData.presetId, 2);
+
+      assert(
+        savedSlots[1]?.preset?.layoutPresetDisplayName === parsedPresetResult.value.layoutPresetDisplayName,
+        "Local layout preset storage should save data into the selected slot.",
+      );
+      assert(
+        loadedSlotPreset?.layoutPresetId === "slot-2",
+        "Local layout preset storage should normalize local preset id to the selected slot.",
+      );
+    }
+  }
+
+  const invalidPresetResult = parseUserLayoutPresetJson(JSON.stringify({
+    formatVersion: "1",
+    layoutPresetId: "invalid",
+    layoutPresetDisplayName: "Invalid",
+    instrumentPresetId: score.instData.presetId,
+    createdAt: "2026-06-21T00:00:00.000Z",
+    updatedAt: "2026-06-21T00:00:00.000Z",
+    instData: score.instData,
+    rowDefinitions: [
+      { rowId: "global-bpm", type: "global", kind: "bpm", height: 21 },
+    ],
+  }));
+
+  assert(
+    !invalidPresetResult.ok,
+    "Layout preset parser should reject global rowDefinitions.",
+  );
+
+  const boundaryGapDeleteResult = deleteLayoutDraftRow(draft, "s1-gap-51-52");
+
+  assert(boundaryGapDeleteResult.ok, "Boundary gap row should be removable in draft.");
+
+  if (boundaryGapDeleteResult.ok) {
+    const noteDeleteResult = deleteLayoutDraftRow(boundaryGapDeleteResult.draft, "s1-note-52");
+
+    assert(noteDeleteResult.ok, "Bottom note row should be removable in draft.");
+
+    if (noteDeleteResult.ok) {
+      noteDeleteResult.draft.layoutPresetDisplayName = "Applied Layout Name";
+
+      const expectedDeletedCount = score.tracks.reduce(
+        (sum, track) =>
+          sum + track.cells.filter((cell) => cell.rowId === "s1-note-52").length,
+        0,
+      );
+      const deletionSummary = calculateLayoutCellDeletionSummary(score, noteDeleteResult.draft);
+
+      assert(
+        deletionSummary.totalCount === expectedDeletedCount,
+        "Deletion summary should count track cells attached to removed note rows.",
+      );
+      assert(
+        deletionSummary.countByRowId["s1-note-52"] === expectedDeletedCount,
+        "Deletion summary should group removed cells by rowId.",
+      );
+
+      const blockedApplyResult = applyLayoutDraftToScore(score, noteDeleteResult.draft);
+
+      assert(
+        !blockedApplyResult.ok && blockedApplyResult.level === "warning",
+        "Layout apply should warn before deleting existing track cells.",
+      );
+
+      const allowedApplyResult = applyLayoutDraftToScore(score, noteDeleteResult.draft, {
+        allowCellDeletion: true,
+      });
+
+      assert(allowedApplyResult.ok, "Layout apply should succeed when cell deletion is allowed.");
+
+      if (allowedApplyResult.ok) {
+        const nextScore = allowedApplyResult.score;
+        const hasRemovedRow = nextScore.layout.rowDefinitions.some(
+          (row) => row.rowId === "s1-note-52",
+        );
+        const hasRemovedCell = nextScore.tracks.some((track) =>
+          track.cells.some((cell) => cell.rowId === "s1-note-52"),
+        );
+        const globalRows = nextScore.layout.rowDefinitions.filter(
+          (row) => row.type === "global",
+        );
+
+        assert(!hasRemovedRow, "Applied layout should remove deleted draft rowDefinitions.");
+        assert(!hasRemovedCell, "Applied layout should remove cells attached to deleted note rows.");
+        assert(globalRows.length === 4, "Applied layout should preserve global rowDefinitions.");
+        assert(
+          nextScore.instData.instName === "Applied Layout Name",
+          "Applied layout should update instrument display name from draft.",
+        );
+        assert(
+          allowedApplyResult.deletedCells.totalCount === expectedDeletedCount,
+          "Apply result should include deleted cell summary.",
+        );
+        assert(
+          score.layout.rowDefinitions.some((row) => row.rowId === "s1-note-52"),
+          "Layout apply should not mutate the original ScoreFile.",
+        );
+      }
+    }
+  }
+}
+
+console.log("Layout apply test completed.");

@@ -105,6 +105,7 @@ export function collectAppDom(): AppDom {
     zoomInput: queryElement(".menu-panel input[type='range']", HTMLInputElement),
     fullscreenButton: queryElement(".fullscreen-button", HTMLButtonElement),
     fitHeightButton: queryElement(".fit-height-button", HTMLButtonElement),
+    layoutPresetToolbarSelect: queryElement(".layout-preset-toolbar-select", HTMLSelectElement),
     layoutModifyButton: queryElement(".layout-modify-button", HTMLButtonElement),
     detailsButton: queryElement(".details-button", HTMLButtonElement),
     detailsDialog: queryElement("#score-details", HTMLDialogElement),

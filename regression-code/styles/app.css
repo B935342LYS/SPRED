@@ -710,9 +710,9 @@ select:disabled {
   right: auto;
   z-index: 30;
   display: grid;
-  grid-template-columns: minmax(150px, 1.5fr) repeat(3, minmax(58px, 0.8fr));
+  grid-template-columns: minmax(112px, 1fr) 68px;
   gap: 4px;
-  width: clamp(340px, 34vw, 520px);
+  width: clamp(190px, 18vw, 260px);
   min-width: 0;
   padding: 6px;
   border: 1px solid var(--line);

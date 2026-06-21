@@ -24,6 +24,8 @@ Primary spec roots:
 - `docs/2.1-canvas-renderer-module-spec.md`
 - `docs/2.2-ui-state-edit-mode-spec.md`
 - `docs/2.3-audio-playback-module-spec.md`
+- `docs/2.4-layout-edit-ui-spec.md`
+- `docs/2.5-layout-preset-format-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -75,6 +77,12 @@ Memo roots:
 `docs/2.3-audio-playback-module-spec.md` : `spec`
 - audio generator, playback controller, scheduler, and Web Audio backend module structure
 
+`docs/2.4-layout-edit-ui-spec.md` : `spec`
+- layout editor UI, draft edit flow, apply flow, and cell deletion confirmation boundary
+
+`docs/2.5-layout-preset-format-spec.md` : `spec`
+- layout preset JSON format shared by Local Save/Load and File Save/Load
+
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
 `docs/1.4-note-string-spec.md` : `reference`
@@ -94,11 +102,13 @@ Read in this order for implementation work:
 4. `docs/2.2-ui-state-edit-mode-spec.md`
 5. `docs/2.1-canvas-renderer-module-spec.md`
 6. `docs/2.3-audio-playback-module-spec.md`
-7. `docs/1.5-note-cell-parser-spec.md`
-8. `docs/1.6-global-cell-parser-spec.md`
-9. `docs/1.7-analyzer-event-list-spec.md`
-10. `docs/1.3-score-json-format.md`
-11. `docs/1.0-development-spec.md`
+7. `docs/2.4-layout-edit-ui-spec.md`
+8. `docs/2.5-layout-preset-format-spec.md`
+9. `docs/1.5-note-cell-parser-spec.md`
+10. `docs/1.6-global-cell-parser-spec.md`
+11. `docs/1.7-analyzer-event-list-spec.md`
+12. `docs/1.3-score-json-format.md`
+13. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -108,6 +118,8 @@ Interpretation rules:
 - UI state, edit mode action dispatch, and score mutation flow follows `2.2` first
 - canvas renderer module structure and layout conversion scope follows `2.1` first
 - audio generator, playback controller, scheduler, and Web Audio backend module structure follows `2.3` first
+- layout editor UI, draft edit flow, and apply flow follows `2.4` first
+- layout preset save/load format follows `2.5` first
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -152,6 +164,10 @@ Canvas renderer:
 Audio playback:
 - `docs/2.3-audio-playback-module-spec.md`
 
+Layout editing:
+- `docs/2.4-layout-edit-ui-spec.md`
+- `docs/2.5-layout-preset-format-spec.md`
+
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
@@ -169,6 +185,8 @@ Appendix:
 - `2.1-canvas-renderer-module-spec.md`
 - `2.2-ui-state-edit-mode-spec.md`
 - `2.3-audio-playback-module-spec.md`
+- `2.4-layout-edit-ui-spec.md`
+- `2.5-layout-preset-format-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -222,7 +240,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the edit/playback/layout verification loop: UI input -> score JSON rawText mutation -> parse/analyze/render rebuild -> Web Audio playback/seek check -> layout compatibility planning
+- current focus is the edit/playback/layout verification and reporting loop: UI input -> score JSON rawText/layout mutation -> parse/analyze/render rebuild -> Web Audio playback/seek check -> report preparation
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
@@ -307,8 +325,10 @@ If memo content is explicitly adopted by the user for implementation order or st
 - center player metadata now reads from `ScoreFile.musicData`, and the Details dialog can edit musicData fields except creation/update timestamps
 - beat and bar marker rendering now uses timing row data, treats bar markers as stronger than beat markers at the same tick, and does not let BPM-only segment changes reset the beat/bar grid
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
-- `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, user layout preset storage model, simplified draft-bundle apply flow, and reusable existing module boundaries
-- the first layout editor UI shell is implemented: `Modify` opens a `Layout` dialog, layout edit types exist, instrument/string shell values are populated, and Add Row / preset controls are visually stabilized while draft/apply/storage actions remain placeholders
+- `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
+- `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the fixed 3-slot localStorage policy per `instrumentPresetId`
+- the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply performs ScoreFile full rebuild after deletion confirmation, and Local/File preset save/load are connected
+- the outer layout toolbar now shows `Default Layout` plus Local Slot 1..3; filled slots can be applied directly and empty slots fall back to Default
 - root layout test fixtures have been added for a 2-octave layout with fixed 21px gap rows and a 3-octave layout without gap rows
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
@@ -319,8 +339,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.21-step4-playback-layout-ui-progress.md` records pause/seek playback state, metadata/details UI, view helper, edit preview, app playback folder split, and layout compatibility planning progress
 - `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, and gliss fallback audio effect implementation decisions
 - `docs/implementation-memo/1.25-step5-layout-editor-ui-shell.md` records the layout editor UI shell, current placeholder boundaries, and the next layout draft step
+- `docs/implementation-memo/1.26-step5-layout-draft-apply-preset.md` records the layout draft, apply, local slot preset, file preset, and toolbar preset implementation decisions
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npm run typecheck`, `npm run test:audio`, `npm run test:score`, `npm run test:parse`, `npm run test:analyze`, `npm run test:edit`, `npm run build`
+- latest verified commands: `npm run typecheck`, `npm run test:layout`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
@@ -332,7 +353,7 @@ Deferred planned work:
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
-- connect layout draft rendering/editing, layout apply, and the explicit confirmation flow for deleting cells that are incompatible with the target layout
+- refactor layout dialog and toolbar binding out of `app_view_binding.ts` into a dedicated layout UI binding module after the report milestone
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes

@@ -327,12 +327,10 @@
         <section class="score-viewer" aria-label="Score viewer">
             <aside class="layout-area">
                 <div class="layout-toolbar">
-                    <select aria-label="Layout preset">
+                    <select class="layout-preset-toolbar-select" aria-label="Layout preset">
                         <option>Default Layout</option>
                     </select>
-                    <button class="layout-modify-button" type="button">Modify</button>
-                    <button type="button">Save</button>
-                    <button type="button">Reset</button>
+                    <button class="layout-modify-button" type="button">Settings</button>
                 </div>
                 <div class="layout-canvas-stage" aria-label="Row labels">
                     <canvas class="layout-layer label-layer" width="208" height="1400"></canvas>
@@ -535,7 +533,7 @@
                 </section>
             </div>
 
-            <p class="layout-status-line" role="status" aria-live="polite">Layout editing is not connected yet.</p>
+            <p class="layout-status-line" role="status" aria-live="polite">Layout draft is ready.</p>
 
             <div class="dialog-action-row">
                 <button type="button" class="layout-reset-button">Reset</button>
