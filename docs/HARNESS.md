@@ -266,7 +266,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is layout stabilization documentation and report preparation, followed by track layer planning, audio verification, and YouTube mode planning
+- current focus is track layer implementation verification, audio verification, and YouTube mode planning after the layout stabilization pass
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
@@ -295,7 +295,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
-- current near-term focus is documenting the completed layout preset stabilization pass and preparing the next track layer feature step
+- current near-term focus is verifying the first track layer implementation and then preparing the basic audio verification step
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
@@ -344,7 +344,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
 - current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, and gliss fallback bridge playback; dynamics automation, sampled instrument playback, and full voice-span gliss merging remain later backend extensions
-- `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `resume()`, `seekToSeconds()`, and `stop()`
+- `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `pauseAtSeconds()`, `resume()`, `seekToSeconds()`, and `stop()`
 - seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
 - app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
 - edit mode pointer input can preview the touched note row pitch through Web Audio, with row-level drag throttling to reduce overlapping preview artifacts
@@ -355,7 +355,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
 - `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
 - `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the fixed 3-slot localStorage policy per `instrumentPresetId`
-- `docs/2.6-track-layer-ui-spec.md`는 첫 active track UI와 active track 대상 edit/playback, inactive track 반투명 render, `extra -> optional -> basic` draw order, 동일 track gain 정책, `src/track/track_control.ts` 공용 정책 모듈 후보를 정의한다
+- `docs/2.6-track-layer-ui-spec.md`는 0개 이상 active track filter, active track 대상 edit/playback, inactive track 반투명 render, `extra -> optional -> basic` draw order, 동일 track gain 정책, stopped/paused toggle 정책, `src/track/track_control.ts` 공용 정책 모듈을 정의한다
+- track layer first pass is implemented: Track menu toggles update `activeTrackIds`, note edit batches expand to all active tracks, empty active tracks block note edit while keeping global edit available, renderer items carry active/inactive alpha, audio schedule consumes only active tracks, playing state disables track toggles, and paused track toggle preserves score time for resume
+- View menu cleanup and first view options are connected: `Refresh Lines` and ambiguous `Reload` controls were removed, `Normal`/`Reverse` toggles renderer row order for non-global rows only, `Light`/`Dark` toggles menu and edit-panel theme, `Expand right` increases `ScoreFile.globalLines.columnCount`, `Trim Right` decreases it while removing out-of-range cells, and `Clear All` resets musicData plus score cells to default metadata and an empty 1000-column score with initial global row values before rebuilding runtime artifacts
 - the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply creates a structurally shared next ScoreFile after deletion confirmation, and Local/File preset save/load are connected
 - the outer layout toolbar now shows `Default Layout` plus Local Slot 1..3; Default reapplies the score-load-time layout snapshot, filled slots can be applied directly, and empty slots fall back to Default
 - layout preset names are limited to 30 characters, layout preset JSON is limited to 256 KiB, preset file names use the simplified `layout-{preset name}.json` rule, and layout apply/preset apply reset playback runtime
@@ -375,11 +377,11 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
 - `docs/implementation-memo/1.28-step6-track-layer-spec-decisions.md` records the finalized active track policy, inactive render/audio behavior, playing-state toggle rule, and `src/track/track_control.ts` module decision before implementation
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:layout`, `npm run build`
+- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- implement active track UI, active track 대상 batch edit/playback, inactive track 반투명 render, and `src/track/track_control.ts` over the existing fixed `basic`, `optional`, and `extra` tracks
+- manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, seek, pause/resume, and layout-change playback reset behavior
 - prepare a basic audio verification checklist before YouTube mode
 - connect dynamics automation and refined tuplet timing behavior to the audio generator

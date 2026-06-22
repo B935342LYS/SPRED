@@ -72,6 +72,9 @@ export type ScoreSelection = ScoreHit & {
 /** 현재 score가 앱에 들어온 출처. timestamp 저장 정책을 결정할 때 사용한다. */
 export type ScoreOrigin = "template" | "loaded" | "saved";
 
+/** 메뉴 영역에 적용하는 UI theme. */
+export type MenuTheme = "light" | "dark";
+
 /** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
 export type AppState = {
   document: RuntimeDocument;
@@ -80,6 +83,8 @@ export type AppState = {
   analysis: AnalysisResult;
   renderInput: CanvasAnalyzedRenderInput;
   activeTrackIds: TrackId[];
+  reverseRows: boolean;
+  menuTheme: MenuTheme;
   mode: AppMode;
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
@@ -122,6 +127,12 @@ export type AppDom = {
   zoomInput: HTMLInputElement;
   fullscreenButton: HTMLButtonElement;
   fitHeightButton: HTMLButtonElement;
+  reverseButton: HTMLButtonElement;
+  themeButton: HTMLButtonElement;
+  expandColumnInput: HTMLInputElement;
+  expandRightButton: HTMLButtonElement;
+  trimRightButton: HTMLButtonElement;
+  clearAllButton: HTMLButtonElement;
   layoutPresetToolbarSelect: HTMLSelectElement;
   layoutModifyButton: HTMLButtonElement;
   detailsButton: HTMLButtonElement;

@@ -41,13 +41,12 @@
                             </label>
                             <button type="button" class="fullscreen-button">Fullscreen</button>
                             <button type="button" class="fit-height-button">Fit Height</button>
-                            <button type="button" disabled>Reverse</button>
-                            <button type="button" disabled>Theme</button>
+                            <button type="button" class="reverse-button">Normal</button>
+                            <button type="button" class="theme-button">Light</button>
                             <label class="switch-field">
                                 <input type="checkbox" disabled>
                                 Text off
                             </label>
-                            <button type="button" disabled>Refresh Lines</button>
                         </div>
                     </div>
                     <div class="menu-dropdown">
@@ -96,12 +95,13 @@
                     <div class="menu-dropdown">
                         <button class="menu-trigger" type="button">Expand</button>
                         <div class="menu-panel expand-panel">
-                            <span class="micro-label">Expand columns</span>
-                            <input type="number" min="1" max="960" step="1" placeholder="cols" disabled>
-                            <button type="button" disabled>Expand right</button>
+                            <span class="micro-label">Columns</span>
+                            <input class="expand-column-input" type="number" min="1" max="960" step="1" placeholder="cols">
+                            <button type="button" class="expand-right-button">Expand right</button>
+                            <button type="button" class="trim-right-button">Trim Right</button>
                         </div>
                     </div>
-                    <button class="menu-trigger" type="button">Reload</button>
+                    <button class="menu-trigger clear-all-button" type="button">Clear All</button>
                 </div>
                 <div class="left-status-line" role="status" aria-live="polite">Loaded. cols --</div>
             </nav>

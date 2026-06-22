@@ -11,6 +11,7 @@ import {
   loadRuntimeDocument,
 } from "../core/score/create_runtime_document";
 import type {
+  GlobalKind,
   MusicData,
   RuntimeDocument,
   ScoreFile,
@@ -23,6 +24,7 @@ import {
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
+import type { CanvasRenderInput } from "../renderer/canvas_types";
 import { createCanvasRenderInput } from "./canvas_renderer_adapter";
 import {
   applyNoteCellRawText,
@@ -38,6 +40,40 @@ import { applyLayoutDraftToScore } from "./layout/layout_apply";
 import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
+
+const CLEAR_ALL_COLUMN_COUNT = 1000;
+const DEFAULT_GLOBAL_RAW_TEXT_BY_KIND: Record<GlobalKind, string> = {
+  bpm: "120",
+  beatsPerBar: "4",
+  stepsPerBeat: "4",
+  dynamics: "100",
+};
+
+/**
+ * 새 악보 또는 Clear All에서 사용할 musicData 기본값을 만든다.
+ * - 인수 : timestamp : createdAt/updatedAt에 함께 사용할 ISO 시각 문자열
+ * - 반환값 : 필수 musicData 필드를 모두 채운 기본 metadata
+ */
+function createDefaultMusicData(timestamp: string): MusicData {
+  return {
+    musicTitle: "Unknown",
+    musicArtist: "Unknown",
+    musicGenre: "Unknown",
+    scoreWriter: "Anonymous",
+    comment: "",
+    scoreDifficulty: {
+      basic: 0,
+      optional: 0,
+      extra: 0,
+    },
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    youtube: {
+      videoId: "",
+      offsetMs: 0,
+    },
+  };
+}
 
 /**
  * 현재 score의 표시 열 범위를 사용자 메시지로 만든다.
@@ -58,6 +94,7 @@ export function formatLoadedColumnStatus(score: ScoreFile): string {
 export function buildRuntimeArtifacts(
   document: RuntimeDocument,
   activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
+  reverseRows = false,
 ): {
   parsed: ParsedScoreDocument;
   analysis: AnalysisResult;
@@ -74,7 +111,7 @@ export function buildRuntimeArtifacts(
     parsed,
     analysis,
     // note layer는 analyzer 결과만 소비하도록 renderer 입력에 noteItems를 덧붙인다.
-    renderInput: buildAnalyzedCanvasRenderInput(document, analysis, activeTrackIds),
+    renderInput: buildAnalyzedCanvasRenderInput(document, analysis, activeTrackIds, reverseRows),
   };
 }
 
@@ -89,8 +126,12 @@ export function buildAnalyzedCanvasRenderInput(
   document: RuntimeDocument,
   analysis: AnalysisResult,
   activeTrackIds: readonly TrackId[],
+  reverseRows = false,
 ): CanvasAnalyzedRenderInput {
-  const renderInput = createCanvasRenderInput(document);
+  const renderInput = applyReverseRowsOption(
+    createCanvasRenderInput(document),
+    reverseRows,
+  );
 
   return {
     ...renderInput,
@@ -98,6 +139,29 @@ export function buildAnalyzedCanvasRenderInput(
     noteItems: buildCanvasNoteRenderItems(analysis, activeTrackIds),
     muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
     markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
+  };
+}
+
+/**
+ * renderer source row에서 전역 행은 유지하고 나머지 score body 행만 뒤집는다.
+ * - 인수 : input : score 저장 순서로 만든 renderer 입력
+ * - 인수 : reverseRows : score body 행 순서를 뒤집을지 여부
+ * - 반환값 : 표시용 행 순서가 반영된 renderer 입력
+ */
+export function applyReverseRowsOption(
+  input: CanvasRenderInput,
+  reverseRows: boolean,
+): CanvasRenderInput {
+  if (!reverseRows) {
+    return input;
+  }
+
+  const globalRows = input.rows.filter((row) => row.kind === "global");
+  const bodyRows = input.rows.filter((row) => row.kind !== "global").reverse();
+
+  return {
+    ...input,
+    rows: [...globalRows, ...bodyRows],
   };
 }
 
@@ -120,6 +184,8 @@ export function createInitialState(
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
     activeTrackIds: [...DEFAULT_ACTIVE_TRACK_IDS],
+    reverseRows: false,
+    menuTheme: "light",
     mode: { kind: "view" },
     busy: { kind: "idle" },
     statusMessage: {
@@ -149,12 +215,232 @@ export function applyActiveTrackIdsToState(
       state.document,
       state.analysis,
       activeTrackIds,
+      state.reverseRows,
     ),
     statusMessage: {
       level: "info",
       text: activeTrackIds.length === 0
         ? "All tracks inactive."
         : `Active tracks: ${activeTrackIds.join(", ")}`,
+    },
+  };
+}
+
+/**
+ * score body 행 표시 순서만 전환하고 parse/analyze 없이 renderer 입력을 갱신한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : reverseRows : score body 행을 뒤집을지 여부
+ * - 반환값 : reverse 표시 옵션이 반영된 앱 상태
+ */
+export function applyReverseRowsToState(
+  state: AppState,
+  reverseRows: boolean,
+): AppState {
+  return {
+    ...state,
+    reverseRows,
+    renderInput: buildAnalyzedCanvasRenderInput(
+      state.document,
+      state.analysis,
+      state.activeTrackIds,
+      reverseRows,
+    ),
+    statusMessage: {
+      level: "info",
+      text: reverseRows ? "Reverse row view enabled." : "Normal row view enabled.",
+    },
+  };
+}
+
+/**
+ * 메뉴 영역 theme 상태를 앱 상태에 반영한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : menuTheme : 적용할 메뉴 theme
+ * - 반환값 : theme 상태가 바뀐 앱 상태
+ */
+export function applyMenuThemeToState(
+  state: AppState,
+  menuTheme: AppState["menuTheme"],
+): AppState {
+  return {
+    ...state,
+    menuTheme,
+    statusMessage: {
+      level: "info",
+      text: `Menu theme: ${menuTheme}`,
+    },
+  };
+}
+
+/**
+ * score 오른쪽에 column을 추가하고 full rebuild 산출물을 만든다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : additionalColumns : 오른쪽에 추가할 column 수
+ * - 반환값 : columnCount와 runtime artifact가 갱신된 앱 상태
+ */
+export function applyExpandColumnsToState(
+  state: AppState,
+  additionalColumns: number,
+): AppState {
+  if (!Number.isInteger(additionalColumns) || additionalColumns <= 0) {
+    return {
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: "Expand columns requires a positive integer.",
+      },
+    };
+  }
+
+  const nextColumnCount = state.document.score.globalLines.columnCount + additionalColumns;
+  const nextScore: ScoreFile = {
+    ...state.document.score,
+    globalLines: {
+      ...state.document.score.globalLines,
+      columnCount: nextColumnCount,
+    },
+  };
+  const nextDocument = createRuntimeDocument(nextScore);
+  const artifacts = buildRuntimeArtifacts(
+    nextDocument,
+    state.activeTrackIds,
+    state.reverseRows,
+  );
+
+  return {
+    ...state,
+    document: nextDocument,
+    parsed: artifacts.parsed,
+    analysis: artifacts.analysis,
+    renderInput: artifacts.renderInput,
+    statusMessage: {
+      level: "info",
+      text: `Expanded ${additionalColumns} columns. cols 0-${nextColumnCount - 1}`,
+    },
+  };
+}
+
+/**
+ * score 오른쪽 끝 column을 제거하고 범위를 벗어난 cell을 삭제한 full rebuild 산출물을 만든다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : trimColumns : 오른쪽에서 제거할 column 수
+ * - 반환값 : columnCount와 runtime artifact가 갱신된 앱 상태
+ */
+export function applyTrimRightColumnsToState(
+  state: AppState,
+  trimColumns: number,
+): AppState {
+  if (!Number.isInteger(trimColumns) || trimColumns <= 0) {
+    return {
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: "Trim columns requires a positive integer.",
+      },
+    };
+  }
+
+  const currentColumnCount = state.document.score.globalLines.columnCount;
+  const nextColumnCount = currentColumnCount - trimColumns;
+
+  if (nextColumnCount < 1) {
+    return {
+      ...state,
+      statusMessage: {
+        level: "warning",
+        text: "Trim Right must leave at least 1 column.",
+      },
+    };
+  }
+
+  const nextGlobalCells = state.document.score.globalLines.cells
+    .filter((cell) => cell.col < nextColumnCount);
+  const nextTracks = state.document.score.tracks.map((track) => ({
+    ...track,
+    cells: track.cells.filter((cell) => cell.col < nextColumnCount),
+  }));
+  const removedCellCount =
+    state.document.score.globalLines.cells.length -
+    nextGlobalCells.length +
+    state.document.score.tracks.reduce((total, track, index) => (
+      total + track.cells.length - (nextTracks[index]?.cells.length ?? 0)
+    ), 0);
+  const nextScore: ScoreFile = {
+    ...state.document.score,
+    globalLines: {
+      columnCount: nextColumnCount,
+      cells: nextGlobalCells,
+    },
+    tracks: nextTracks,
+  };
+  const nextDocument = createRuntimeDocument(nextScore);
+  const artifacts = buildRuntimeArtifacts(
+    nextDocument,
+    state.activeTrackIds,
+    state.reverseRows,
+  );
+
+  return {
+    ...state,
+    document: nextDocument,
+    parsed: artifacts.parsed,
+    analysis: artifacts.analysis,
+    renderInput: artifacts.renderInput,
+    selection: state.selection !== null && state.selection.col >= nextColumnCount
+      ? null
+      : state.selection,
+    statusMessage: {
+      level: "info",
+      text: `Trimmed ${trimColumns} columns. Removed ${removedCellCount} cell(s). cols 0-${nextColumnCount - 1}`,
+    },
+  };
+}
+
+/**
+ * 현재 layout/instData는 유지하고 악보 입력 내용과 metadata를 기본 1000열 score로 초기화한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : timestamp : musicData 생성/수정 시각에 사용할 ISO 시각 문자열
+ * - 반환값 : 초기 global 0열과 빈 tracks가 반영된 앱 상태
+ */
+export function applyClearAllScoreToState(
+  state: AppState,
+  timestamp = new Date().toISOString(),
+): AppState {
+  const nextScore: ScoreFile = {
+    ...state.document.score,
+    musicData: createDefaultMusicData(timestamp),
+    globalLines: {
+      columnCount: CLEAR_ALL_COLUMN_COUNT,
+      cells: state.document.score.layout.rowDefinitions
+        .filter((row) => row.type === "global")
+        .map((row) => ({
+          rowId: row.rowId,
+          col: 0,
+          rawText: DEFAULT_GLOBAL_RAW_TEXT_BY_KIND[row.kind],
+        })),
+    },
+    tracks: state.document.score.tracks.map((track) => ({
+      ...track,
+      cells: [],
+    })),
+  };
+  const nextDocument = createRuntimeDocument(nextScore);
+  const artifacts = buildRuntimeArtifacts(
+    nextDocument,
+    state.activeTrackIds,
+    state.reverseRows,
+  );
+
+  return {
+    ...state,
+    document: nextDocument,
+    parsed: artifacts.parsed,
+    analysis: artifacts.analysis,
+    renderInput: artifacts.renderInput,
+    selection: null,
+    statusMessage: {
+      level: "info",
+      text: `Cleared score. cols 0-${CLEAR_ALL_COLUMN_COUNT - 1}`,
     },
   };
 }
@@ -253,7 +539,7 @@ export function applyLayoutDraftEditToState(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
 
   return {
     ...state,
@@ -302,7 +588,7 @@ export function applyRawTextToScore(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
 
   return {
     ...state,
@@ -349,7 +635,7 @@ export function applyRawTextBatchToScore(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds, state.reverseRows);
 
   return {
     ...state,

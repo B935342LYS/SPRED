@@ -186,6 +186,12 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
     button.disabled = isBusy;
   });
   dom.zoomInput.disabled = isBusy;
+  dom.reverseButton.disabled = isBusy;
+  dom.themeButton.disabled = isBusy;
+  dom.expandColumnInput.disabled = isBusy;
+  dom.expandRightButton.disabled = isBusy;
+  dom.trimRightButton.disabled = isBusy;
+  dom.clearAllButton.disabled = isBusy;
   dom.tupletModeToggle.textContent = isTupletMode ? "On" : "Off";
   dom.tupletModeToggle.classList.toggle("on", isTupletMode);
   dom.tupletModeToggle.classList.toggle("off", !isTupletMode);
@@ -202,7 +208,22 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.detailsButton.disabled = isBusy;
   dom.seekInput.disabled = isBusy;
   syncTrackToggleButtons(dom, state);
+  syncViewOptionControls(dom, state);
   syncCurrentRawTextPreview(dom, state);
+}
+
+/**
+ * view option 버튼 문구와 menu theme attribute를 현재 AppState에 맞춘다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : 없음
+ */
+export function syncViewOptionControls(dom: AppDom, state: AppState): void {
+  dom.reverseButton.textContent = state.reverseRows ? "Reverse" : "Normal";
+  dom.reverseButton.setAttribute("aria-pressed", String(state.reverseRows));
+  dom.themeButton.textContent = state.menuTheme === "dark" ? "Dark" : "Light";
+  dom.themeButton.setAttribute("aria-pressed", String(state.menuTheme === "dark"));
+  dom.appShell.dataset.menuTheme = state.menuTheme;
 }
 
 /**

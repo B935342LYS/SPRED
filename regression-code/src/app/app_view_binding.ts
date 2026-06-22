@@ -6,11 +6,19 @@ import type {
   AppDom,
   AppState,
 } from "./app_types";
-import { applyMusicDataEditToState } from "./app_runtime";
+import {
+  applyClearAllScoreToState,
+  applyExpandColumnsToState,
+  applyMenuThemeToState,
+  applyMusicDataEditToState,
+  applyReverseRowsToState,
+  applyTrimRightColumnsToState,
+} from "./app_runtime";
 import {
   fitScoreHeightZoom,
   populateDetailsDialog,
   readDetailsDialogMusicData,
+  readIntegerInput,
   setZoomPercent,
   syncFullscreenButton,
   toggleFullscreen,
@@ -145,6 +153,79 @@ export function bindViewControls(
       });
       syncLeftStatus(dom, session.getState());
     });
+  });
+
+  dom.reverseButton.addEventListener("click", () => {
+    const state = session.getState();
+
+    session.setState(applyReverseRowsToState(state, !state.reverseRows));
+    session.render();
+  });
+
+  dom.themeButton.addEventListener("click", () => {
+    const state = session.getState();
+    const nextTheme = state.menuTheme === "light" ? "dark" : "light";
+
+    session.setState(applyMenuThemeToState(state, nextTheme));
+    session.render();
+  });
+
+  dom.expandRightButton.addEventListener("click", () => {
+    const state = session.getState();
+
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    session.setState(applyExpandColumnsToState(
+      state,
+      readIntegerInput(dom.expandColumnInput, 0),
+    ));
+    session.render();
+    session.resetPlaybackForCurrentState();
+  });
+
+  dom.trimRightButton.addEventListener("click", () => {
+    const state = session.getState();
+    const trimColumns = readIntegerInput(dom.expandColumnInput, 0);
+
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    if (
+      !Number.isInteger(trimColumns) ||
+      trimColumns <= 0 ||
+      state.document.score.globalLines.columnCount - trimColumns < 1
+    ) {
+      session.setState(applyTrimRightColumnsToState(state, trimColumns));
+      session.render();
+      return;
+    }
+
+    if (!window.confirm(`Trim ${trimColumns} column(s) from the right?`)) {
+      return;
+    }
+
+    session.setState(applyTrimRightColumnsToState(state, trimColumns));
+    session.render();
+    session.resetPlaybackForCurrentState();
+  });
+
+  dom.clearAllButton.addEventListener("click", () => {
+    const state = session.getState();
+
+    if (state.busy.kind !== "idle") {
+      return;
+    }
+
+    if (!window.confirm("Clear all score cells and reset to 1000 columns?")) {
+      return;
+    }
+
+    session.setState(applyClearAllScoreToState(state));
+    session.render();
+    session.resetPlaybackForCurrentState();
   });
 
   dom.detailsButton.addEventListener("click", () => {

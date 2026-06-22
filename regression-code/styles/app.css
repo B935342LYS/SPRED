@@ -111,6 +111,102 @@ select:disabled {
   z-index: 20;
 }
 
+.app-shell[data-menu-theme="dark"] .menu-area {
+  border-bottom-color: #2f3d46;
+  background: #182229;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .toggle-button,
+.app-shell[data-menu-theme="dark"] .menu-area button,
+.app-shell[data-menu-theme="dark"] .menu-area select,
+.app-shell[data-menu-theme="dark"] .menu-area input {
+  border-color: #465966;
+  background: #25313a;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-panel,
+.app-shell[data-menu-theme="dark"] .menu-area .player-group {
+  border-color: #465966;
+  background: #202a32;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 34%);
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .menu-dropdown:hover > .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .menu-dropdown:focus-within > .menu-trigger,
+.app-shell[data-menu-theme="dark"] .menu-area .toggle-button:hover {
+  border-color: #7f98a8;
+  background: #30414d;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .left-status-line,
+.app-shell[data-menu-theme="dark"] .menu-area .compact-field,
+.app-shell[data-menu-theme="dark"] .menu-area .switch-field,
+.app-shell[data-menu-theme="dark"] .menu-area .inline-field,
+.app-shell[data-menu-theme="dark"] .menu-area .micro-label,
+.app-shell[data-menu-theme="dark"] .menu-area .music-meta {
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .music-meta .title,
+.app-shell[data-menu-theme="dark"] .menu-area .pill-toggle.on {
+  color: #f5fafc;
+}
+
+.app-shell[data-menu-theme="dark"] .menu-area .status-pill,
+.app-shell[data-menu-theme="dark"] .menu-area .preview-pill,
+.app-shell[data-menu-theme="dark"] .menu-area .pill-toggle.off {
+  border-color: #465966;
+  background: #2b3740;
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel {
+  border-bottom-color: #2f3d46;
+  background: #162028;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-card {
+  border-color: #465966;
+  background: #202a32;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-card-title,
+.app-shell[data-menu-theme="dark"] .edit-help,
+.app-shell[data-menu-theme="dark"] .edit-panel .micro-label,
+.app-shell[data-menu-theme="dark"] .edit-panel .inline-field,
+.app-shell[data-menu-theme="dark"] .edit-panel .stacked-field {
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel button,
+.app-shell[data-menu-theme="dark"] .edit-panel select,
+.app-shell[data-menu-theme="dark"] .edit-panel input {
+  border-color: #465966;
+  background: #25313a;
+  color: #edf4f7;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel input::placeholder {
+  color: #8da0ab;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel .preview-pill,
+.app-shell[data-menu-theme="dark"] .edit-panel .pill-toggle.off {
+  border-color: #465966;
+  background: #2b3740;
+  color: #b8c7cf;
+}
+
+.app-shell[data-menu-theme="dark"] .edit-panel .pill-toggle.on {
+  border-color: #6f8796;
+  background: #344653;
+  color: #f5fafc;
+}
+
 .left-tool-group {
   display: grid;
   grid-template-rows: 34px 34px minmax(16px, auto);
@@ -426,9 +522,7 @@ select:disabled {
   grid-template-columns:
     minmax(220px, 1.2fr)
     minmax(180px, 1fr)
-    minmax(76px, 0.45fr)
-    minmax(132px, 0.75fr)
-    minmax(108px, 0.6fr)
+    repeat(3, minmax(118px, 0.68fr))
     minmax(164px, 0.9fr)
     minmax(420px, 2.4fr)
     minmax(190px, 0.95fr);
@@ -509,6 +603,18 @@ select:disabled {
 .pitch-card select {
   flex: 0 1 96px;
   max-width: 104px;
+}
+
+.narrow-card {
+  min-width: 118px;
+}
+
+.narrow-card .edit-control-row {
+  justify-content: flex-start;
+}
+
+.narrow-card select {
+  width: 96px;
 }
 
 .current-raw-text-preview {
