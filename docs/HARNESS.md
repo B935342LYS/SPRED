@@ -28,6 +28,7 @@ Primary spec roots:
 - `docs/2.5-layout-preset-format-spec.md`
 - `docs/2.6-track-layer-ui-spec.md`
 - `docs/2.7-youtube-sync-ui-spec.md`
+- `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/1.0-development-spec.md`
@@ -93,6 +94,9 @@ Memo roots:
 `docs/2.7-youtube-sync-ui-spec.md` : `spec`
 - YouTube mode, musicData youtube field usage, iframe player sync, offset/reload policy
 
+`docs/2.8-edit-invalidation-and-partial-rebuild-spec.md` : `spec`
+- note/global edit invalidation sets, layer redraw boundaries, partial rebuild staging
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -122,11 +126,12 @@ Read in this order for implementation work:
 8. `docs/2.5-layout-preset-format-spec.md`
 9. `docs/2.6-track-layer-ui-spec.md`
 10. `docs/2.7-youtube-sync-ui-spec.md`
-11. `docs/1.5-note-cell-parser-spec.md`
-12. `docs/1.6-global-cell-parser-spec.md`
-13. `docs/1.7-analyzer-event-list-spec.md`
-14. `docs/1.3-score-json-format.md`
-15. `docs/1.0-development-spec.md`
+11. `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
+12. `docs/1.5-note-cell-parser-spec.md`
+13. `docs/1.6-global-cell-parser-spec.md`
+14. `docs/1.7-analyzer-event-list-spec.md`
+15. `docs/1.3-score-json-format.md`
+16. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -140,6 +145,7 @@ Interpretation rules:
 - layout preset save/load format follows `2.5` first
 - active track UI, inactive track 반투명 renderer 정책, playback filtering, overlap 정책은 `2.6`을 우선한다
 - YouTube mode, iframe player sync, offset/reload 정책은 `2.7`을 우선한다
+- note/global edit invalidation, layer redraw scope, partial rebuild staging은 `2.8`을 우선한다
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -194,6 +200,9 @@ Track layer:
 YouTube sync:
 - `docs/2.7-youtube-sync-ui-spec.md`
 
+Edit invalidation / partial rebuild:
+- `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
+
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
@@ -219,6 +228,7 @@ Appendix:
 - `2.5-layout-preset-format-spec.md`
 - `2.6-track-layer-ui-spec.md`
 - `2.7-youtube-sync-ui-spec.md`
+- `2.8-edit-invalidation-and-partial-rebuild-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -276,7 +286,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is track layer implementation verification, audio verification, and YouTube mode planning after the layout stabilization pass
+- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score rendering performance, and the next loop-playback/viewport-rendering tasks
+- current partial rebuild planning starts from note/global edit invalidation and canvas layer redraw separation before deeper parser/analyzer partial updates
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
@@ -389,15 +400,26 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
+- `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md` defines note/global/mixed/structure edit invalidation groups, renderer item grouping, layer redraw boundaries, and the first partial rebuild staging policy
 - the app boot template score now lives at `regression-code/src/assets/templates/default-score.json`; it keeps the default instrument/layout/global rows but starts with default music metadata and empty tracks, while dev fixtures under `regression-code/dev/test_cases/` remain test-only inputs
-- renderer DPR downscaling for very wide canvas layers is temporarily disabled for first user testing to improve long-score sharpness; the Expand panel warns that large scores may lag or render incorrectly until viewport/tile rendering replaces this policy
+- renderer DPR downscaling uses a temporary first-test cap of about 65535 bitmap px width and 720 bitmap px height to improve long-score sharpness without fully unbounded canvas allocation; the Expand panel warns that large scores may lag or render incorrectly until viewport/tile rendering replaces this policy
+- first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
+- `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
 
 Deferred planned work:
+- long-score performance roadmap:
+  - problem 1: editing large scores still runs full rebuild from score mutation through runtime document, parse, analyze, renderer item rebuild, and full canvas render, causing large delays
+  - problem 2: scores around or above 5000 columns can exceed practical browser canvas limits; the current 720px bitmap-height cap is only a temporary sharpness/stability compromise
+  - first target: introduce bounded viewport rendering that draws only the visible score columns plus a small overscan range while keeping the full ScoreFile and AnalysisResult as the source of truth
+  - second target: split long-score rendering into reusable column tiles or dirty ranges so scroll, edit, and playback do not require redrawing the full score width
+  - third target: after render scope is bounded, reduce edit latency with partial parse/analyze or dirty-column rebuild around changed cells
+- first partial rebuild staging target: classify edit batches as note/global/mixed/structure, split global vs note renderer items, and avoid base/layout redraw for cell rawText edits before attempting parser/analyzer partial updates
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
 - manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, connected gliss chain, seek, pause/resume, and layout-change playback reset behavior
-- manually verify YouTube mode in browser with real embeddable and embedding-blocked videos, including offset tuning, Reload, seek, pause/resume, stop, score load, and empty video input behavior
+- continue user-test verification of the GitHub Pages build, especially YouTube mode with real embeddable and embedding-blocked videos, including offset tuning, Reload, seek, pause/resume, stop, score load, and empty video input behavior
+- replace the temporary full-canvas long-score policy with viewport/tile rendering or another bounded partial render path; current Expand behavior is known to become slower as the score grows because rebuild/render still operates at full score scope
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
 - add loop playback range selection and scheduler/controller support after YouTube sync
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable

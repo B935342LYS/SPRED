@@ -15,6 +15,8 @@ const DEFAULT_LAYOUT_WIDTH =
   CANVAS_METRICS.baseLayoutPaddingWidth +
   CANVAS_METRICS.baseLayoutLabelWidth +
   CANVAS_METRICS.baseLayoutPaddingWidth;
+const PREVIEW_MAX_BITMAP_WIDTH = 65_535;
+const PREVIEW_MAX_BITMAP_HEIGHT = 1080;
 
 type NormalizedCanvasRenderOptions = {
   zoom: number;
@@ -156,8 +158,15 @@ function resizeCanvasLayer(
   cssHeight: number,
   devicePixelRatio: number,
 ): void {
-  // 1차 사용자 테스트에서는 긴 악보 화질을 우선하여 브라우저 canvas 한계 clamp를 임시로 적용하지 않는다.
-  const effectiveDevicePixelRatio = devicePixelRatio;
+  // 1차 사용자 테스트에서는 세로 과해상도를 줄이고 긴 악보 가로 bitmap 실패 가능성을 낮춘다.
+  const effectiveDevicePixelRatio = Math.max(
+    0.25,
+    Math.min(
+      devicePixelRatio,
+      PREVIEW_MAX_BITMAP_WIDTH / Math.max(1, cssWidth),
+      PREVIEW_MAX_BITMAP_HEIGHT / Math.max(1, cssHeight),
+    ),
+  );
   const bitmapWidth = Math.max(
     1,
     Math.floor(cssWidth * effectiveDevicePixelRatio),
