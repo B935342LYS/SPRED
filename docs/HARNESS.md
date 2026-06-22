@@ -26,6 +26,8 @@ Primary spec roots:
 - `docs/2.3-audio-playback-module-spec.md`
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
+- `docs/3.0-extendplan-game-mode.md`
+- `docs/3.1-extension-roadmap.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -82,6 +84,12 @@ Memo roots:
 
 `docs/2.5-layout-preset-format-spec.md` : `spec`
 - layout preset JSON format shared by Local Save/Load and File Save/Load
+
+`docs/3.0-extendplan-game-mode.md` : `extension-plan`
+- game mode expansion plan
+
+`docs/3.1-extension-roadmap.md` : `extension-plan`
+- MVP 이후 확장 후보와 우선순위 정리
 
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
@@ -168,6 +176,10 @@ Layout editing:
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
 
+Extensions:
+- `docs/3.0-extendplan-game-mode.md`
+- `docs/3.1-extension-roadmap.md`
+
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
@@ -195,6 +207,10 @@ Appendix:
 
 `appendix`
 - `a1.0-open-source-reference-survey.md`
+
+`extension-plan`
+- `3.0-extendplan-game-mode.md`
+- `3.1-extension-roadmap.md`
 
 `archive`
 - legacy `0.x` text documents

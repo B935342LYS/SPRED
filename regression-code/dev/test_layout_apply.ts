@@ -120,6 +120,28 @@ if (loadResult.ok) {
     "Invalid local layout preset slot should be cleared and treated as empty.",
   );
 
+  const unchangedLayoutApplyResult = applyLayoutDraftToScore(score, draft);
+
+  assert(
+    unchangedLayoutApplyResult.ok,
+    "Unchanged layout apply should succeed.",
+  );
+
+  if (unchangedLayoutApplyResult.ok) {
+    assert(
+      unchangedLayoutApplyResult.score !== score,
+      "Layout apply should return a new ScoreFile object.",
+    );
+    assert(
+      unchangedLayoutApplyResult.score.tracks === score.tracks,
+      "Layout apply should reuse tracks when no cells are deleted.",
+    );
+    assert(
+      unchangedLayoutApplyResult.score.globalLines === score.globalLines,
+      "Layout apply should reuse globalLines during structural sharing.",
+    );
+  }
+
   assert(presetResult.ok, "Layout preset data should be created from a valid draft.");
 
   if (presetResult.ok) {
@@ -248,6 +270,14 @@ if (loadResult.ok) {
         assert(
           score.layout.rowDefinitions.some((row) => row.rowId === "s1-note-52"),
           "Layout apply should not mutate the original ScoreFile.",
+        );
+        assert(
+          nextScore.tracks !== score.tracks,
+          "Layout apply should copy tracks when cells are deleted.",
+        );
+        assert(
+          nextScore.tracks[0]?.cells !== score.tracks[0]?.cells,
+          "Layout apply should copy changed track cells when cells are deleted.",
         );
       }
 

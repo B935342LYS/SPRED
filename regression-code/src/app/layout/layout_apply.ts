@@ -9,8 +9,8 @@ import type {
   RowDefinition,
   RowId,
   ScoreFile,
+  Track,
 } from "../../core/score/types";
-import { cloneScoreFile } from "../edit/edit_apply";
 import type {
   LayoutApplyResult,
   LayoutCellDeletionSummary,
@@ -60,7 +60,7 @@ export function calculateLayoutCellDeletionSummary(
 }
 
 /**
- * 레이아웃 draft를 ScoreFile clone에 적용한다.
+ * 레이아웃 draft를 ScoreFile의 부분 복사본에 적용한다.
  * - 인수 : score : 현재 ScoreFile
  * - 인수 : draft : 레이아웃 편집 UI에서 만든 draft
  * - 인수 : options : 삭제될 track cell이 있을 때 적용을 허용할지 여부
@@ -81,22 +81,27 @@ export function applyLayoutDraftToScore(
     };
   }
 
-  const nextScore = cloneScoreFile(score);
   const nextEditableRows = cloneEditableRows(draft.rowDefinitions);
   const nextNoteRowIds = createNoteRowIdSet(nextEditableRows);
-
-  // 전역 행은 기존 ScoreFile의 정의를 유지하고, note/gap 행은 draft 내용으로 교체한다.
-  nextScore.instData = cloneInstrumentData(draft.instData);
-  nextScore.instData.instName = draft.layoutPresetDisplayName;
-  nextScore.layout.rowDefinitions = [
+  const nextRowDefinitions = [
     ...cloneGlobalRows(score.layout.rowDefinitions),
     ...nextEditableRows,
   ];
+  const nextInstData = cloneInstrumentData(draft.instData);
+  const nextTracks = createNextTracks(score.tracks, nextNoteRowIds, deletedCells.totalCount);
 
-  // draft 적용 후 유효하지 않은 note row 참조 cell을 제거한다.
-  for (const track of nextScore.tracks) {
-    track.cells = track.cells.filter((cell) => nextNoteRowIds.has(cell.rowId));
-  }
+  nextInstData.instName = draft.layoutPresetDisplayName;
+
+  // layout apply는 큰 ScoreFile 전체를 deep clone하지 않고, 바뀌는 경계만 새 객체로 교체한다.
+  const nextScore: ScoreFile = {
+    ...score,
+    instData: nextInstData,
+    layout: {
+      ...score.layout,
+      rowDefinitions: nextRowDefinitions,
+    },
+    tracks: nextTracks,
+  };
 
   const validation = validateScoreFile(nextScore);
 
@@ -113,6 +118,29 @@ export function applyLayoutDraftToScore(
     score: validation.score,
     deletedCells,
   };
+}
+
+/**
+ * layout 적용 후 유지할 track 배열을 만든다.
+ * - 인수 : tracks : 현재 ScoreFile의 track 배열
+ * - 인수 : nextNoteRowIds : 적용 후 유효한 note rowId 집합
+ * - 인수 : deletedCellCount : 삭제될 cell 전체 수
+ * - 반환값 : 삭제가 없으면 기존 tracks, 삭제가 있으면 cell이 필터링된 새 tracks
+ */
+function createNextTracks(
+  tracks: Track[],
+  nextNoteRowIds: Set<RowId>,
+  deletedCellCount: number,
+): Track[] {
+  if (deletedCellCount === 0) {
+    return tracks;
+  }
+
+  // 삭제가 필요한 경우에만 track/cells를 복사하여 원본 ScoreFile을 보존한다.
+  return tracks.map((track) => ({
+    ...track,
+    cells: track.cells.filter((cell) => nextNoteRowIds.has(cell.rowId)),
+  }));
 }
 
 /**
