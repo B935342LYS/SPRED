@@ -37,6 +37,10 @@ import {
   syncPlaybackUi,
 } from "./playback/app_playback_ui";
 import { bindTrackControls } from "./app_track_binding";
+import {
+  bindYoutubeControls,
+  type YoutubePlaybackControl,
+} from "./youtube/youtube_binding";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 
 /**
@@ -63,6 +67,7 @@ async function boot(): Promise<void> {
   let state = sampleLoadResult.state;
   let playbackRuntime: AppPlaybackRuntime;
   let notePreviewRuntime: AppNotePreviewRuntime;
+  let youtubeControl: YoutubePlaybackControl;
   let stopPlaybackAnimation = (): void => {};
   let resetRepeatedClickCycle = (): void => {};
 
@@ -77,6 +82,7 @@ async function boot(): Promise<void> {
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
   notePreviewRuntime = createAppNotePreviewRuntime(dom);
+  youtubeControl = createNoopYoutubeControl();
 
   const resetPlaybackForCurrentState = (): void => {
     stopPlaybackAnimation();
@@ -148,6 +154,7 @@ async function boot(): Promise<void> {
     };
     render();
     resetPlaybackForCurrentState();
+    youtubeControl.syncInputsFromScore();
   };
 
   const appSession = {
@@ -163,12 +170,16 @@ async function boot(): Promise<void> {
     resetPlaybackForCurrentStatePausedAt,
     resetNotePreviewForCurrentDom,
     applyScoreTextEdits,
+    get youtubeControl(): YoutubePlaybackControl {
+      return youtubeControl;
+    },
   };
 
   render();
   syncPlaybackUi(dom, state, playbackRuntime);
   setStatus(0, "sample auto load: done");
 
+  youtubeControl = bindYoutubeControls(dom, appSession);
   bindViewControls(dom, appSession);
   stopPlaybackAnimation = bindPlaybackControls(dom, appSession).stopPlaybackAnimation;
   bindTrackControls(dom, appSession);
@@ -180,6 +191,22 @@ async function boot(): Promise<void> {
       resetRepeatedClickCycle();
     },
   });
+}
+
+/**
+ * YouTube binding 생성 전 playback session에 넣어둘 no-op control을 만든다.
+ * - 인수 : 없음
+ * - 반환값 : 아무 동작도 하지 않는 YouTube playback control
+ */
+function createNoopYoutubeControl(): YoutubePlaybackControl {
+  return {
+    syncInputsFromScore(): void {},
+    playAtCurrentScoreTime(): void {},
+    pause(): void {},
+    stop(): void {},
+    seekToCurrentScoreTime(): void {},
+    dispose(): void {},
+  };
 }
 
 window.addEventListener("DOMContentLoaded", () => {

@@ -40,6 +40,7 @@ import { applyLayoutDraftToScore } from "./layout/layout_apply";
 import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
+import { touchScoreUpdatedAt } from "./score_timestamp";
 
 const CLEAR_ALL_COLUMN_COUNT = 1000;
 const DEFAULT_GLOBAL_RAW_TEXT_BY_KIND: Record<GlobalKind, string> = {
@@ -508,6 +509,40 @@ export function applyMusicDataEditToState(
     statusMessage: {
       level: "info",
       text: "Score details updated.",
+    },
+  };
+}
+
+/**
+ * YouTube 패널에서 확정한 video id와 offset을 score metadata에 반영한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : videoId : 저장할 YouTube video id
+ * - 인수 : offsetMs : 저장할 악보 기준 YouTube offset ms
+ * - 반환값 : YouTube metadata와 updatedAt이 갱신된 앱 상태
+ */
+export function applyYoutubeSyncEditToState(
+  state: AppState,
+  videoId: string,
+  offsetMs: number,
+): AppState {
+  const nextScore = touchScoreUpdatedAt({
+    ...state.document.score,
+    musicData: {
+      ...state.document.score.musicData,
+      youtube: {
+        videoId,
+        offsetMs,
+      },
+    },
+  });
+  const nextDocument = createRuntimeDocument(nextScore);
+
+  return {
+    ...state,
+    document: nextDocument,
+    statusMessage: {
+      level: "info",
+      text: "YouTube sync updated.",
     },
   };
 }

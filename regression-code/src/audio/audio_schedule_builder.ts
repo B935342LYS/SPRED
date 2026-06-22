@@ -329,6 +329,7 @@ function mergeAdjacentConstantGainScaleAutomation(
 /**
  * 연결된 gliss 세그먼트를 하나의 oscillator chain 후보로 묶는다.
  * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 인수 : noteEvents : tremolo 상태 비교에 사용할 같은 track note event 목록
  * - 반환값 : GlissEvent[][] : 길이 2 이상인 연결 gliss chain 목록
  */
 function buildConnectedGlissChains(
@@ -373,7 +374,8 @@ function buildConnectedGlissChains(
  * 두 gliss fallback 세그먼트가 같은 내부 anchor를 공유하는지 확인한다.
  * - 인수 : currentEvent : 앞쪽 gliss event
  * - 인수 : nextEvent : 뒤쪽 gliss event
- * - 반환값 : 같은 track/id/time/pitch에서 연결되는지 여부
+ * - 인수 : noteEvents : tremolo 상태 비교에 사용할 같은 track note event 목록
+ * - 반환값 : 같은 track/id/time/pitch/tremolo 상태에서 연결되는지 여부
  */
 function areConnectedGlissEvents(
   currentEvent: GlissEvent,
@@ -412,7 +414,9 @@ function isGlissEvent(event: AnalyzedEvent): event is GlissEvent {
  * NoteEvent 하나를 AudioNoteScheduleEvent로 변환한다.
  * - 인수 : event : analyzer가 만든 note event
  * - 인수 : mapper : tick/seconds 변환기
- * - 인수 : clipEndTick : gliss fallback 시작점 때문에 audio에서만 줄일 종료 tick
+ * - 인수 : clipStartTick : gliss 종료점 때문에 audio에서만 늦출 시작 tick
+ * - 인수 : clipEndTick : gliss 시작점 때문에 audio에서만 줄일 종료 tick
+ * - 인수 : dynamicsTimeline : analyzer가 만든 dynamics timeline
  * - 반환값 : AudioNoteScheduleEvent : backend 예약용 note event 또는 길이가 없으면 null
  */
 function createAudioNoteScheduleEvent(

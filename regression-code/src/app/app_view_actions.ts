@@ -101,8 +101,6 @@ export function populateDetailsDialog(dom: AppDom, musicData: MusicData): void {
   dom.detailsBasicDifficultyInput.value = String(musicData.scoreDifficulty.basic);
   dom.detailsOptionalDifficultyInput.value = String(musicData.scoreDifficulty.optional);
   dom.detailsExtraDifficultyInput.value = String(musicData.scoreDifficulty.extra);
-  dom.detailsYoutubeVideoInput.value = musicData.youtube.videoId;
-  dom.detailsYoutubeOffsetInput.value = String(musicData.youtube.offsetMs);
 }
 
 /**
@@ -134,13 +132,6 @@ export function readDetailsDialogMusicData(
       extra: readIntegerInput(
         dom.detailsExtraDifficultyInput,
         currentMusicData.scoreDifficulty.extra,
-      ),
-    },
-    youtube: {
-      videoId: dom.detailsYoutubeVideoInput.value,
-      offsetMs: readIntegerInput(
-        dom.detailsYoutubeOffsetInput,
-        currentMusicData.youtube.offsetMs,
       ),
     },
   };

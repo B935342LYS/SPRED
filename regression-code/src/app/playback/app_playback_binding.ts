@@ -8,6 +8,7 @@ import type {
 } from "../app_types";
 import { syncLeftStatus } from "../app_ui_sync";
 import type { AppPlaybackRuntime } from "./app_playback";
+import type { YoutubePlaybackControl } from "../youtube/youtube_binding";
 import {
   scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
@@ -21,6 +22,7 @@ export type PlaybackBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
   getPlaybackRuntime(): AppPlaybackRuntime;
+  youtubeControl?: YoutubePlaybackControl;
   resetPlaybackForCurrentState(): void;
   resetNotePreviewForCurrentDom(): void;
 };
@@ -72,6 +74,7 @@ export function bindPlaybackControls(
 
     suppressScrollSeek = false;
     playbackRuntime.controller.pause();
+    session.youtubeControl?.pause();
     stopPlaybackAnimation();
   };
 
@@ -122,6 +125,9 @@ export function bindPlaybackControls(
 
       syncSeekUi(dom, nextState, nextPlaybackRuntime, scoreSeconds);
       nextPlaybackRuntime.controller.seekToSeconds(scoreSeconds)
+        .then(() => {
+          session.youtubeControl?.seekToCurrentScoreTime();
+        })
         .catch((error: unknown) => {
           const currentState = session.getState();
           const message = error instanceof Error ? error.message : "Unknown scroll seek error.";
@@ -182,6 +188,7 @@ export function bindPlaybackControls(
 
     if (playbackState.kind === "playing") {
       playbackRuntime.controller.pause();
+      session.youtubeControl?.pause();
       stopPlaybackAnimation();
       syncPlaybackUi(dom, state, playbackRuntime);
       scrollScoreAreaToSeconds(
@@ -207,6 +214,7 @@ export function bindPlaybackControls(
           nextPlaybackRuntime,
           nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
         );
+        session.youtubeControl?.playAtCurrentScoreTime();
         stopPlaybackAnimation();
         playbackRafId = requestAnimationFrame(updatePlaybackScroll);
       })
@@ -232,6 +240,7 @@ export function bindPlaybackControls(
 
     stopPlaybackAnimation();
     playbackRuntime.controller.stop();
+    session.youtubeControl?.stop();
     syncPlaybackUi(dom, state, playbackRuntime);
     scrollScoreAreaToSeconds(state, playbackRuntime, 0);
   });
@@ -242,6 +251,7 @@ export function bindPlaybackControls(
     const scoreSeconds = Number(dom.seekInput.value);
 
     pausePlaybackForManualSeek(playbackRuntime);
+    session.youtubeControl?.pause();
     syncSeekUi(dom, state, playbackRuntime, scoreSeconds);
     scrollScoreAreaToSeconds(state, playbackRuntime, scoreSeconds);
   });
@@ -261,6 +271,7 @@ export function bindPlaybackControls(
           nextPlaybackRuntime,
           nextPlaybackRuntime.controller.getCurrentScoreSeconds(),
         );
+        session.youtubeControl?.seekToCurrentScoreTime();
         if (nextPlaybackRuntime.controller.isPlaying()) {
           stopPlaybackAnimation();
           playbackRafId = requestAnimationFrame(updatePlaybackScroll);

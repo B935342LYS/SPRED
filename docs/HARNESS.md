@@ -27,6 +27,7 @@ Primary spec roots:
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
 - `docs/2.6-track-layer-ui-spec.md`
+- `docs/2.7-youtube-sync-ui-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/1.0-development-spec.md`
@@ -89,6 +90,9 @@ Memo roots:
 `docs/2.6-track-layer-ui-spec.md` : `spec`
 - active track UI, inactive track 반투명 renderer 정책, playback filtering, draw order, track overlap 정책
 
+`docs/2.7-youtube-sync-ui-spec.md` : `spec`
+- YouTube mode, musicData youtube field usage, iframe player sync, offset/reload policy
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -117,11 +121,12 @@ Read in this order for implementation work:
 7. `docs/2.4-layout-edit-ui-spec.md`
 8. `docs/2.5-layout-preset-format-spec.md`
 9. `docs/2.6-track-layer-ui-spec.md`
-10. `docs/1.5-note-cell-parser-spec.md`
-11. `docs/1.6-global-cell-parser-spec.md`
-12. `docs/1.7-analyzer-event-list-spec.md`
-13. `docs/1.3-score-json-format.md`
-14. `docs/1.0-development-spec.md`
+10. `docs/2.7-youtube-sync-ui-spec.md`
+11. `docs/1.5-note-cell-parser-spec.md`
+12. `docs/1.6-global-cell-parser-spec.md`
+13. `docs/1.7-analyzer-event-list-spec.md`
+14. `docs/1.3-score-json-format.md`
+15. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -134,6 +139,7 @@ Interpretation rules:
 - layout editor UI, draft edit flow, and apply flow follows `2.4` first
 - layout preset save/load format follows `2.5` first
 - active track UI, inactive track 반투명 renderer 정책, playback filtering, overlap 정책은 `2.6`을 우선한다
+- YouTube mode, iframe player sync, offset/reload 정책은 `2.7`을 우선한다
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -185,6 +191,9 @@ Layout editing:
 Track layer:
 - `docs/2.6-track-layer-ui-spec.md`
 
+YouTube sync:
+- `docs/2.7-youtube-sync-ui-spec.md`
+
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
@@ -209,6 +218,7 @@ Appendix:
 - `2.4-layout-edit-ui-spec.md`
 - `2.5-layout-preset-format-spec.md`
 - `2.6-track-layer-ui-spec.md`
+- `2.7-youtube-sync-ui-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -350,7 +360,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - edit mode pointer input can preview the touched note row pitch through Web Audio, with row-level drag throttling to reduce overlapping preview artifacts
 - Fit Height, Fullscreen, zoom floor handling, and edit-mode auto Fit Height are connected as score view helpers
 - the edit panel uses a single-row grid layout with horizontal overflow so smaller desktop screens can keep edit controls on one line
-- center player metadata now reads from `ScoreFile.musicData`, and the Details dialog can edit musicData fields except creation/update timestamps
+- center player metadata now reads from `ScoreFile.musicData`, and the Details dialog can edit general musicData fields except creation/update timestamps and YouTube sync fields
 - beat and bar marker rendering now uses timing row data, treats bar markers as stronger than beat markers at the same tick, and does not let BPM-only segment changes reset the beat/bar grid
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
 - `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
@@ -377,16 +387,17 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
 - `docs/implementation-memo/1.28-step6-track-layer-spec-decisions.md` records the finalized active track policy, inactive render/audio behavior, playing-state toggle rule, and `src/track/track_control.ts` module decision before implementation
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
+- `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
+- YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
+- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
 - manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, connected gliss chain, seek, pause/resume, and layout-change playback reset behavior
-- prepare a basic audio verification checklist before YouTube mode
+- manually verify YouTube mode in browser with real embeddable and embedding-blocked videos, including offset tuning, Reload, seek, pause/resume, stop, score load, and empty video input behavior
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
-- isolate the remaining connected gliss listening issue by comparing gliss chain with tremolo disabled, frequency-boundary automation simplified, gainScale disabled, and note clipping variants
-- add loop playback range selection and scheduler/controller support
+- add loop playback range selection and scheduler/controller support after YouTube sync
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
@@ -407,6 +418,8 @@ Deferred planned work:
 - `2.0` and actual UI shell
   - static HTML/CSS UI structure exists and the first edit state path is connected to TypeScript
   - many controls remain placeholders, but Edit Mode, Default CUSTOM, zoom change, canvas render, and status line are connected
+- `2.0` and `2.7`
+  - `2.0` treated YouTube as an MVP placeholder; `2.7` is the later active implementation spec that turns the prepared right-side YouTube area into a synced iframe mode
 - `2.1` and actual renderer modules
   - renderer module boundaries are implemented for layout/base grid and the first analyzer-driven note layer path
   - `1.9` says renderer consumes `AnalysisResult`; for current implementation this is interpreted as the broad render pipeline, while draw-layer modules consume canvas DTOs and `AnalysisResult` interpretation is isolated to the future `canvas_item_builder.ts`

@@ -31,12 +31,14 @@ import {
   bindLayoutDialogControls,
   syncLayoutToolbarPresetSelectForCurrentScore,
 } from "./layout/layout_dialog_binding";
+import type { YoutubePlaybackControl } from "./youtube/youtube_binding";
 
 /** view binding이 app 상태와 render 흐름을 제어하기 위한 session 입력. */
 export type ViewBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
   render(): void;
+  youtubeControl?: YoutubePlaybackControl;
 };
 
 /** view control 전체 binding이 layout 적용 후 playback 재생성을 요청하기 위한 session 입력. */
@@ -226,6 +228,7 @@ export function bindViewControls(
     session.setState(applyClearAllScoreToState(state));
     session.render();
     session.resetPlaybackForCurrentState();
+    session.youtubeControl?.syncInputsFromScore();
   });
 
   dom.detailsButton.addEventListener("click", () => {

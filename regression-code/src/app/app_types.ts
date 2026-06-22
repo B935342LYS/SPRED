@@ -148,8 +148,13 @@ export type AppDom = {
   detailsBasicDifficultyInput: HTMLInputElement;
   detailsOptionalDifficultyInput: HTMLInputElement;
   detailsExtraDifficultyInput: HTMLInputElement;
-  detailsYoutubeVideoInput: HTMLInputElement;
-  detailsYoutubeOffsetInput: HTMLInputElement;
+  youtubeToggle: HTMLInputElement;
+  youtubeVideoInput: HTMLInputElement;
+  youtubeOffsetInput: HTMLInputElement;
+  youtubeReloadButton: HTMLButtonElement;
+  youtubeStatus: HTMLElement;
+  youtubePlayerShell: HTMLElement;
+  youtubePlayer: HTMLElement;
   layoutDialog: HTMLDialogElement;
   layoutForm: HTMLFormElement;
   layoutCloseButton: HTMLButtonElement;

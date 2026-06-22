@@ -142,15 +142,22 @@
             </section>
 
             <section class="youtube-group" aria-label="YouTube mode">
-                <input class="youtube-toggle" id="youtube-toggle" type="checkbox" disabled>
+                <input class="youtube-toggle" id="youtube-toggle" type="checkbox">
                 <label class="switch-field youtube-switch" for="youtube-toggle">YouTube</label>
                 <div class="youtube-controls">
                     <label class="compact-field">
-                        Offset ms
-                        <input type="number" value="0" min="-60000" max="60000" step="100" disabled>
+                        Video
+                        <input class="youtube-video-input" type="text" maxlength="128" placeholder="URL or ID">
                     </label>
-                    <button type="button" disabled>Re-sync</button>
-                    <span class="status-pill">No video</span>
+                    <label class="compact-field">
+                        Offset (ms)
+                        <input class="youtube-offset-input" type="number" value="0" min="-60000" max="60000" step="100">
+                    </label>
+                    <button class="youtube-reload-button" type="button">Reload</button>
+                    <span class="status-pill youtube-status">No video</span>
+                </div>
+                <div class="youtube-player-shell" aria-label="YouTube player">
+                    <div class="youtube-player"></div>
                 </div>
             </section>
         </header>
@@ -410,16 +417,6 @@
                         <input class="details-extra-difficulty-input" type="number" min="0" max="99" step="1">
                     </label>
                 </fieldset>
-                <div class="details-youtube-row">
-                    <label class="details-field">
-                        YouTube Video ID
-                        <input class="details-youtube-video-input" type="text" maxlength="128">
-                    </label>
-                    <label class="details-field">
-                        Offset ms
-                        <input class="details-youtube-offset-input" type="number" min="-9999" max="9999" step="1">
-                    </label>
-                </div>
             </div>
             <div class="dialog-action-row">
                 <button type="button" class="details-cancel-button">Cancel</button>
