@@ -3,7 +3,7 @@
  */
 
 import type { AppDom, AppState } from "../app_types";
-import { syncLayoutScroll } from "../app_ui_sync";
+import { syncLayoutScroll, syncTrackToggleButtons } from "../app_ui_sync";
 import { columnToX, xToColumn } from "../../renderer/canvas_coordinate";
 import { numberToTimeFraction } from "../../audio/tick_time_mapper";
 import type { AppPlaybackRuntime } from "./app_playback";
@@ -148,6 +148,8 @@ export function syncPlaybackUi(
   syncSeekUi(dom, state, playbackRuntime, currentScoreSeconds);
   syncPlaybackStatus(dom, playbackState.kind);
   dom.playButton.textContent = playbackState.kind === "playing" ? "❚❚" : "▶";
+  dom.playButton.disabled = state.busy.kind !== "idle" || state.activeTrackIds.length === 0;
+  syncTrackToggleButtons(dom, state, playbackState.kind === "playing");
 }
 
 /**

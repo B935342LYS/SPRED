@@ -245,6 +245,7 @@ function drawGlissMarker(
   const endY = getDisplayCenterY(endRow, item.endCentOffset, layout);
 
   context.save();
+  context.globalAlpha = item.renderAlpha ?? 1;
   context.strokeStyle = item.trackId === TRACK_EXTRA
     ? CANVAS_COLORS.extraGlissLine
     : CANVAS_COLORS.glissLine;
@@ -285,6 +286,7 @@ function drawGlissOrphanAnchorMarker(
   const ranges = createOrphanAnchorRanges(anchorX, item.role, layout);
 
   context.save();
+  context.globalAlpha = item.renderAlpha ?? 1;
   context.strokeStyle = item.trackId === TRACK_EXTRA
     ? CANVAS_COLORS.extraGlissLine
     : CANVAS_COLORS.glissLine;
@@ -335,7 +337,7 @@ function drawTupletContainerMarker(
   }
 
   context.save();
-  context.globalAlpha = item.trackId === TRACK_EXTRA ? 1 : 0.95;
+  context.globalAlpha = (item.renderAlpha ?? 1) * (item.trackId === TRACK_EXTRA ? 1 : 0.95);
   context.strokeStyle = CANVAS_COLORS.tupletContainer;
   context.lineWidth = CANVAS_METRICS.tupletContainerLineWidth;
   context.setLineDash([...TUPLET_CONTAINER_LINE_DASH]);

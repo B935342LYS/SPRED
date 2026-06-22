@@ -141,6 +141,7 @@ export type CanvasNoteRenderItem = {
   displayTextAnchors: CanvasNoteDisplayTextAnchor[];
   effects: CanvasNoteEffectSegment[];
   trackId?: string;
+  renderAlpha?: number;
 };
 
 /**
@@ -192,6 +193,7 @@ export type CanvasMuteRenderItem = {
   endTick: number;
   text: string;
   trackId?: string;
+  renderAlpha?: number;
 };
 
 /**
@@ -238,6 +240,7 @@ export type CanvasMarkerItem =
       endTick: number;
       hasTrem: boolean;
       trackId?: string;
+      renderAlpha?: number;
     }
   | {
       kind: "glissOrphanAnchor";
@@ -246,6 +249,7 @@ export type CanvasMarkerItem =
       tick: number;
       role: "start" | "mid" | "end";
       trackId?: string;
+      renderAlpha?: number;
     }
   | {
       kind: "tupletContainer";
@@ -254,6 +258,7 @@ export type CanvasMarkerItem =
       endTick: number;
       divNum: number | null;
       trackId?: string;
+      renderAlpha?: number;
     };
 
 /**

@@ -18,6 +18,7 @@ import type {
 import type { TupletEditDraft } from "./edit_tuplet";
 import { resolveAutoDefaultText } from "../pitch_label";
 import { parseNoteCell } from "../../core/parse/parse_note_cell";
+import { DEFAULT_ACTIVE_TRACK_IDS } from "../../track/track_control";
 
 /**
  * DOM의 edit panel 입력값을 일반 note rawText 합성 입력으로 읽는다.
@@ -323,7 +324,7 @@ export function resolveTupletHeadPlacementHit(
   }
 
   const parsedCell = parseNoteCell({
-    trackId: state.activeTrackId,
+    trackId: state.activeTrackIds[0] ?? DEFAULT_ACTIVE_TRACK_IDS[0],
     rawText,
     rowId: hit.rowId,
     col: hit.col,
@@ -376,7 +377,7 @@ export function resolveTupletHeadPlacementHit(
 export function handleScoreClick(state: AppState, hit: ScoreHit): AppState {
   const selection: ScoreSelection = {
     ...hit,
-    trackId: state.activeTrackId,
+    trackId: state.activeTrackIds[0] ?? DEFAULT_ACTIVE_TRACK_IDS[0],
   };
 
   if (state.busy.kind !== "idle") {

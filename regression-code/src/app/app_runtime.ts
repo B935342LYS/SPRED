@@ -14,6 +14,7 @@ import type {
   MusicData,
   RuntimeDocument,
   ScoreFile,
+  TrackId,
 } from "../core/score/types";
 import {
   buildCanvasGlobalTextRenderItems,
@@ -36,6 +37,7 @@ import type {
 import { applyLayoutDraftToScore } from "./layout/layout_apply";
 import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
+import { DEFAULT_ACTIVE_TRACK_IDS } from "../track/track_control";
 
 /**
  * 현재 score의 표시 열 범위를 사용자 메시지로 만든다.
@@ -53,7 +55,10 @@ export function formatLoadedColumnStatus(score: ScoreFile): string {
  * - 인수 : document : 인덱스가 생성된 런타임 문서
  * - 반환값 : 현재 score에서 파생된 분석 및 렌더 입력 묶음
  */
-export function buildRuntimeArtifacts(document: RuntimeDocument): {
+export function buildRuntimeArtifacts(
+  document: RuntimeDocument,
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
+): {
   parsed: ParsedScoreDocument;
   analysis: AnalysisResult;
   renderInput: CanvasAnalyzedRenderInput;
@@ -65,19 +70,34 @@ export function buildRuntimeArtifacts(document: RuntimeDocument): {
     indexes: document.indexes,
     parsed,
   });
-  const renderInput = createCanvasRenderInput(document);
-
   return {
     parsed,
     analysis,
     // note layer는 analyzer 결과만 소비하도록 renderer 입력에 noteItems를 덧붙인다.
-    renderInput: {
-      ...renderInput,
-      globalTextItems: buildCanvasGlobalTextRenderItems(document.score),
-      noteItems: buildCanvasNoteRenderItems(analysis),
-      muteItems: buildCanvasMuteRenderItems(analysis),
-      markerItems: buildCanvasMarkerItems(analysis),
-    },
+    renderInput: buildAnalyzedCanvasRenderInput(document, analysis, activeTrackIds),
+  };
+}
+
+/**
+ * 기존 analyzer 결과와 active track 상태에서 renderer 입력만 다시 만든다.
+ * - 인수 : document : 현재 런타임 문서
+ * - 인수 : analysis : 기존 analyzer 결과
+ * - 인수 : activeTrackIds : renderer alpha에 반영할 active track 목록
+ * - 반환값 : renderer가 소비할 분석 포함 canvas 입력
+ */
+export function buildAnalyzedCanvasRenderInput(
+  document: RuntimeDocument,
+  analysis: AnalysisResult,
+  activeTrackIds: readonly TrackId[],
+): CanvasAnalyzedRenderInput {
+  const renderInput = createCanvasRenderInput(document);
+
+  return {
+    ...renderInput,
+    globalTextItems: buildCanvasGlobalTextRenderItems(document.score),
+    noteItems: buildCanvasNoteRenderItems(analysis, activeTrackIds),
+    muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
+    markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
   };
 }
 
@@ -99,7 +119,7 @@ export function createInitialState(
     parsed: artifacts.parsed,
     analysis: artifacts.analysis,
     renderInput: artifacts.renderInput,
-    activeTrackId: "basic",
+    activeTrackIds: [...DEFAULT_ACTIVE_TRACK_IDS],
     mode: { kind: "view" },
     busy: { kind: "idle" },
     statusMessage: {
@@ -109,6 +129,33 @@ export function createInitialState(
     selection: null,
     layout: null,
     defaultLayoutDraft: createLayoutDraftBundle(document.score),
+  };
+}
+
+/**
+ * active track 목록만 바꾸고 parse/analyze 없이 renderer 입력을 갱신한다.
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : activeTrackIds : 다음 active track 목록
+ * - 반환값 : track layer 상태와 renderer 입력이 갱신된 앱 상태
+ */
+export function applyActiveTrackIdsToState(
+  state: AppState,
+  activeTrackIds: TrackId[],
+): AppState {
+  return {
+    ...state,
+    activeTrackIds: [...activeTrackIds],
+    renderInput: buildAnalyzedCanvasRenderInput(
+      state.document,
+      state.analysis,
+      activeTrackIds,
+    ),
+    statusMessage: {
+      level: "info",
+      text: activeTrackIds.length === 0
+        ? "All tracks inactive."
+        : `Active tracks: ${activeTrackIds.join(", ")}`,
+    },
   };
 }
 
@@ -206,7 +253,7 @@ export function applyLayoutDraftEditToState(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
 
   return {
     ...state,
@@ -255,7 +302,7 @@ export function applyRawTextToScore(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
 
   return {
     ...state,
@@ -302,7 +349,7 @@ export function applyRawTextBatchToScore(
   }
 
   const nextDocument = createRuntimeDocument(applyResult.score);
-  const artifacts = buildRuntimeArtifacts(nextDocument);
+  const artifacts = buildRuntimeArtifacts(nextDocument, state.activeTrackIds);
 
   return {
     ...state,

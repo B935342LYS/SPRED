@@ -16,7 +16,13 @@ import type {
 } from "../core/analyze/types";
 import type {
   ScoreFile,
+  TrackId,
 } from "../core/score/types";
+import {
+  DEFAULT_ACTIVE_TRACK_IDS,
+  getTrackDrawOrder,
+  getTrackRenderAlpha,
+} from "../track/track_control";
 import type {
   CanvasGlobalTextRenderItem,
   CanvasMarkerItem,
@@ -31,6 +37,7 @@ import type {
  */
 export function buildCanvasNoteRenderItems(
   analysis: AnalysisResult,
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ): CanvasNoteRenderItem[] {
   const items: CanvasNoteRenderItem[] = [];
 
@@ -64,6 +71,7 @@ export function buildCanvasNoteRenderItems(
           tremDivision: effect.trem?.division ?? null,
         })),
         trackId: event.trackId,
+        renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
       });
     }
   }
@@ -76,7 +84,7 @@ export function buildCanvasNoteRenderItems(
     if (left.rowId !== right.rowId) {
       return left.rowId.localeCompare(right.rowId);
     }
-    return (left.trackId ?? "").localeCompare(right.trackId ?? "");
+    return getTrackDrawOrder(left.trackId) - getTrackDrawOrder(right.trackId);
   });
 }
 
@@ -116,6 +124,7 @@ function timeRangeToDuration(time: TimeRange): number {
  */
 export function buildCanvasMuteRenderItems(
   analysis: AnalysisResult,
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ): CanvasMuteRenderItem[] {
   const items: CanvasMuteRenderItem[] = [];
 
@@ -132,6 +141,7 @@ export function buildCanvasMuteRenderItems(
         endTick: timeFractionToNumber(event.time.endTick),
         text: event.text,
         trackId: event.trackId,
+        renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
       });
     }
   }
@@ -144,7 +154,7 @@ export function buildCanvasMuteRenderItems(
     if (left.rowId !== right.rowId) {
       return left.rowId.localeCompare(right.rowId);
     }
-    return (left.trackId ?? "").localeCompare(right.trackId ?? "");
+    return getTrackDrawOrder(left.trackId) - getTrackDrawOrder(right.trackId);
   });
 }
 
@@ -177,6 +187,7 @@ export function buildCanvasGlobalTextRenderItems(
  */
 export function buildCanvasMarkerItems(
   analysis: AnalysisResult,
+  activeTrackIds: readonly TrackId[] = DEFAULT_ACTIVE_TRACK_IDS,
 ): CanvasMarkerItem[] {
   const items: CanvasMarkerItem[] = [
     ...buildDynamicsGuideMarkerItems(analysis),
@@ -198,6 +209,7 @@ export function buildCanvasMarkerItems(
             endTick: timeFractionToNumber(event.time.endTick),
             divNum: event.divNum,
             trackId: event.trackId,
+            renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
           });
         } else if (isTupletExtendGroupEvent(event)) {
           items.push({
@@ -207,6 +219,7 @@ export function buildCanvasMarkerItems(
             endTick: timeFractionToNumber(event.time.endTick),
             divNum: null,
             trackId: event.trackId,
+            renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
           });
         }
 
@@ -226,6 +239,7 @@ export function buildCanvasMarkerItems(
         endTick: timeFractionToNumber(event.endAnchorTick),
         hasTrem: hasTremOnStartAnchor(event, noteEvents),
         trackId: event.trackId,
+        renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
       });
     }
   }
@@ -251,6 +265,7 @@ export function buildCanvasMarkerItems(
           tick: timeRangeCenterToNumber(anchor.time),
           role: anchor.role,
           trackId: event.trackId,
+          renderAlpha: getTrackRenderAlpha(activeTrackIds, event.trackId),
         });
       }
     }
@@ -271,7 +286,8 @@ export function buildCanvasMarkerItems(
     if (leftRowId !== rightRowId) {
       return leftRowId.localeCompare(rightRowId);
     }
-    return getMarkerSortTrackId(left).localeCompare(getMarkerSortTrackId(right));
+    return getTrackDrawOrder(getMarkerSortTrackId(left)) -
+      getTrackDrawOrder(getMarkerSortTrackId(right));
   });
 }
 

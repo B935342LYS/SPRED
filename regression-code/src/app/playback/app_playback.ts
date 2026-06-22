@@ -37,7 +37,7 @@ export function createAppPlaybackRuntime(
 ): AppPlaybackRuntime {
   const schedule = buildAudioSchedule({
     analysis: state.analysis,
-    activeTrackIds: [state.activeTrackId],
+    activeTrackIds: state.activeTrackIds,
   });
   const queue = createAudioEventQueue(schedule);
   const backend = createOscillatorBackend({

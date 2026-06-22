@@ -79,7 +79,7 @@ export type AppState = {
   parsed: ParsedScoreDocument;
   analysis: AnalysisResult;
   renderInput: CanvasAnalyzedRenderInput;
-  activeTrackId: TrackId;
+  activeTrackIds: TrackId[];
   mode: AppMode;
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
@@ -97,6 +97,7 @@ export type AppDom = {
   layoutStage: HTMLElement;
   target: CanvasRenderTarget;
   editToggle: HTMLInputElement;
+  trackToggleButtons: HTMLButtonElement[];
   defaultModeSelect: HTMLSelectElement;
   customTextInput: HTMLInputElement;
   holdTokenSelect: HTMLSelectElement;

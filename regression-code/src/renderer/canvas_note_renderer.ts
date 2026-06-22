@@ -49,14 +49,20 @@ export function drawScoreNotes(
       continue;
     }
 
+    context.save();
+    context.globalAlpha = layoutItem.renderAlpha ?? 1;
     drawNoteRectangle(context, layoutItem);
     drawNoteEffects(context, layoutItem, layout);
     drawNoteText(context, layoutItem, layout);
+    context.restore();
   }
 
   // mute item은 발음 사각형 없이 흰색 텍스트만 note layer 위에 표시한다.
   for (const item of muteItems) {
+    context.save();
+    context.globalAlpha = item.renderAlpha ?? 1;
     drawMuteText(context, layout, rowById, item);
+    context.restore();
   }
 
   // 전역 행 셀 rawText는 note/mute와 같은 overlay layer에 흰색 텍스트로 표시한다.

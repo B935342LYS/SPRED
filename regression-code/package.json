@@ -12,6 +12,7 @@
     "test:edit": "tsx ./dev/test_edit.ts",
     "test:layout": "tsx ./dev/test_layout_apply.ts",
     "test:analyze": "tsx ./dev/test_analyze.ts",
+    "test:track": "tsx ./dev/test_track.ts",
     "test:audio": "tsx ./dev/test_audio.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },

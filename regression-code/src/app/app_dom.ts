@@ -72,6 +72,9 @@ export function collectAppDom(): AppDom {
   const numberRampButtons = Array.from(
     document.querySelectorAll(".number-ramp-button"),
   ).filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement);
+  const trackToggleButtons = Array.from(
+    document.querySelectorAll(".track-toggle"),
+  ).filter((element): element is HTMLButtonElement => element instanceof HTMLButtonElement);
 
   return {
     appShell: queryElement(".app-shell", HTMLElement),
@@ -81,6 +84,7 @@ export function collectAppDom(): AppDom {
     layoutStage: queryElement(".layout-canvas-stage", HTMLElement),
     target: createCanvasRenderTarget(),
     editToggle: queryElement("#edit-mode-toggle", HTMLInputElement),
+    trackToggleButtons,
     defaultModeSelect: queryElement(".default-mode-select", HTMLSelectElement),
     customTextInput: queryElement(".custom-text-input", HTMLInputElement),
     holdTokenSelect: queryElement(".hold-token-select", HTMLSelectElement),

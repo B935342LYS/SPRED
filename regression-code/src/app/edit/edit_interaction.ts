@@ -8,6 +8,7 @@ import type {
   ScoreHit,
   ScoreSelection,
 } from "../app_types";
+import { DEFAULT_ACTIVE_TRACK_IDS } from "../../track/track_control";
 import {
   composeTupletSlotTextFromRow,
   resolveTupletHeadPlacementHit,
@@ -48,15 +49,15 @@ export type SinglePointerEditResult =
     };
 
 /**
- * hit를 active track이 포함된 score selection으로 변환한다.
+ * hit를 대표 active track이 포함된 score selection으로 변환한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : hit : renderer 좌표계에서 변환된 score hit
- * - 반환값 : activeTrackId가 포함된 score selection
+ * - 반환값 : 대표 active track id가 포함된 score selection
  */
 export function getSelectionForHit(state: AppState, hit: ScoreHit): ScoreSelection {
   return {
     ...hit,
-    trackId: state.activeTrackId,
+    trackId: state.activeTrackIds[0] ?? DEFAULT_ACTIVE_TRACK_IDS[0],
   };
 }
 
@@ -107,6 +108,14 @@ export function composeSingleEditForHit(
     return {
       kind: "blocked",
       message: "Edit mode is not active.",
+      repeatedClickCycle,
+    };
+  }
+
+  if (hit.rowKind === "note" && state.activeTrackIds.length === 0) {
+    return {
+      kind: "blocked",
+      message: "Activate at least one track before editing note rows.",
       repeatedClickCycle,
     };
   }
@@ -250,6 +259,13 @@ export function composeDragRawTextForHit(
       message: string;
     } {
   if (button === 2) {
+    if (hit.rowKind === "note" && state.activeTrackIds.length === 0) {
+      return {
+        kind: "blocked",
+        message: "Activate at least one track before editing note rows.",
+      };
+    }
+
     return {
       kind: "apply",
       rawText: "",
@@ -258,6 +274,13 @@ export function composeDragRawTextForHit(
 
   if (hit.rowKind === "global") {
     return composeNumberRawTextForHit(dom, state, hit);
+  }
+
+  if (state.activeTrackIds.length === 0) {
+    return {
+      kind: "blocked",
+      message: "Activate at least one track before editing note rows.",
+    };
   }
 
   const mode = state.mode;

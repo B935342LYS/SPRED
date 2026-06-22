@@ -27,6 +27,10 @@ import {
   numberToTimeFraction,
   timeFractionToNumber,
 } from "./tick_time_mapper";
+import {
+  filterActiveTrackResults,
+  getTrackGain,
+} from "../track/track_control";
 
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
@@ -55,14 +59,9 @@ export function buildAudioScheduleWithMapper(
   activeTrackIds: TrackId[],
   mapper: TickTimeMapper,
 ): AudioSchedule {
-  const activeTrackIdSet = new Set(activeTrackIds);
   const events: AudioScheduleEvent[] = [];
 
-  for (const trackResult of analysis.trackResults) {
-    if (!activeTrackIdSet.has(trackResult.trackId)) {
-      continue;
-    }
-
+  for (const trackResult of filterActiveTrackResults(analysis, activeTrackIds)) {
     const noteEvents = trackResult.events.filter(isNoteEvent);
     const glissEvents = trackResult.events.filter(isGlissEvent);
     const noteClipEndTickByEvent = buildGlissStartNoteClipEndTickMap(
@@ -155,7 +154,7 @@ function createAudioNoteScheduleEvent(
     endSeconds,
     midi: event.sound.midi,
     centOffset: event.sound.centOffset,
-    velocity: DEFAULT_VELOCITY,
+    velocity: DEFAULT_VELOCITY * getTrackGain(event.trackId),
     effects: buildAudioScheduleEffects(event.effects, mapper),
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,
@@ -278,7 +277,7 @@ function createAudioGlissScheduleEvent(
     endTick: event.endAnchorTick,
     startSeconds,
     endSeconds,
-    velocity: DEFAULT_VELOCITY,
+    velocity: DEFAULT_VELOCITY * getTrackGain(event.trackId),
     sourceEventKind: "gliss",
     startMidi: event.startSound.midi,
     startCentOffset: event.startSound.centOffset,

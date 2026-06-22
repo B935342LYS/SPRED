@@ -14,6 +14,7 @@ import type {
 } from "./app_types";
 import { composeEditRawText } from "./edit/edit_core";
 import { resolveAutoDefaultText } from "./pitch_label";
+import { isTrackId } from "../track/track_control";
 
 /**
  * status footer의 특정 위치 문구를 바꾼다.
@@ -200,7 +201,35 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.layoutModifyButton.disabled = isBusy;
   dom.detailsButton.disabled = isBusy;
   dom.seekInput.disabled = isBusy;
+  syncTrackToggleButtons(dom, state);
   syncCurrentRawTextPreview(dom, state);
+}
+
+/**
+ * track toggle 버튼의 on/off와 disabled 상태를 현재 app/playback 상태에 맞춘다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : disabledByPlayback : playback 상태 때문에 track 조작을 막을지 여부
+ * - 반환값 : 없음
+ */
+export function syncTrackToggleButtons(
+  dom: AppDom,
+  state: AppState,
+  disabledByPlayback = false,
+): void {
+  const activeSet = new Set(state.activeTrackIds);
+  const isDisabled = state.busy.kind !== "idle" || disabledByPlayback;
+
+  // 고정 track 버튼을 순회하며 app runtime의 activeTrackIds를 aria/class 상태에 반영한다.
+  for (const button of dom.trackToggleButtons) {
+    const trackId = button.dataset.trackId;
+    const isActive = trackId !== undefined && isTrackId(trackId) && activeSet.has(trackId);
+
+    button.disabled = isDisabled;
+    button.classList.toggle("on", isActive);
+    button.classList.toggle("off", !isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
 }
 
 /**

@@ -546,6 +546,10 @@ if (loadResult.ok) {
   assert(controller.getState().kind === "paused", "Seek while paused should keep paused state.");
   assertNear(controller.getCurrentScoreSeconds(), 0.25, "Paused seek should update paused time.");
 
+  controller.pauseAtSeconds(0.75);
+  assert(controller.getState().kind === "paused", "pauseAtSeconds should restore paused state.");
+  assertNear(controller.getCurrentScoreSeconds(), 0.75, "pauseAtSeconds should preserve requested score time.");
+
   controller.stop();
   assert(controller.getState().kind === "stopped", "Stop should enter stopped state.");
   assertNear(controller.getCurrentScoreSeconds(), 0, "Stop should reset score time.");

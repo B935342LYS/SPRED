@@ -65,6 +65,23 @@ export function bindScorePointerControls(
     ...getSelectionForStateHit(session.getState(), hit),
   });
 
+  const expandEditForActiveTracks = (edit: ScoreTextEdit): ScoreTextEdit[] => {
+    if (edit.selection.rowKind !== "note") {
+      return [edit];
+    }
+
+    return session.getState().activeTrackIds.map((trackId) => ({
+      selection: {
+        ...edit.selection,
+        trackId,
+      },
+      rawText: edit.rawText,
+    }));
+  };
+
+  const expandEditsForActiveTracks = (edits: ScoreTextEdit[]): ScoreTextEdit[] =>
+    edits.flatMap(expandEditForActiveTracks);
+
   const getPointerEditHit = (event: MouseEvent): ScoreHit | null => {
     const state = session.getState();
 
@@ -137,7 +154,7 @@ export function bindScorePointerControls(
       return;
     }
 
-    session.applyScoreTextEdits([result.edit]);
+    session.applyScoreTextEdits(expandEditForActiveTracks(result.edit));
   };
 
   dom.scoreStage.addEventListener("pointerdown", (event) => {
@@ -228,7 +245,7 @@ export function bindScorePointerControls(
             composeDragRawTextForHit(dom, session.getState(), hit, button),
         });
 
-        session.applyScoreTextEdits(startEdits);
+        session.applyScoreTextEdits(expandEditsForActiveTracks(startEdits));
       }
     }
 
@@ -259,7 +276,7 @@ export function bindScorePointerControls(
         composeDragRawTextForHit(dom, session.getState(), targetHit, button),
     });
 
-    session.applyScoreTextEdits(edits);
+    session.applyScoreTextEdits(expandEditsForActiveTracks(edits));
   });
 
   dom.scoreStage.addEventListener("pointerup", (event) => {

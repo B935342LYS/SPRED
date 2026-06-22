@@ -36,6 +36,7 @@ import {
 import {
   syncPlaybackUi,
 } from "./playback/app_playback_ui";
+import { bindTrackControls } from "./app_track_binding";
 import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
 
 /**
@@ -71,6 +72,7 @@ async function boot(): Promise<void> {
     syncLeftStatus(dom, state);
     syncUiControls(dom, state);
     syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
+    syncPlaybackUi(dom, state, playbackRuntime);
   };
 
   playbackRuntime = createAppPlaybackRuntime(dom, state);
@@ -80,6 +82,14 @@ async function boot(): Promise<void> {
     stopPlaybackAnimation();
     playbackRuntime.controller.dispose();
     playbackRuntime = createAppPlaybackRuntime(dom, state);
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
+  const resetPlaybackForCurrentStatePausedAt = (scoreSeconds: number): void => {
+    stopPlaybackAnimation();
+    playbackRuntime.controller.dispose();
+    playbackRuntime = createAppPlaybackRuntime(dom, state);
+    playbackRuntime.controller.pauseAtSeconds(scoreSeconds);
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
@@ -150,6 +160,7 @@ async function boot(): Promise<void> {
     getPlaybackRuntime: () => playbackRuntime,
     getNotePreviewRuntime: () => notePreviewRuntime,
     resetPlaybackForCurrentState,
+    resetPlaybackForCurrentStatePausedAt,
     resetNotePreviewForCurrentDom,
     applyScoreTextEdits,
   };
@@ -160,6 +171,7 @@ async function boot(): Promise<void> {
 
   bindViewControls(dom, appSession);
   stopPlaybackAnimation = bindPlaybackControls(dom, appSession).stopPlaybackAnimation;
+  bindTrackControls(dom, appSession);
   bindFileControls(dom, appSession);
   resetRepeatedClickCycle = bindScorePointerControls(dom, appSession).resetRepeatedClickCycle;
   bindEditPanelControls(dom, {

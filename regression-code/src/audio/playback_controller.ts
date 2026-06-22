@@ -23,6 +23,7 @@ export type PlaybackController = {
   playFromStart(): Promise<void>;
   playFromSeconds(scoreSeconds: number): Promise<void>;
   pause(): void;
+  pauseAtSeconds(scoreSeconds: number): void;
   resume(): Promise<void>;
   seekToSeconds(scoreSeconds: number): Promise<void>;
   stop(): void;
@@ -87,6 +88,16 @@ export function createPlaybackController(
         kind: "paused",
         pausedAtScoreSeconds,
         loop: state.loop,
+      };
+    },
+    pauseAtSeconds(scoreSeconds: number): void {
+      stopInterval();
+      input.backend.stopAll();
+      input.scheduler.resetScheduledEvents();
+      state = {
+        kind: "paused",
+        pausedAtScoreSeconds: clampScoreSeconds(scoreSeconds, input.schedule.durationSeconds),
+        loop: LOOP_OFF,
       };
     },
     async resume(): Promise<void> {
