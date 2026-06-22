@@ -6,11 +6,17 @@ import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
 import { normalizeNumberRawInput } from "../src/app/edit/edit_number";
+import { composeTupletRawText } from "../src/app/edit/edit_tuplet";
 import {
   touchScoreTimestampsForSave,
   touchScoreUpdatedAt,
 } from "../src/app/score_timestamp";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+import {
+  MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_LOCAL_SCORE_JSON_BYTES,
+} from "../src/core/score/score_limits";
+import { saveScoreToLocalStorage } from "../src/infra/score_local_storage";
 
 /**
  * 조건이 거짓이면 테스트 실패 상태를 기록한다.
@@ -46,6 +52,36 @@ function createDefaultInput(
     absolutePitch: "",
     microPitch: "",
     ...overrides,
+  };
+}
+
+/**
+ * Node 테스트 환경에서 score localStorage가 사용할 mock을 설치한다.
+ * - 인수 : 없음
+ * - 반환값 : 없음
+ */
+function installLocalStorageMock(): void {
+  const storage = new Map<string, string>();
+
+  globalThis.localStorage = {
+    getItem(key: string): string | null {
+      return storage.get(key) ?? null;
+    },
+    setItem(key: string, value: string): void {
+      storage.set(key, value);
+    },
+    removeItem(key: string): void {
+      storage.delete(key);
+    },
+    clear(): void {
+      storage.clear();
+    },
+    key(index: number): string | null {
+      return Array.from(storage.keys())[index] ?? null;
+    },
+    get length(): number {
+      return storage.size;
+    },
   };
 }
 
@@ -139,10 +175,20 @@ const tupletResult = composeEditRawText({
     activeSlotIndex: null,
   },
 });
+const longTupletResult = composeTupletRawText({
+  divNum: 7,
+  slots: Array.from({ length: 7 }, (_, slotIndex) => ({
+    slotIndex,
+    text: "x".repeat(30),
+  })),
+  activeSlotIndex: null,
+});
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
 const loadResult = loadRuntimeDocument(jsonText);
+
+installLocalStorageMock();
 
 assert(
   allTokenResult.kind === "apply" &&
@@ -182,6 +228,10 @@ assert(
   "Tuplet draft should compose pletHead rawText.",
 );
 assert(
+  longTupletResult.kind === "notReady",
+  "Tuplet draft should reject rawText longer than the cell limit.",
+);
+assert(
   normalizeNumberRawInput("999") === "999" &&
     normalizeNumberRawInput("1000") === "100" &&
     normalizeNumberRawInput("12a3") === "123",
@@ -192,6 +242,23 @@ assert(loadResult.ok, "Runtime document should load for tuplet placement test.")
 
 if (loadResult.ok && tupletResult.kind === "apply") {
   const placementState = createInitialState(loadResult.document);
+  const longRawTextApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "s1-note-60",
+        rowKind: "note",
+        col: 2,
+      },
+      rawText: "x".repeat(MAX_CELL_RAW_TEXT_LENGTH + 1),
+    },
+  ]);
+
+  assert(
+    !longRawTextApplyResult.ok,
+    "Edit apply should reject rawText longer than the cell limit.",
+  );
+
   const placementResult = resolveTupletHeadPlacementHit(
     placementState,
     {
@@ -313,6 +380,23 @@ if (loadResult.ok && tupletResult.kind === "apply") {
         loadedSavedScore.musicData.updatedAt === "2026-06-13T14:00:00.000Z",
       "Loaded score save should preserve createdAt and update updatedAt.",
     );
+
+    const oversizedLocalScore = {
+      ...batchApplyResult.score,
+      musicData: {
+        ...batchApplyResult.score.musicData,
+        comment: "x".repeat(MAX_LOCAL_SCORE_JSON_BYTES),
+      },
+    };
+    let localSaveRejected = false;
+
+    try {
+      saveScoreToLocalStorage(oversizedLocalScore);
+    } catch {
+      localSaveRejected = true;
+    }
+
+    assert(localSaveRejected, "Local score save should reject JSON larger than the local limit.");
   }
 }
 

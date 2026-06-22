@@ -258,6 +258,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
 - current focus is the edit/playback/layout verification and reporting loop: UI input -> score JSON rawText/layout mutation -> parse/analyze/render rebuild -> Web Audio playback/seek check -> report preparation
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
+- Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
@@ -314,6 +315,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - edit mode now supports same-cell click cycle `currentText -> - -> ~ -> currentText`, left-drag install, right-drag delete, and per-cell drag loop based on existing rawText
 - Number UI is always available in edit mode for global rows; `bpm` and `dynamics` accept ramp tokens while `beatsPerBar` and `stepsPerBeat` remain numeric-only
 - CUSTOM defaultText input is limited to 10 characters and escapes parser reserved characters at rawText composition time
+- tuplet slot input is limited to 30 characters, and composed tuplet rawText is blocked above the 100-character cell limit
 - absolutePitch UI uses a high-to-low sharp-note dropdown instead of direct MIDI number input
 - `@p(0)` and `@m(0)` are omitted from composed rawText because they have no effect
 - tuplet UI now supports On/Off state, slot activation, SELECT ROW slot filling with `@n(midi)`, and Finalize Value preparation for later cell insertion

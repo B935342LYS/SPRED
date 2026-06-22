@@ -3,7 +3,14 @@
  */
 
 import type { ScoreFile } from "../core/score/types";
-import { serializeScoreFile } from "./score_file_io";
+import {
+  serializeScoreFile,
+} from "./score_file_io";
+import {
+  MAX_LOCAL_SCORE_JSON_BYTES,
+  formatByteSize,
+  getUtf8ByteLength,
+} from "../core/score/score_limits";
 
 const LOCAL_SCORE_STORAGE_KEY = "regression-code:score-json";
 
@@ -13,7 +20,13 @@ const LOCAL_SCORE_STORAGE_KEY = "regression-code:score-json";
  * - 반환값 : 없음
  */
 export function saveScoreToLocalStorage(score: ScoreFile): void {
-  localStorage.setItem(LOCAL_SCORE_STORAGE_KEY, serializeScoreFile(score));
+  const jsonText = serializeScoreFile(score);
+
+  if (getUtf8ByteLength(jsonText) > MAX_LOCAL_SCORE_JSON_BYTES) {
+    throw new Error(`Local score JSON must be ${formatByteSize(MAX_LOCAL_SCORE_JSON_BYTES)} or smaller.`);
+  }
+
+  localStorage.setItem(LOCAL_SCORE_STORAGE_KEY, jsonText);
 }
 
 /**

@@ -31,17 +31,6 @@ export type LayoutDraftBundle = {
 };
 
 /**
- * 브라우저 localStorage에 저장되는 레이아웃 프리셋 index 항목.
- * - 인수 : 없음
- * - 반환값 : 프리셋 식별자, 표시명, 갱신 시각
- */
-export type UserLayoutPresetIndexItem = {
-  layoutPresetId: string;
-  layoutPresetDisplayName: string;
-  updatedAt: string;
-};
-
-/**
  * localStorage와 JSON 파일에 저장되는 사용자 레이아웃 프리셋 데이터.
  * - 인수 : 없음
  * - 반환값 : layout draft를 복원하는 데 필요한 악기 정보와 비전역 rowDefinitions

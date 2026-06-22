@@ -3,17 +3,25 @@
  */
 
 import type {
-  GapRowDefinition,
   InstrumentData,
-  NoteRowDefinition,
   RowId,
   StringId,
 } from "../../core/score/types";
+import {
+  formatByteSize,
+  getUtf8ByteLength,
+} from "../../core/score/score_limits";
 import type {
   LayoutDraftBundle,
   LayoutEditableRowDefinition,
   UserLayoutPresetData,
 } from "./layout_types";
+
+/** 레이아웃 프리셋 표시명 최대 글자 수. */
+export const MAX_LAYOUT_PRESET_NAME_LENGTH = 30;
+
+/** 레이아웃 프리셋 JSON 저장/불러오기 최대 UTF-8 byte 수. */
+export const MAX_LAYOUT_PRESET_JSON_BYTES = 256 * 1024;
 
 /** 레이아웃 프리셋 처리 결과. */
 export type LayoutPresetResult<T> =
@@ -49,6 +57,14 @@ export function createUserLayoutPresetData(
     };
   }
 
+  if (countTextCharacters(displayName) > MAX_LAYOUT_PRESET_NAME_LENGTH) {
+    return {
+      ok: false,
+      level: "warning",
+      message: `Layout preset name must be ${MAX_LAYOUT_PRESET_NAME_LENGTH} characters or fewer.`,
+    };
+  }
+
   const now = new Date().toISOString();
 
   return {
@@ -79,6 +95,12 @@ export function parseUserLayoutPresetJson(
 ): LayoutPresetResult<UserLayoutPresetData> {
   let parsed: unknown;
 
+  if (getUtf8ByteLength(jsonText) > MAX_LAYOUT_PRESET_JSON_BYTES) {
+    return invalidPreset(
+      `Layout preset JSON must be ${formatByteSize(MAX_LAYOUT_PRESET_JSON_BYTES)} or smaller.`,
+    );
+  }
+
   try {
     parsed = JSON.parse(jsonText);
   } catch (error: unknown) {
@@ -95,11 +117,33 @@ export function parseUserLayoutPresetJson(
 }
 
 /**
+ * 레이아웃 프리셋 데이터를 저장용 JSON 문자열로 직렬화하고 용량을 검증한다.
+ * - 인수 : preset : 저장할 레이아웃 프리셋 데이터
+ * - 반환값 : pretty-print된 JSON 문자열 또는 용량 오류
+ */
+export function serializeUserLayoutPresetData(
+  preset: UserLayoutPresetData,
+): LayoutPresetResult<string> {
+  const jsonText = `${JSON.stringify(preset, null, 2)}\n`;
+
+  if (getUtf8ByteLength(jsonText) > MAX_LAYOUT_PRESET_JSON_BYTES) {
+    return invalidPreset(
+      `Layout preset JSON must be ${formatByteSize(MAX_LAYOUT_PRESET_JSON_BYTES)} or smaller.`,
+    );
+  }
+
+  return {
+    ok: true,
+    value: jsonText,
+  };
+}
+
+/**
  * unknown 값을 UserLayoutPresetData로 사용할 수 있는지 확인한다.
  * - 인수 : value : 검증할 JSON 파싱 결과
  * - 반환값 : 검증된 프리셋 데이터 또는 오류 메시지
  */
-export function validateUserLayoutPresetData(
+function validateUserLayoutPresetData(
   value: unknown,
 ): LayoutPresetResult<UserLayoutPresetData> {
   if (!isRecord(value)) {
@@ -129,6 +173,10 @@ export function validateUserLayoutPresetData(
   const instrumentPresetId = String(value.instrumentPresetId);
   const createdAt = String(value.createdAt);
   const updatedAt = String(value.updatedAt);
+
+  if (countTextCharacters(layoutPresetDisplayName) > MAX_LAYOUT_PRESET_NAME_LENGTH) {
+    return invalidPreset(`Layout preset name must be ${MAX_LAYOUT_PRESET_NAME_LENGTH} characters or fewer.`);
+  }
 
   const instDataResult = validateInstrumentData(value.instData);
 
@@ -204,23 +252,6 @@ export function createLayoutPresetFileName(preset: UserLayoutPresetData): string
 }
 
 /**
- * 표시명 중복 여부를 검사한다.
- * - 인수 : displayName : 저장하려는 표시명
- * - 인수 : existingNames : 기존 표시명 목록
- * - 반환값 : 중복 여부
- */
-export function isDuplicateLayoutPresetDisplayName(
-  displayName: string,
-  existingNames: string[],
-): boolean {
-  const normalizedName = displayName.trim().toLocaleLowerCase();
-
-  return existingNames.some(
-    (name) => name.trim().toLocaleLowerCase() === normalizedName,
-  );
-}
-
-/**
  * 프리셋 ID를 생성한다.
  * - 인수 : isoText : 생성 기준 시각 ISO 문자열
  * - 반환값 : local/file 공통으로 사용할 프리셋 ID
@@ -249,6 +280,10 @@ function validateInstrumentData(value: unknown): LayoutPresetResult<InstrumentDa
 
   if (typeof value.instName !== "string" || value.instName.trim().length === 0) {
     return invalidPreset("Layout preset instData.instName is required.");
+  }
+
+  if (countTextCharacters(value.instName.trim()) > MAX_LAYOUT_PRESET_NAME_LENGTH) {
+    return invalidPreset(`Layout preset instData.instName must be ${MAX_LAYOUT_PRESET_NAME_LENGTH} characters or fewer.`);
   }
 
   if (typeof value.supportsOpen !== "boolean") {
@@ -481,6 +516,15 @@ function sanitizeFileNamePart(text: string): string {
     .replace(/[\\/:*?"<>|]/g, "_")
     .replace(/\s+/g, "_")
     .slice(0, 80);
+}
+
+/**
+ * 사용자 입력 문자열의 글자 수를 code point 기준으로 센다.
+ * - 인수 : text : 글자 수를 셀 문자열
+ * - 반환값 : code point 글자 수
+ */
+function countTextCharacters(text: string): number {
+  return Array.from(text).length;
 }
 
 /**

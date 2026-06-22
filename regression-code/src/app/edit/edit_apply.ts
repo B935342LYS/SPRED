@@ -8,6 +8,7 @@ import type {
   ScoreFile,
   TrackId,
 } from "../../core/score/types";
+import { MAX_CELL_RAW_TEXT_LENGTH } from "../../core/score/score_limits";
 
 /** edit 적용 대상 row 종류. */
 export type EditRowKind = "global" | "note" | "gap";
@@ -113,6 +114,16 @@ export function applyScoreCellRawTextBatch(
       isDelete: false,
       updated: 0,
     };
+  }
+
+  for (const edit of edits) {
+    if (edit.rawText.length > MAX_CELL_RAW_TEXT_LENGTH) {
+      return {
+        ok: false,
+        level: "warning",
+        message: `Cell rawText must be ${MAX_CELL_RAW_TEXT_LENGTH} characters or fewer.`,
+      };
+    }
   }
 
   const nextScore = cloneScoreFile(score);

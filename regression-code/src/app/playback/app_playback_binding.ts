@@ -89,7 +89,6 @@ export function bindPlaybackControls(
 
   const syncSeekFromUserScroll = (): void => {
     const state = session.getState();
-    const playbackRuntime = session.getPlaybackRuntime();
 
     if (
       suppressScrollSeek ||

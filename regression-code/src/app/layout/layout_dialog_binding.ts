@@ -33,12 +33,13 @@ import {
   createLayoutPresetFileName,
   createUserLayoutPresetData,
   parseUserLayoutPresetJson,
+  serializeUserLayoutPresetData,
 } from "./layout_preset";
 import { formatPitchName } from "../pitch_label";
 import { colorForLabelMidi } from "../../renderer/canvas_note_colors";
 import { syncLeftStatus } from "../app_ui_sync";
 import {
-  downloadJsonFile,
+  downloadTextFile,
   readTextFile,
 } from "../../infra/score_file_io";
 import {
@@ -56,6 +57,7 @@ export type LayoutDialogBindingSession = {
   getState(): AppState;
   setState(nextState: AppState): void;
   render(): void;
+  resetPlaybackForCurrentState(): void;
 };
 
 /** layout preview row drag 중 보관하는 pointer 기준값. */
@@ -101,7 +103,7 @@ function syncLayoutDialogFromDraft(
 
   for (const stringInfo of instData.strings) {
     dom.layoutStringSelect.appendChild(createStringOption(stringInfo));
-    dom.layoutStringList.appendChild(createStringSummaryRow(stringInfo, instData.supportsOpen));
+    dom.layoutStringList.appendChild(createStringSummaryRow(stringInfo));
   }
   bindLayoutStringPitchInputs(dom);
 
@@ -190,13 +192,9 @@ function createStringOption(stringInfo: InstrumentString): HTMLOptionElement {
 /**
  * layout dialog의 string 요약 row를 만든다.
  * - 인수 : stringInfo : ScoreFile.instData.strings의 단일 현 정보
- * - 인수 : supportsOpen : 악기 전체가 openMidi를 지원하는지 여부
  * - 반환값 : string 정보를 표시하는 row 요소
  */
-function createStringSummaryRow(
-  stringInfo: InstrumentString,
-  supportsOpen: boolean,
-): HTMLElement {
+function createStringSummaryRow(stringInfo: InstrumentString): HTMLElement {
   const row = document.createElement("div");
 
   row.className = "layout-table-row";
@@ -836,6 +834,7 @@ function applyLayoutDialogDraft(
   activeLayoutDraft = null;
   dom.layoutDialog.close();
   session.render();
+  session.resetPlaybackForCurrentState();
   syncLeftStatus(dom, session.getState());
 }
 
@@ -1048,6 +1047,7 @@ function applyLayoutToolbarDraft(
   }
 
   session.render();
+  session.resetPlaybackForCurrentState();
   syncLeftStatus(dom, session.getState());
   syncLayoutToolbarPresetSelectForCurrentScore(dom, session, selectedValue);
 }
@@ -1086,6 +1086,13 @@ function saveLayoutDraftToLocalPreset(
 
     if (!presetResult.ok) {
       setLayoutDialogNotice(dom, presetResult.message, presetResult.level);
+      return;
+    }
+
+    const jsonResult = serializeUserLayoutPresetData(presetResult.value);
+
+    if (!jsonResult.ok) {
+      setLayoutDialogNotice(dom, jsonResult.message, jsonResult.level);
       return;
     }
 
@@ -1162,7 +1169,18 @@ function saveLayoutDraftToPresetFile(
     return;
   }
 
-  downloadJsonFile(createLayoutPresetFileName(presetResult.value), presetResult.value);
+  const jsonResult = serializeUserLayoutPresetData(presetResult.value);
+
+  if (!jsonResult.ok) {
+    setLayoutDialogNotice(dom, jsonResult.message, jsonResult.level);
+    return;
+  }
+
+  downloadTextFile(
+    createLayoutPresetFileName(presetResult.value),
+    jsonResult.value,
+    "application/json;charset=utf-8",
+  );
   setLayoutDialogNotice(dom, `Downloaded layout preset: ${presetResult.value.layoutPresetDisplayName}.`);
 }
 

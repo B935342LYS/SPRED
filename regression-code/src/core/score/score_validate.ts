@@ -13,6 +13,7 @@ import type {
   ScoreFile,
   TrackId,
 } from "./types";
+import { MAX_CELL_RAW_TEXT_LENGTH } from "./score_limits";
 
 /**
  * ScoreFile 검증 실패를 구분하는 오류 코드.
@@ -35,6 +36,7 @@ export type ScoreValidationErrorCode =
   | "invalid_cell_row_type"
   | "invalid_global_row_type"
   | "col_out_of_range"
+  | "raw_text_out_of_range"
   | "missing_global_start_cell";
 
 /**
@@ -443,6 +445,11 @@ function validateGlobalCells(
       return colError;
     }
 
+    const rawTextError = validateCellRawText(cell, "globalLines.cells");
+    if (rawTextError) {
+      return rawTextError;
+    }
+
     // 같은 전역 행과 같은 열에는 하나의 전역 셀만 존재할 수 있다.
     const coordKey = `${cell.rowId}|${cell.col}`;
     if (coords.has(coordKey)) {
@@ -499,6 +506,11 @@ function validateTrackCells(
       );
       if (colError) {
         return colError;
+      }
+
+      const rawTextError = validateCellRawText(cell, `tracks.${track.trackId}.cells`);
+      if (rawTextError) {
+        return rawTextError;
       }
 
       // 좌표 중복은 트랙별로 검사한다. 서로 다른 트랙의 같은 좌표 입력은 허용된다.
@@ -577,6 +589,35 @@ function validateCellCol(
     return {
       code: "col_out_of_range",
       message: `Cell col out of range: ${cell.col}.`,
+      path,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 셀 rawText가 저장 가능한 문자열이며 길이 제한 안에 있는지 확인한다.
+ * - 인수 : cell : rawText를 가진 ScoreCell 또는 GlobalCell
+ * - 인수 : path : 오류가 발생한 ScoreFile 내부 위치
+ * - 반환값 : rawText 범위 오류 또는 null
+ */
+function validateCellRawText(
+  cell: ScoreCell | GlobalCell,
+  path: string,
+): ScoreValidationError | null {
+  if (typeof cell.rawText !== "string") {
+    return {
+      code: "raw_text_out_of_range",
+      message: "Cell rawText must be a string.",
+      path,
+    };
+  }
+
+  if (cell.rawText.length === 0 || cell.rawText.length > MAX_CELL_RAW_TEXT_LENGTH) {
+    return {
+      code: "raw_text_out_of_range",
+      message: `Cell rawText length must be 1..${MAX_CELL_RAW_TEXT_LENGTH}.`,
       path,
     };
   }

@@ -14,10 +14,12 @@ import {
   deleteLayoutDraftRow,
 } from "../src/app/layout/layout_draft";
 import {
+  MAX_LAYOUT_PRESET_JSON_BYTES,
   createLayoutDraftFromPreset,
   createLayoutPresetFileName,
   createUserLayoutPresetData,
   parseUserLayoutPresetJson,
+  serializeUserLayoutPresetData,
 } from "../src/app/layout/layout_preset";
 import {
   loadLayoutPresetSlotFromLocalStorage,
@@ -81,6 +83,14 @@ if (loadResult.ok) {
   const score = loadResult.document.score;
   const draft = createLayoutDraftBundle(score);
   const presetResult = createUserLayoutPresetData(draft, score.instData.presetId);
+  const longNamePresetResult = createUserLayoutPresetData(
+    {
+      ...draft,
+      layoutPresetDisplayName: "1234567890123456789012345678901",
+    },
+    score.instData.presetId,
+  );
+  const oversizedPresetResult = parseUserLayoutPresetJson(" ".repeat(MAX_LAYOUT_PRESET_JSON_BYTES + 1));
   const outOfRangeNoteAddResult = addLayoutDraftRow(draft, {
     rowType: "note",
     height: 7,
@@ -143,11 +153,21 @@ if (loadResult.ok) {
   }
 
   assert(presetResult.ok, "Layout preset data should be created from a valid draft.");
+  assert(
+    !longNamePresetResult.ok,
+    "Layout preset creation should reject names longer than 30 characters.",
+  );
+  assert(
+    !oversizedPresetResult.ok,
+    "Layout preset parser should reject JSON larger than the preset size limit.",
+  );
 
   if (presetResult.ok) {
     const presetJson = JSON.stringify(presetResult.value);
+    const serializedPresetResult = serializeUserLayoutPresetData(presetResult.value);
     const parsedPresetResult = parseUserLayoutPresetJson(presetJson);
 
+    assert(serializedPresetResult.ok, "Layout preset serialization should accept a normal preset.");
     assert(parsedPresetResult.ok, "Layout preset JSON should parse after serialization.");
 
     if (parsedPresetResult.ok) {

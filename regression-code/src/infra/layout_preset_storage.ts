@@ -3,8 +3,10 @@
  */
 
 import type { UserLayoutPresetData } from "../app/layout/layout_types";
-import { parseUserLayoutPresetJson } from "../app/layout/layout_preset";
-import { serializeJsonValue } from "./score_file_io";
+import {
+  parseUserLayoutPresetJson,
+  serializeUserLayoutPresetData,
+} from "../app/layout/layout_preset";
 
 /** 악기 프리셋별 로컬 레이아웃 프리셋 슬롯 수. */
 export const LOCAL_LAYOUT_PRESET_SLOT_COUNT = 3;
@@ -56,12 +58,19 @@ export function saveLayoutPresetSlotToLocalStorage(
   preset: UserLayoutPresetData,
   slotNumber: LocalLayoutPresetSlotNumber,
 ): LocalLayoutPresetSlot[] {
+  const normalizedPreset = {
+    ...preset,
+    layoutPresetId: createSlotLayoutPresetId(slotNumber),
+  };
+  const jsonResult = serializeUserLayoutPresetData(normalizedPreset);
+
+  if (!jsonResult.ok) {
+    throw new Error(jsonResult.message);
+  }
+
   localStorage.setItem(
     createLayoutPresetSlotKey(preset.instrumentPresetId, slotNumber),
-    serializeJsonValue({
-      ...preset,
-      layoutPresetId: createSlotLayoutPresetId(slotNumber),
-    }),
+    jsonResult.value,
   );
 
   return loadLayoutPresetSlotsFromLocalStorage(preset.instrumentPresetId);

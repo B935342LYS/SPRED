@@ -11,6 +11,11 @@ import {
   validateScoreFile,
   type ScoreValidationError,
 } from "./score_validate";
+import {
+  MAX_SCORE_JSON_BYTES,
+  formatByteSize,
+  getUtf8ByteLength,
+} from "./score_limits";
 
 /**
  * JSON 문자열 파싱 결과.
@@ -29,11 +34,12 @@ export type LoadScoreJsonResult =
 
 /**
  * json 파싱 단계에서 두 종류의 오류가 있을 수 있다.
+ * - json_too_large : JSON 문자열이 허용 용량을 초과함
  * - parse_error : JSON 작성 형식을 지키지 않아 발생하는 오류
  * - not_object : 파싱 결과가 올바른 객체가 아님
  */
 export type JsonLoadError = {
-  code: "parse_error" | "not_object";
+  code: "json_too_large" | "parse_error" | "not_object";
   message: string;
 };
 
@@ -59,6 +65,16 @@ export type LoadScoreFileResult =
  */
 export function loadScoreJson(jsonText: string): LoadScoreJsonResult {
   let parsed: unknown;
+
+  if (getUtf8ByteLength(jsonText) > MAX_SCORE_JSON_BYTES) {
+    return {
+      ok: false,
+      error: {
+        code: "json_too_large",
+        message: `Score JSON must be ${formatByteSize(MAX_SCORE_JSON_BYTES)} or smaller.`,
+      },
+    };
+  }
 
   // JSON.parse는 예외를 던지는 API이므로 loader 경계에서 결과 객체로 변환한다.
   try {

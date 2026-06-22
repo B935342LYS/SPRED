@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
+import { loadScoreFile } from "../src/core/score/json_load";
+import {
+  MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_SCORE_JSON_BYTES,
+} from "../src/core/score/score_limits";
 import { validateScoreFile } from "../src/core/score/score_validate";
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
@@ -59,6 +64,29 @@ if (missingExtraResult.ok) {
 } else if (missingExtraResult.error.code !== "missing_required_track") {
   console.error("Unexpected error for missing extra track.");
   console.error(missingExtraResult.error);
+  process.exitCode = 1;
+}
+
+const longTrackRawText = cloneJson(fixtureValue);
+longTrackRawText.tracks[0].cells[0].rawText = "x".repeat(MAX_CELL_RAW_TEXT_LENGTH + 1);
+
+const longTrackRawTextResult = validateScoreFile(longTrackRawText);
+if (longTrackRawTextResult.ok) {
+  console.error("Score validation failed to reject long track rawText.");
+  process.exitCode = 1;
+} else if (longTrackRawTextResult.error.code !== "raw_text_out_of_range") {
+  console.error("Unexpected error for long track rawText.");
+  console.error(longTrackRawTextResult.error);
+  process.exitCode = 1;
+}
+
+const oversizedJsonResult = loadScoreFile(" ".repeat(MAX_SCORE_JSON_BYTES + 1));
+if (oversizedJsonResult.ok) {
+  console.error("Score JSON loader failed to reject oversized JSON text.");
+  process.exitCode = 1;
+} else if (oversizedJsonResult.error.code !== "json_too_large") {
+  console.error("Unexpected error for oversized JSON text.");
+  console.error(oversizedJsonResult.error);
   process.exitCode = 1;
 }
 

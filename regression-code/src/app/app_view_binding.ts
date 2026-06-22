@@ -31,6 +31,11 @@ export type ViewBindingSession = {
   render(): void;
 };
 
+/** view control 전체 binding이 layout 적용 후 playback 재생성을 요청하기 위한 session 입력. */
+type ViewControlsBindingSession = ViewBindingSession & {
+  resetPlaybackForCurrentState(): void;
+};
+
 /**
  * 현재 score 높이에 맞춰 zoom을 갱신하고 상태 메시지를 반영한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
@@ -100,7 +105,7 @@ export function applyDetailsDialog(
  */
 export function bindViewControls(
   dom: AppDom,
-  session: ViewBindingSession,
+  session: ViewControlsBindingSession,
 ): void {
   syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
   bindLayoutDialogControls(dom, session);

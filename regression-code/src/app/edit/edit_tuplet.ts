@@ -3,6 +3,8 @@
  * 실제 slot 입력 UI는 후속 단계에서 이 모듈에 연결한다.
  */
 
+import { MAX_CELL_RAW_TEXT_LENGTH } from "../../core/score/score_limits";
+
 /**
  * tuplet slot 하나의 edit draft.
  * - 인수 : 없음
@@ -65,9 +67,18 @@ export function composeTupletRawText(draft: TupletEditDraft): TupletRawTextResul
     };
   }
 
+  const rawText = `/${draft.divNum}(${slots.join("|")})`;
+
+  if (rawText.length > MAX_CELL_RAW_TEXT_LENGTH) {
+    return {
+      kind: "notReady",
+      message: `Tuplet rawText must be ${MAX_CELL_RAW_TEXT_LENGTH} characters or fewer.`,
+    };
+  }
+
   // slot 내부 문법은 note parser가 최종 검증하므로 여기서는 tuplet head wrapper만 합성한다.
   return {
     kind: "rawText",
-    rawText: `/${draft.divNum}(${slots.join("|")})`,
+    rawText,
   };
 }
