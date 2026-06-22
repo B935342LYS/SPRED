@@ -79,6 +79,8 @@ export type AudioGlissScheduleEvent = AudioScheduleEventBase & {
   endCentOffset: number;
   curve: "linear";
   crossfadeSeconds: number;
+  startOverlapSeconds: number;
+  endOverlapSeconds: number;
   effects: AudioScheduleEffect[];
 };
 
@@ -114,6 +116,14 @@ export type AudioAutomationEvent =
     }
   | {
       kind: "gainRamp";
+      startSeconds: number;
+      endSeconds: number;
+      startValue: number;
+      endValue: number;
+      curve: "instant" | "linear";
+    }
+  | {
+      kind: "gainScale";
       startSeconds: number;
       endSeconds: number;
       startValue: number;

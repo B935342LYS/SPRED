@@ -25,6 +25,7 @@ type ActiveOscillatorNode = {
   gain: GainNode;
   tremoloGain: GainNode | null;
   dynamicsGain: GainNode;
+  scaleGain: GainNode;
   auxiliaryNodes: AudioNode[];
   auxiliaryOscillators: OscillatorNode[];
 };
@@ -103,6 +104,7 @@ export function createOscillatorBackend(
         try {
           activeNode.gain.gain.cancelScheduledValues(0);
           activeNode.dynamicsGain.gain.cancelScheduledValues(0);
+          activeNode.scaleGain.gain.cancelScheduledValues(0);
           activeNode.gain.gain.setValueAtTime(SILENT_GAIN, audioContext?.currentTime ?? 0);
           activeNode.oscillator.stop();
           for (const oscillator of activeNode.auxiliaryOscillators) {
@@ -149,6 +151,7 @@ export function createOscillatorBackend(
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const dynamicsGain = audioContext.createGain();
+    const scaleGain = audioContext.createGain();
     const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
     const tremoloGain = hasTremolo ? audioContext.createGain() : null;
     const activeNode: ActiveOscillatorNode = {
@@ -156,6 +159,7 @@ export function createOscillatorBackend(
       gain,
       tremoloGain,
       dynamicsGain,
+      scaleGain,
       auxiliaryNodes: [],
       auxiliaryOscillators: [],
     };
@@ -169,6 +173,7 @@ export function createOscillatorBackend(
     applyVibratoEffects(audioContext, event, oscillator, startTime, endTime, activeNode);
     applyTremoloEffects(event, tremoloGain, startTime, endTime);
     applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
+    applyGainScaleAutomation(event, scaleGain, startTime, endTime);
 
     // 기본 note envelope는 tremolo gate와 분리해 note 전체 attack/release만 담당한다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
@@ -189,7 +194,8 @@ export function createOscillatorBackend(
       oscillator.connect(dynamicsGain);
     }
 
-    dynamicsGain.connect(gain);
+    dynamicsGain.connect(scaleGain);
+    scaleGain.connect(gain);
     gain.connect(getMasterGain());
     activeNodes.add(activeNode);
     oscillator.addEventListener("ended", () => {
@@ -210,17 +216,34 @@ export function createOscillatorBackend(
     offsetSeconds: number,
   ): void {
     const audioContext = getOrCreateAudioContext();
-    const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
+    const eventStartTime = audioContext.currentTime + Math.max(0, offsetSeconds);
     const durationSeconds = event.endSeconds - event.startSeconds;
 
     if (durationSeconds <= 0) {
       return;
     }
 
-    const endTime = startTime + durationSeconds;
+    const eventEndTime = eventStartTime + durationSeconds;
+    const startOverlapSeconds = Math.min(
+      Math.max(0, event.startOverlapSeconds),
+      durationSeconds / 2,
+      Math.max(0, offsetSeconds),
+    );
+    const endOverlapSeconds = Math.min(
+      Math.max(0, event.endOverlapSeconds),
+      durationSeconds / 2,
+    );
+    const startFadeSeconds = Math.min(
+      Math.max(0, event.crossfadeSeconds),
+      durationSeconds / 2,
+    );
+    const endFadeSeconds = startFadeSeconds;
+    const startTime = eventStartTime - startOverlapSeconds;
+    const endTime = eventEndTime + endOverlapSeconds;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const dynamicsGain = audioContext.createGain();
+    const scaleGain = audioContext.createGain();
     const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
     const tremoloGain = hasTremolo ? audioContext.createGain() : null;
     const activeNode: ActiveOscillatorNode = {
@@ -228,37 +251,55 @@ export function createOscillatorBackend(
       gain,
       tremoloGain,
       dynamicsGain,
+      scaleGain,
       auxiliaryNodes: [],
       auxiliaryOscillators: [],
     };
-    const crossfadeSeconds = Math.min(
-      Math.max(0, event.crossfadeSeconds),
-      durationSeconds / 2,
-    );
-
     oscillator.type = waveType;
     oscillator.frequency.setValueAtTime(
       midiToFrequency(event.startMidi, event.startCentOffset),
       startTime,
     );
+    oscillator.frequency.setValueAtTime(
+      midiToFrequency(event.startMidi, event.startCentOffset),
+      eventStartTime,
+    );
     oscillator.frequency.linearRampToValueAtTime(
+      midiToFrequency(event.endMidi, event.endCentOffset),
+      eventEndTime,
+    );
+    oscillator.frequency.setValueAtTime(
       midiToFrequency(event.endMidi, event.endCentOffset),
       endTime,
     );
-    applyTremoloEffects(event, tremoloGain, startTime, endTime);
-    applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
+    applyTremoloEffects(event, tremoloGain, eventStartTime, eventEndTime);
+    applyDynamicsAutomation(event, dynamicsGain, eventStartTime, eventEndTime);
+    applyGainScaleAutomation(event, scaleGain, eventStartTime, eventEndTime);
 
-    // fallback gliss는 독립 oscillator를 짧게 fade in/out해 note 경계의 끊김을 완화한다.
+    // 연결된 gliss 내부 anchor에서는 anchor 중심 constant-sum crossfade로 볼륨 튐을 줄인다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
-    gain.gain.linearRampToValueAtTime(
-      masterVolume * event.velocity,
-      startTime + crossfadeSeconds,
-    );
-    gain.gain.setValueAtTime(
-      masterVolume * event.velocity,
-      Math.max(startTime + crossfadeSeconds, endTime - crossfadeSeconds),
-    );
-    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
+    if (startOverlapSeconds > 0) {
+      const fadeInEndTime = eventStartTime + startOverlapSeconds;
+
+      gain.gain.linearRampToValueAtTime(masterVolume * event.velocity, fadeInEndTime);
+    } else {
+      gain.gain.linearRampToValueAtTime(
+        masterVolume * event.velocity,
+        eventStartTime + startFadeSeconds,
+      );
+    }
+    if (endOverlapSeconds > 0) {
+      const fadeOutStartTime = Math.max(startTime, eventEndTime - endOverlapSeconds);
+
+      gain.gain.setValueAtTime(masterVolume * event.velocity, fadeOutStartTime);
+      gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
+    } else {
+      gain.gain.setValueAtTime(
+        masterVolume * event.velocity,
+        Math.max(eventStartTime + startFadeSeconds, eventEndTime - endFadeSeconds),
+      );
+      gain.gain.linearRampToValueAtTime(SILENT_GAIN, eventEndTime);
+    }
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
@@ -266,7 +307,8 @@ export function createOscillatorBackend(
     } else {
       oscillator.connect(dynamicsGain);
     }
-    dynamicsGain.connect(gain);
+    dynamicsGain.connect(scaleGain);
+    scaleGain.connect(gain);
     gain.connect(getMasterGain());
     activeNodes.add(activeNode);
     oscillator.addEventListener("ended", () => {
@@ -331,6 +373,12 @@ export function createOscillatorBackend(
 
     try {
       activeNode.dynamicsGain.disconnect();
+    } catch {
+      // 이미 disconnect된 node는 추가 처리가 필요 없다.
+    }
+
+    try {
+      activeNode.scaleGain.disconnect();
     } catch {
       // 이미 disconnect된 node는 추가 처리가 필요 없다.
     }
@@ -458,6 +506,53 @@ function applyDynamicsAutomation(
       dynamicsGain.gain.linearRampToValueAtTime(endValue, automationRange.endTime);
     } else {
       dynamicsGain.gain.setValueAtTime(startValue, automationRange.endTime);
+    }
+  }
+}
+
+/**
+ * 실제 동시 발음 수 기준 gain scale automation을 별도 gain node에 예약한다.
+ * - 인수 : event : 예약 대상 note 또는 gliss event
+ * - 인수 : scaleGain : 동시 발음 정규화 전용 GainNode
+ * - 인수 : startTime : event 시작 audio time
+ * - 인수 : endTime : event 종료 audio time
+ * - 반환값 : 없음
+ */
+function applyGainScaleAutomation(
+  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  scaleGain: GainNode,
+  startTime: number,
+  endTime: number,
+): void {
+  scaleGain.gain.setValueAtTime(1, startTime);
+
+  const scaleAutomations = event.automation
+    .filter((automation): automation is Extract<AudioAutomationEvent, { kind: "gainScale" }> =>
+      automation.kind === "gainScale",
+    )
+    .sort((left, right) => left.startSeconds - right.startSeconds);
+
+  for (const automation of scaleAutomations) {
+    const automationRange = clampAutomationTimeRange(
+      automation,
+      event,
+      startTime,
+      endTime,
+    );
+
+    if (automationRange === null) {
+      continue;
+    }
+
+    const startValue = clampGainScale(automation.startValue);
+    const endValue = clampGainScale(automation.endValue);
+
+    scaleGain.gain.setValueAtTime(startValue, automationRange.startTime);
+
+    if (automation.curve === "linear") {
+      scaleGain.gain.linearRampToValueAtTime(endValue, automationRange.endTime);
+    } else {
+      scaleGain.gain.setValueAtTime(startValue, automationRange.endTime);
     }
   }
 }
@@ -663,6 +758,19 @@ function clampDynamicsGain(value: number): number {
   }
 
   return Math.min(Math.max(value, 0), 1.5);
+}
+
+/**
+ * 동시 발음 수 기준 gain scale 값을 허용 범위로 제한한다.
+ * - 인수 : value : schedule builder에서 계산한 gain scale
+ * - 반환값 : 0 이상 1 이하 gain scale
+ */
+function clampGainScale(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(Math.max(value, 0), 1);
 }
 
 /**

@@ -279,6 +279,42 @@ const effectGlissEvent: GlissEvent = {
   startAttach: "attack",
   endAttach: "release",
 };
+const connectedEffectGlissEvent: GlissEvent = {
+  eventKind: "gliss",
+  eventId: "basic:gliss:a:s1-note-64:3:s1-note-67:4",
+  trackId: "basic",
+  time: {
+    startTick: numberToTimeFraction(3),
+    endTick: numberToTimeFraction(4),
+  },
+  sourceCells: [
+    { rowId: "s1-note-64", col: 3 },
+    { rowId: "s1-note-67", col: 4 },
+  ],
+  startDisplay: {
+    rowId: "s1-note-64",
+    centOffset: 0,
+  },
+  endDisplay: {
+    rowId: "s1-note-67",
+    centOffset: 0,
+  },
+  startSound: {
+    midi: 64,
+    centOffset: 0,
+  },
+  endSound: {
+    midi: 67,
+    centOffset: 0,
+  },
+  glissId: "a",
+  startAnchorTick: numberToTimeFraction(3),
+  endAnchorTick: numberToTimeFraction(4),
+  fromKind: "mid",
+  toKind: "end",
+  startAttach: "attack",
+  endAttach: "release",
+};
 const effectAnalysis: AnalysisResult = {
   timingTimeline: [
     {
@@ -301,7 +337,7 @@ const effectAnalysis: AnalysisResult = {
   trackResults: [
     {
       trackId: "basic",
-      events: [effectNoteEvent, effectGlissEvent],
+      events: [effectNoteEvent, effectGlissEvent, connectedEffectGlissEvent],
     },
   ],
   analysisIssues: [],
@@ -357,8 +393,12 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
 const glissScheduleEvent = effectSchedule.events.find(
   (event) => event.sourceEventKind === "gliss",
 );
+const glissScheduleEvents = effectSchedule.events.filter(
+  (event) => event.sourceEventKind === "gliss",
+);
 
 assert(glissScheduleEvent !== undefined, "Schedule should include the synthetic gliss fallback.");
+assert(glissScheduleEvents.length === 2, "Schedule should include connected gliss fallback segments.");
 
 if (glissScheduleEvent?.sourceEventKind === "gliss") {
   const tremolo = glissScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
@@ -371,6 +411,8 @@ if (glissScheduleEvent?.sourceEventKind === "gliss") {
   assert(glissScheduleEvent.startMidi === 60, "Gliss should keep start MIDI.");
   assert(glissScheduleEvent.endMidi === 64, "Gliss should keep end MIDI.");
   assertNear(glissScheduleEvent.crossfadeSeconds, 0.02, "Gliss should use default crossfade.");
+  assertNear(glissScheduleEvent.startOverlapSeconds, 0, "First connected gliss should not pre-roll at its outer start.");
+  assertNear(glissScheduleEvent.endOverlapSeconds, 0.05, "First connected gliss should overlap after its internal end.");
   assert(tremolo !== undefined, "Gliss should inherit tremolo from its start anchor.");
   assert(dynamicsAutomation.length === 2, "Gliss should split dynamics automation by timeline segments.");
 
@@ -395,6 +437,85 @@ if (glissScheduleEvent?.sourceEventKind === "gliss") {
     assertNear(dynamicsAutomation[1].endValue, 0.8, "Instant dynamics should keep the same gain.");
   }
 }
+
+const connectedGlissScheduleEvent = glissScheduleEvents.find(
+  (event) => event.eventId === connectedEffectGlissEvent.eventId,
+);
+
+assert(
+  connectedGlissScheduleEvent?.sourceEventKind === "gliss",
+  "Schedule should keep the second connected gliss segment.",
+);
+
+if (connectedGlissScheduleEvent?.sourceEventKind === "gliss") {
+  assertNear(
+    connectedGlissScheduleEvent.startOverlapSeconds,
+    0.05,
+    "Second connected gliss should pre-roll before its internal start.",
+  );
+  assertNear(
+    connectedGlissScheduleEvent.endOverlapSeconds,
+    0,
+    "Second connected gliss should not overlap after its outer end.",
+  );
+}
+
+const overlapNoteEvent: NoteEvent = {
+  ...effectNoteEvent,
+  eventId: "basic:note:s1-note-60:8",
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(2),
+  },
+  sourceCells: [{ rowId: "s1-note-60", col: 8 }],
+  effects: [],
+  glissAnchors: [],
+};
+const overlapOptionalNoteEvent: NoteEvent = {
+  ...overlapNoteEvent,
+  eventId: "optional:note:s1-note-64:8",
+  trackId: "optional",
+  sourceCells: [{ rowId: "s1-note-64", col: 8 }],
+  sound: {
+    midi: 64,
+    centOffset: 0,
+  },
+};
+const overlapSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 4, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [overlapNoteEvent],
+      },
+      {
+        trackId: "optional",
+        events: [overlapOptionalNoteEvent],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic", "optional"],
+});
+const overlapScaleAutomations = overlapSchedule.events.flatMap((event) =>
+  event.automation.filter((automation) => automation.kind === "gainScale"),
+);
+
+assert(overlapSchedule.events.length === 2, "Overlap schedule should include both active track notes.");
+assert(
+  overlapScaleAutomations.length === 2,
+  "Each overlapping event should receive gainScale automation.",
+);
+assert(
+  overlapScaleAutomations.every((automation) =>
+    automation.startValue === 0.5 && automation.endValue === 0.5,
+  ),
+  "Two simultaneous events should each scale to half gain.",
+);
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
@@ -472,6 +593,32 @@ if (loadResult.ok) {
   scheduledEvents.length = 0;
 
   assert(
+    scheduler.scheduleLookahead(0.25, { enabled: false }) === 1,
+    "Scheduler should resume an already-started event when playback begins inside it.",
+  );
+  assertNear(
+    scheduledEvents[0]?.offsetSeconds ?? -1,
+    0,
+    "Resumed overlapping event should start immediately.",
+  );
+  assertNear(
+    scheduledEvents[0]?.event.startSeconds ?? -1,
+    0.25,
+    "Resumed overlapping event should be clipped to the playback start time.",
+  );
+  assert(
+    scheduledEvents[0]?.event.eventId.endsWith(":resume") ?? false,
+    "Resumed overlapping event should receive a resume event id.",
+  );
+  assert(
+    scheduler.scheduleLookahead(0.3, { enabled: false }) === 0,
+    "Scheduler should not repeatedly resume the same overlapping event.",
+  );
+
+  scheduler.resetScheduledEvents();
+  scheduledEvents.length = 0;
+
+  assert(
     scheduler.scheduleLookahead(
       0.55,
       {
@@ -480,10 +627,13 @@ if (loadResult.ok) {
         endSeconds: 0.6,
       },
       0,
-    ) === 1,
+    ) >= 1,
     "Loop wrap lookahead should schedule the first event of the next cycle.",
   );
-  assertNear(scheduledEvents[0]?.offsetSeconds ?? -1, 0.05, "Wrapped event should be scheduled after loop end.");
+  assert(
+    scheduledEvents.some((scheduledEvent) => Math.abs(scheduledEvent.offsetSeconds - 0.05) <= 1e-9),
+    "Wrapped event should be scheduled after loop end.",
+  );
   assert(
     scheduler.scheduleLookahead(
       0,

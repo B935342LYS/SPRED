@@ -4,9 +4,12 @@
  */
 
 import type {
+  AudioAutomationEvent,
   AudioBackend,
   AudioEventQueue,
+  AudioGlissScheduleEvent,
   AudioLookaheadScheduler,
+  AudioNoteScheduleEvent,
   AudioScheduleEvent,
   PlaybackLoopState,
 } from "./audio_types";
@@ -54,6 +57,35 @@ export function createAudioLookaheadScheduler(
 
       // lookahead window를 순회하며 아직 예약하지 않은 event만 backend에 넘긴다.
       for (const window of windows) {
+        const overlappingEvents = input.queue.getEventsOverlappingRange(
+          window.queryStartSeconds,
+          window.queryStartSeconds,
+        );
+        for (const event of overlappingEvents) {
+          const originalScheduledKey = createScheduledEventKey(
+            event,
+            loopCycleIndex + window.cycleOffset,
+          );
+          const scheduledKey = createResumedEventKey(
+            event,
+            loopCycleIndex + window.cycleOffset,
+          );
+
+          if (scheduledKeys.has(originalScheduledKey) || scheduledKeys.has(scheduledKey)) {
+            continue;
+          }
+
+          const resumedEvent = createResumedScheduleEvent(event, window.queryStartSeconds);
+
+          if (resumedEvent === null) {
+            continue;
+          }
+
+          input.backend.scheduleEvent(resumedEvent, window.offsetBaseSeconds + window.queryStartSeconds);
+          scheduledKeys.add(scheduledKey);
+          scheduledCount += 1;
+        }
+
         const events = input.queue.getEventsStartingInRange(
           window.queryStartSeconds,
           window.queryEndSeconds,
@@ -162,6 +194,177 @@ function createScheduledEventKey(
   loopCycleIndex: number,
 ): string {
   return `${loopCycleIndex}|${event.eventId}`;
+}
+
+/**
+ * 중간 재개용 event의 scheduler 중복 예약 방지 key를 만든다.
+ * - 인수 : event : 원본 schedule event
+ * - 인수 : loopCycleIndex : playback controller가 관리하는 loop 반복 번호
+ * - 반환값 : scheduler 내부 key
+ */
+function createResumedEventKey(
+  event: AudioScheduleEvent,
+  loopCycleIndex: number,
+): string {
+  return `${loopCycleIndex}|resume|${event.eventId}`;
+}
+
+/**
+ * 이미 진행 중인 event를 현재 score time부터 재생할 수 있는 event로 잘라낸다.
+ * - 인수 : event : 원본 schedule event
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 반환값 : 중간 진입용 schedule event 또는 유효하지 않으면 null
+ */
+function createResumedScheduleEvent(
+  event: AudioScheduleEvent,
+  resumeSeconds: number,
+): AudioScheduleEvent | null {
+  if (resumeSeconds <= event.startSeconds || resumeSeconds >= event.endSeconds) {
+    return null;
+  }
+
+  const clippedAutomation = clipAutomationForResume(event.automation, resumeSeconds);
+
+  if (event.sourceEventKind === "note") {
+    return createResumedNoteEvent(event, resumeSeconds, clippedAutomation);
+  }
+
+  return createResumedGlissEvent(event, resumeSeconds, clippedAutomation);
+}
+
+/**
+ * 진행 중인 note event를 현재 score time부터 울리는 event로 변환한다.
+ * - 인수 : event : 원본 note schedule event
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 인수 : automation : 재개 지점 기준으로 잘라낸 automation
+ * - 반환값 : 중간 진입용 note event
+ */
+function createResumedNoteEvent(
+  event: AudioNoteScheduleEvent,
+  resumeSeconds: number,
+  automation: AudioAutomationEvent[],
+): AudioNoteScheduleEvent {
+  return {
+    ...event,
+    eventId: `${event.eventId}:resume`,
+    startSeconds: resumeSeconds,
+    automation,
+    effects: event.effects.filter((effect) => effect.endSeconds > resumeSeconds),
+  };
+}
+
+/**
+ * 진행 중인 gliss event를 현재 score time의 보간 pitch부터 울리는 event로 변환한다.
+ * - 인수 : event : 원본 gliss schedule event
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 인수 : automation : 재개 지점 기준으로 잘라낸 automation
+ * - 반환값 : 중간 진입용 gliss event
+ */
+function createResumedGlissEvent(
+  event: AudioGlissScheduleEvent,
+  resumeSeconds: number,
+  automation: AudioAutomationEvent[],
+): AudioGlissScheduleEvent {
+  const startPitch = event.startMidi + event.startCentOffset / 100;
+  const endPitch = event.endMidi + event.endCentOffset / 100;
+  const ratio = (resumeSeconds - event.startSeconds) / (event.endSeconds - event.startSeconds);
+  const resumedPitch = startPitch + (endPitch - startPitch) * Math.min(Math.max(ratio, 0), 1);
+  const resumedMidi = Math.round(resumedPitch);
+  const resumedCentOffset = (resumedPitch - resumedMidi) * 100;
+
+  return {
+    ...event,
+    eventId: `${event.eventId}:resume`,
+    startSeconds: resumeSeconds,
+    startMidi: resumedMidi,
+    startCentOffset: resumedCentOffset,
+    startOverlapSeconds: 0,
+    automation,
+    effects: event.effects.filter((effect) => effect.endSeconds > resumeSeconds),
+  };
+}
+
+/**
+ * automation을 재개 지점부터 시작하도록 잘라내고 선형 automation은 시작값을 보간한다.
+ * - 인수 : automations : 원본 automation 목록
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 반환값 : 재개 지점 이후에 유효한 automation 목록
+ */
+function clipAutomationForResume(
+  automations: AudioAutomationEvent[],
+  resumeSeconds: number,
+): AudioAutomationEvent[] {
+  return automations
+    .filter((automation) => automation.endSeconds > resumeSeconds)
+    .map((automation) => {
+      if (automation.startSeconds >= resumeSeconds) {
+        return { ...automation };
+      }
+
+      if (automation.kind === "pitchRamp") {
+        return clipPitchRampAutomationForResume(automation, resumeSeconds);
+      }
+
+      return {
+        ...automation,
+        startSeconds: resumeSeconds,
+        startValue: interpolateAutomationValue(automation, resumeSeconds),
+      };
+    });
+}
+
+/**
+ * pitchRamp automation을 재개 지점의 보간 pitch부터 시작하도록 잘라낸다.
+ * - 인수 : automation : pitchRamp automation
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 반환값 : 재개 지점 기준 pitchRamp automation
+ */
+function clipPitchRampAutomationForResume(
+  automation: Extract<AudioAutomationEvent, { kind: "pitchRamp" }>,
+  resumeSeconds: number,
+): Extract<AudioAutomationEvent, { kind: "pitchRamp" }> {
+  const startPitch = automation.startMidi + automation.startCentOffset / 100;
+  const endPitch = automation.endMidi + automation.endCentOffset / 100;
+  const ratio = (resumeSeconds - automation.startSeconds) /
+    (automation.endSeconds - automation.startSeconds);
+  const resumedPitch = startPitch + (endPitch - startPitch) * Math.min(Math.max(ratio, 0), 1);
+  const resumedMidi = Math.round(resumedPitch);
+  const resumedCentOffset = (resumedPitch - resumedMidi) * 100;
+
+  return {
+    ...automation,
+    startSeconds: resumeSeconds,
+    startMidi: resumedMidi,
+    startCentOffset: resumedCentOffset,
+  };
+}
+
+/**
+ * automation 구간 안의 특정 score time에서 gain 값을 보간한다.
+ * - 인수 : automation : gain automation
+ * - 인수 : seconds : 값을 구할 score time
+ * - 반환값 : 보간된 gain 값
+ */
+function interpolateAutomationValue(
+  automation: Exclude<AudioAutomationEvent, { kind: "pitchRamp" }>,
+  seconds: number,
+): number {
+  if (
+    automation.curve === "instant" ||
+    automation.endSeconds <= automation.startSeconds ||
+    seconds <= automation.startSeconds
+  ) {
+    return automation.startValue;
+  }
+
+  if (seconds >= automation.endSeconds) {
+    return automation.endValue;
+  }
+
+  const ratio = (seconds - automation.startSeconds) /
+    (automation.endSeconds - automation.startSeconds);
+
+  return automation.startValue + (automation.endValue - automation.startValue) * ratio;
 }
 
 /**

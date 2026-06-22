@@ -13,6 +13,7 @@ import type {
   SourceCellRef,
 } from "../core/analyze/types";
 import type {
+  AudioAutomationEvent,
   AudioBuildInput,
   AudioGlissScheduleEvent,
   AudioNoteScheduleEvent,
@@ -34,7 +35,24 @@ import {
 
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
+const DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS = 0.05;
 const DEFAULT_DYNAMICS_GAIN = 1;
+
+type GlissOverlapInfo = {
+  startOverlapSeconds: number;
+  endOverlapSeconds: number;
+};
+
+type GainScaleSpan = {
+  startSeconds: number;
+  endSeconds: number;
+  gainScale: number;
+};
+
+type SweepPoint = {
+  seconds: number;
+  delta: 1 | -1;
+};
 
 /**
  * analyzer 결과에서 audio schedule을 만든다.
@@ -68,6 +86,7 @@ export function buildAudioScheduleWithMapper(
       noteEvents,
       glissEvents,
     );
+    const glissOverlapInfoByEvent = buildConnectedGlissOverlapInfoMap(glissEvents);
 
     // 선택된 track의 note와 gliss fallback 발음 이벤트를 audio schedule event로 변환한다.
     for (const event of trackResult.events) {
@@ -90,6 +109,7 @@ export function buildAudioScheduleWithMapper(
           event,
           mapper,
           noteEvents,
+          glissOverlapInfoByEvent.get(event) ?? null,
           analysis.dynamicsTimeline,
         );
 
@@ -102,8 +122,256 @@ export function buildAudioScheduleWithMapper(
 
   return {
     durationSeconds: mapper.getDurationSeconds(),
-    events: events.sort(compareAudioScheduleEvents),
+    events: applyOverlapGainScaleAutomation(events.sort(compareAudioScheduleEvents)),
   };
+}
+
+/**
+ * 실제로 동시에 울리는 schedule event 수를 기준으로 event별 gain scale automation을 추가한다.
+ * - 인수 : events : 초 단위로 변환된 발음 이벤트 목록
+ * - 반환값 : gainScale automation이 추가된 발음 이벤트 목록
+ */
+function applyOverlapGainScaleAutomation(
+  events: AudioScheduleEvent[],
+): AudioScheduleEvent[] {
+  const gainScaleSpans = buildGainScaleSpans(events);
+
+  return events.map((event) => {
+    const gainScaleAutomation = buildGainScaleAutomationForEvent(event, gainScaleSpans);
+
+    return {
+      ...event,
+      automation: [
+        ...event.automation,
+        ...gainScaleAutomation,
+      ],
+    };
+  });
+}
+
+/**
+ * sweep-line으로 전체 score 시간의 동시 발음 수 span을 만든다.
+ * - 인수 : events : 전체 발음 event 목록
+ * - 반환값 : gainScaleSpan[] : 인접 event 경계 사이의 gainScale 목록
+ */
+function buildGainScaleSpans(
+  events: AudioScheduleEvent[],
+): GainScaleSpan[] {
+  const points: SweepPoint[] = events.flatMap((event) => [
+    { seconds: event.startSeconds, delta: 1 as const },
+    { seconds: event.endSeconds, delta: -1 as const },
+  ])
+    .filter((point) => Number.isFinite(point.seconds))
+    .sort(compareSweepPoints);
+  const spans: GainScaleSpan[] = [];
+  let activeCount = 0;
+  let index = 0;
+
+  while (index < points.length) {
+    const currentSeconds = points[index]?.seconds;
+
+    if (currentSeconds === undefined) {
+      break;
+    }
+
+    // 같은 시각의 end/start delta를 모두 반영한 activeCount가 다음 span의 동시 발음 수이다.
+    let nextIndex = index;
+    while (nextIndex < points.length && points[nextIndex]?.seconds === currentSeconds) {
+      activeCount += points[nextIndex]?.delta ?? 0;
+      nextIndex += 1;
+    }
+
+    const nextSeconds = points[nextIndex]?.seconds;
+
+    if (nextSeconds !== undefined && nextSeconds > currentSeconds && activeCount > 0) {
+      spans.push({
+        startSeconds: currentSeconds,
+        endSeconds: nextSeconds,
+        gainScale: 1 / activeCount,
+      });
+    }
+
+    index = nextIndex;
+  }
+
+  return mergeAdjacentGainScaleSpans(spans);
+}
+
+/**
+ * sweep point를 시간순으로 정렬한다. 같은 시간에서는 end를 start보다 먼저 처리한다.
+ * - 인수 : left : 왼쪽 sweep point
+ * - 인수 : right : 오른쪽 sweep point
+ * - 반환값 : 정렬 비교값
+ */
+function compareSweepPoints(left: SweepPoint, right: SweepPoint): number {
+  if (left.seconds !== right.seconds) {
+    return left.seconds - right.seconds;
+  }
+
+  return left.delta - right.delta;
+}
+
+/**
+ * 같은 scale이 이어지는 span을 병합한다.
+ * - 인수 : spans : sweep-line으로 만든 gainScale span 목록
+ * - 반환값 : 인접 동일 scale span을 병합한 목록
+ */
+function mergeAdjacentGainScaleSpans(spans: GainScaleSpan[]): GainScaleSpan[] {
+  const merged: GainScaleSpan[] = [];
+
+  for (const span of spans) {
+    const previous = merged[merged.length - 1];
+
+    if (
+      previous !== undefined &&
+      previous.gainScale === span.gainScale &&
+      previous.endSeconds === span.startSeconds
+    ) {
+      previous.endSeconds = span.endSeconds;
+      continue;
+    }
+
+    merged.push({ ...span });
+  }
+
+  return merged;
+}
+
+/**
+ * 단일 event와 겹치는 gainScale span을 automation으로 변환한다.
+ * - 인수 : event : gain scale을 적용할 event
+ * - 인수 : gainScaleSpans : sweep-line으로 만든 전체 gainScale span 목록
+ * - 반환값 : gainScale automation 목록
+ */
+function buildGainScaleAutomationForEvent(
+  event: AudioScheduleEvent,
+  gainScaleSpans: GainScaleSpan[],
+): AudioAutomationEvent[] {
+  const automation: AudioAutomationEvent[] = [];
+
+  for (const span of gainScaleSpans) {
+    if (span.endSeconds <= event.startSeconds) {
+      continue;
+    }
+
+    if (span.startSeconds >= event.endSeconds) {
+      break;
+    }
+
+    const startSeconds = Math.max(event.startSeconds, span.startSeconds);
+    const endSeconds = Math.min(event.endSeconds, span.endSeconds);
+
+    if (endSeconds <= startSeconds) {
+      continue;
+    }
+
+    automation.push({
+      kind: "gainScale",
+      startSeconds,
+      endSeconds,
+      startValue: span.gainScale,
+      endValue: span.gainScale,
+      curve: "instant",
+    });
+  }
+
+  return mergeAdjacentConstantGainScaleAutomation(automation);
+}
+
+/**
+ * 같은 값이 연속되는 gainScale automation을 하나로 합쳐 backend 예약량을 줄인다.
+ * - 인수 : automation : gainScale automation 목록
+ * - 반환값 : 인접 동일 scale 구간을 병합한 목록
+ */
+function mergeAdjacentConstantGainScaleAutomation(
+  automation: AudioAutomationEvent[],
+): AudioAutomationEvent[] {
+  const merged: AudioAutomationEvent[] = [];
+
+  for (const item of automation) {
+    const previous = merged[merged.length - 1];
+
+    if (
+      previous?.kind === "gainScale" &&
+      item.kind === "gainScale" &&
+      previous.endValue === item.startValue &&
+      previous.endValue === item.endValue &&
+      previous.endSeconds === item.startSeconds
+    ) {
+      previous.endSeconds = item.endSeconds;
+      continue;
+    }
+
+    merged.push({ ...item });
+  }
+
+  return merged;
+}
+
+/**
+ * 연결된 gliss 세그먼트의 내부 anchor에서 양쪽 oscillator가 짧게 겹치도록 overlap 정보를 만든다.
+ * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 반환값 : Map<GlissEvent, GlissOverlapInfo> : 세그먼트별 시작/종료 overlap 설정
+ */
+function buildConnectedGlissOverlapInfoMap(
+  glissEvents: GlissEvent[],
+): Map<GlissEvent, GlissOverlapInfo> {
+  const overlapInfoByEvent = new Map<GlissEvent, GlissOverlapInfo>();
+  const sortedEvents = [...glissEvents].sort((left, right) =>
+    timeFractionToNumber(left.startAnchorTick) - timeFractionToNumber(right.startAnchorTick),
+  );
+
+  for (const event of sortedEvents) {
+    overlapInfoByEvent.set(event, {
+      startOverlapSeconds: 0,
+      endOverlapSeconds: 0,
+    });
+  }
+
+  // 같은 gliss id의 인접 세그먼트가 같은 anchor pitch에서 만날 때만 내부 crossfade를 적용한다.
+  for (let index = 0; index < sortedEvents.length - 1; index += 1) {
+    const currentEvent = sortedEvents[index];
+    const nextEvent = sortedEvents[index + 1];
+
+    if (
+      currentEvent === undefined ||
+      nextEvent === undefined ||
+      !areConnectedGlissEvents(currentEvent, nextEvent)
+    ) {
+      continue;
+    }
+
+    const currentInfo = overlapInfoByEvent.get(currentEvent);
+    const nextInfo = overlapInfoByEvent.get(nextEvent);
+
+    if (currentInfo !== undefined) {
+      currentInfo.endOverlapSeconds = DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS;
+    }
+
+    if (nextInfo !== undefined) {
+      nextInfo.startOverlapSeconds = DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS;
+    }
+  }
+
+  return overlapInfoByEvent;
+}
+
+/**
+ * 두 gliss fallback 세그먼트가 같은 내부 anchor를 공유하는지 확인한다.
+ * - 인수 : currentEvent : 앞쪽 gliss event
+ * - 인수 : nextEvent : 뒤쪽 gliss event
+ * - 반환값 : 같은 track/id/time/pitch에서 연결되는지 여부
+ */
+function areConnectedGlissEvents(
+  currentEvent: GlissEvent,
+  nextEvent: GlissEvent,
+): boolean {
+  return currentEvent.trackId === nextEvent.trackId &&
+    currentEvent.glissId === nextEvent.glissId &&
+    timeFractionToNumber(currentEvent.endAnchorTick) ===
+      timeFractionToNumber(nextEvent.startAnchorTick) &&
+    currentEvent.endSound.midi === nextEvent.startSound.midi &&
+    currentEvent.endSound.centOffset === nextEvent.startSound.centOffset;
 }
 
 /**
@@ -261,6 +529,7 @@ function createAudioGlissScheduleEvent(
   event: GlissEvent,
   mapper: TickTimeMapper,
   noteEvents: NoteEvent[],
+  overlapInfo: GlissOverlapInfo | null,
   dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioGlissScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
@@ -285,6 +554,8 @@ function createAudioGlissScheduleEvent(
     endCentOffset: event.endSound.centOffset,
     curve: "linear",
     crossfadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
+    startOverlapSeconds: overlapInfo?.startOverlapSeconds ?? 0,
+    endOverlapSeconds: overlapInfo?.endOverlapSeconds ?? 0,
     effects: buildGlissTremoloEffects(event, mapper, noteEvents),
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,

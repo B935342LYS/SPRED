@@ -343,7 +343,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - renderer now displays `globalLines.cells` rawText as white text on global rows through `CanvasGlobalTextRenderItem`
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
-- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, and gliss fallback bridge playback; dynamics automation, sampled instrument playback, and full voice-span gliss merging remain later backend extensions
+- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, dynamics gain automation, actual-overlap gainScale normalization, mid-event resume clipping, and gliss fallback bridge playback with connected-segment overlap crossfade; sampled instrument playback and full voice-span gliss merging remain later backend extensions
 - `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `pauseAtSeconds()`, `resume()`, `seekToSeconds()`, and `stop()`
 - seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
 - app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
