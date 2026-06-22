@@ -15,6 +15,8 @@ import type {
 import type {
   AudioAutomationEvent,
   AudioBuildInput,
+  AudioGlissChainScheduleEvent,
+  AudioGlissChainSegment,
   AudioGlissScheduleEvent,
   AudioNoteScheduleEvent,
   AudioSchedule,
@@ -35,13 +37,7 @@ import {
 
 const DEFAULT_VELOCITY = 1;
 const DEFAULT_GLISS_CROSSFADE_SECONDS = 0.02;
-const DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS = 0.05;
 const DEFAULT_DYNAMICS_GAIN = 1;
-
-type GlissOverlapInfo = {
-  startOverlapSeconds: number;
-  endOverlapSeconds: number;
-};
 
 type GainScaleSpan = {
   startSeconds: number;
@@ -82,18 +78,24 @@ export function buildAudioScheduleWithMapper(
   for (const trackResult of filterActiveTrackResults(analysis, activeTrackIds)) {
     const noteEvents = trackResult.events.filter(isNoteEvent);
     const glissEvents = trackResult.events.filter(isGlissEvent);
+    const noteClipStartTickByEvent = buildGlissEndNoteClipStartTickMap(
+      noteEvents,
+      glissEvents,
+    );
     const noteClipEndTickByEvent = buildGlissStartNoteClipEndTickMap(
       noteEvents,
       glissEvents,
     );
-    const glissOverlapInfoByEvent = buildConnectedGlissOverlapInfoMap(glissEvents);
+    const glissChains = buildConnectedGlissChains(glissEvents);
+    const chainedGlissEvents = new Set<GlissEvent>(glissChains.flat());
 
-    // 선택된 track의 note와 gliss fallback 발음 이벤트를 audio schedule event로 변환한다.
+    // 선택된 track의 note, 단독 gliss fallback, 연결 gliss chain을 audio schedule event로 변환한다.
     for (const event of trackResult.events) {
       if (isNoteEvent(event)) {
         const noteScheduleEvent = createAudioNoteScheduleEvent(
           event,
           mapper,
+          noteClipStartTickByEvent.get(event) ?? null,
           noteClipEndTickByEvent.get(event) ?? null,
           analysis.dynamicsTimeline,
         );
@@ -105,17 +107,33 @@ export function buildAudioScheduleWithMapper(
       }
 
       if (isGlissEvent(event)) {
+        if (chainedGlissEvents.has(event)) {
+          continue;
+        }
+
         const glissScheduleEvent = createAudioGlissScheduleEvent(
           event,
           mapper,
           noteEvents,
-          glissOverlapInfoByEvent.get(event) ?? null,
           analysis.dynamicsTimeline,
         );
 
         if (glissScheduleEvent !== null) {
           events.push(glissScheduleEvent);
         }
+      }
+    }
+
+    for (const glissChain of glissChains) {
+      const chainScheduleEvent = createAudioGlissChainScheduleEvent(
+        glissChain,
+        mapper,
+        noteEvents,
+        analysis.dynamicsTimeline,
+      );
+
+      if (chainScheduleEvent !== null) {
+        events.push(chainScheduleEvent);
       }
     }
   }
@@ -309,51 +327,45 @@ function mergeAdjacentConstantGainScaleAutomation(
 }
 
 /**
- * 연결된 gliss 세그먼트의 내부 anchor에서 양쪽 oscillator가 짧게 겹치도록 overlap 정보를 만든다.
+ * 연결된 gliss 세그먼트를 하나의 oscillator chain 후보로 묶는다.
  * - 인수 : glissEvents : 같은 track의 gliss event 목록
- * - 반환값 : Map<GlissEvent, GlissOverlapInfo> : 세그먼트별 시작/종료 overlap 설정
+ * - 반환값 : GlissEvent[][] : 길이 2 이상인 연결 gliss chain 목록
  */
-function buildConnectedGlissOverlapInfoMap(
+function buildConnectedGlissChains(
   glissEvents: GlissEvent[],
-): Map<GlissEvent, GlissOverlapInfo> {
-  const overlapInfoByEvent = new Map<GlissEvent, GlissOverlapInfo>();
+): GlissEvent[][] {
   const sortedEvents = [...glissEvents].sort((left, right) =>
     timeFractionToNumber(left.startAnchorTick) - timeFractionToNumber(right.startAnchorTick),
   );
+  const chains: GlissEvent[][] = [];
+  let currentChain: GlissEvent[] = [];
 
-  for (const event of sortedEvents) {
-    overlapInfoByEvent.set(event, {
-      startOverlapSeconds: 0,
-      endOverlapSeconds: 0,
-    });
-  }
-
-  // 같은 gliss id의 인접 세그먼트가 같은 anchor pitch에서 만날 때만 내부 crossfade를 적용한다.
-  for (let index = 0; index < sortedEvents.length - 1; index += 1) {
+  // 같은 gliss id의 인접 세그먼트가 같은 anchor pitch에서 만날 때 하나의 chain으로 재생한다.
+  for (let index = 0; index < sortedEvents.length; index += 1) {
     const currentEvent = sortedEvents[index];
     const nextEvent = sortedEvents[index + 1];
 
-    if (
-      currentEvent === undefined ||
-      nextEvent === undefined ||
-      !areConnectedGlissEvents(currentEvent, nextEvent)
-    ) {
+    if (currentEvent === undefined) {
       continue;
     }
 
-    const currentInfo = overlapInfoByEvent.get(currentEvent);
-    const nextInfo = overlapInfoByEvent.get(nextEvent);
-
-    if (currentInfo !== undefined) {
-      currentInfo.endOverlapSeconds = DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS;
+    if (currentChain.length === 0) {
+      currentChain.push(currentEvent);
     }
 
-    if (nextInfo !== undefined) {
-      nextInfo.startOverlapSeconds = DEFAULT_GLISS_INTERNAL_OVERLAP_SECONDS;
+    if (nextEvent !== undefined && areConnectedGlissEvents(currentEvent, nextEvent)) {
+      currentChain.push(nextEvent);
+      continue;
     }
+
+    if (currentChain.length > 1) {
+      chains.push(currentChain);
+    }
+
+    currentChain = [];
   }
 
-  return overlapInfoByEvent;
+  return chains;
 }
 
 /**
@@ -402,11 +414,13 @@ function isGlissEvent(event: AnalyzedEvent): event is GlissEvent {
 function createAudioNoteScheduleEvent(
   event: NoteEvent,
   mapper: TickTimeMapper,
+  clipStartTick: NoteEvent["time"]["startTick"] | null,
   clipEndTick: NoteEvent["time"]["endTick"] | null,
   dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioNoteScheduleEvent | null {
-  const startSeconds = mapper.tickToSeconds(event.time.startTick);
+  const effectiveStartTick = getClippedNoteStartTick(event, clipStartTick);
   const effectiveEndTick = getClippedNoteEndTick(event, clipEndTick);
+  const startSeconds = mapper.tickToSeconds(effectiveStartTick);
   const endSeconds = mapper.tickToSeconds(effectiveEndTick);
 
   if (endSeconds <= startSeconds) {
@@ -416,7 +430,7 @@ function createAudioNoteScheduleEvent(
   return {
     eventId: event.eventId,
     trackId: event.trackId,
-    startTick: event.time.startTick,
+    startTick: effectiveStartTick,
     endTick: effectiveEndTick,
     startSeconds,
     endSeconds,
@@ -426,12 +440,46 @@ function createAudioNoteScheduleEvent(
     effects: buildAudioScheduleEffects(event.effects, mapper),
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,
-      event.time.startTick,
+      effectiveStartTick,
       effectiveEndTick,
       mapper,
     ),
     sourceEventKind: "note" as const,
   };
+}
+
+/**
+ * gliss 종료 anchor와 겹치는 note event의 audio 시작 tick을 찾는다.
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 인수 : glissEvents : 같은 track의 gliss event 목록
+ * - 반환값 : Map<NoteEvent, TimeFraction> : audio note 시작을 늦출 tick lookup
+ */
+function buildGlissEndNoteClipStartTickMap(
+  noteEvents: NoteEvent[],
+  glissEvents: GlissEvent[],
+): Map<NoteEvent, NoteEvent["time"]["startTick"]> {
+  const clipStartTickByEvent = new Map<NoteEvent, NoteEvent["time"]["startTick"]>();
+
+  // gliss가 도착하는 anchor note는 gliss 종료 시점부터 발음해 ramp와의 중복 발음을 막는다.
+  for (const glissEvent of glissEvents) {
+    const noteEvent = findEndAnchorNoteEvent(glissEvent, noteEvents);
+
+    if (noteEvent === null) {
+      continue;
+    }
+
+    const currentClipStartTick = clipStartTickByEvent.get(noteEvent);
+    const nextClipStartTick = glissEvent.endAnchorTick;
+
+    if (
+      currentClipStartTick === undefined ||
+      timeFractionToNumber(nextClipStartTick) > timeFractionToNumber(currentClipStartTick)
+    ) {
+      clipStartTickByEvent.set(noteEvent, cloneTimeFraction(nextClipStartTick));
+    }
+  }
+
+  return clipStartTickByEvent;
 }
 
 /**
@@ -469,6 +517,31 @@ function buildGlissStartNoteClipEndTickMap(
 }
 
 /**
+ * gliss 종료 anchor가 속한 note event를 찾는다.
+ * - 인수 : glissEvent : analyzer가 만든 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : 종료 anchor가 붙은 note event 또는 없으면 null
+ */
+function findEndAnchorNoteEvent(
+  glissEvent: GlissEvent,
+  noteEvents: NoteEvent[],
+): NoteEvent | null {
+  const endSource = glissEvent.sourceCells[1];
+
+  if (endSource === undefined) {
+    return null;
+  }
+
+  return noteEvents.find((noteEvent) =>
+    noteEvent.glissAnchors.some((anchor) =>
+      anchor.glissId === glissEvent.glissId &&
+      anchor.role === glissEvent.toKind &&
+      sourceCellsMatch(anchor.source, endSource)
+    )
+  ) ?? null;
+}
+
+/**
  * gliss 시작 anchor가 속한 note event를 찾는다.
  * - 인수 : glissEvent : analyzer가 만든 gliss event
  * - 인수 : noteEvents : 같은 track의 note event 목록
@@ -494,6 +567,31 @@ function findStartAnchorNoteEvent(
 }
 
 /**
+ * note event의 audio 시작 tick을 gliss 종료점 기준으로 제한한다.
+ * - 인수 : event : analyzer가 만든 note event
+ * - 인수 : clipStartTick : 후보 시작 tick
+ * - 반환값 : 실제 audio note 시작 tick
+ */
+function getClippedNoteStartTick(
+  event: NoteEvent,
+  clipStartTick: NoteEvent["time"]["startTick"] | null,
+): NoteEvent["time"]["startTick"] {
+  if (clipStartTick === null) {
+    return event.time.startTick;
+  }
+
+  const startTick = timeFractionToNumber(event.time.startTick);
+  const endTick = timeFractionToNumber(event.time.endTick);
+  const clippedStartTick = timeFractionToNumber(clipStartTick);
+
+  if (clippedStartTick < startTick || clippedStartTick > endTick) {
+    return event.time.startTick;
+  }
+
+  return cloneTimeFraction(clipStartTick);
+}
+
+/**
  * note event의 audio 종료 tick을 gliss 시작점 기준으로 제한한다.
  * - 인수 : event : analyzer가 만든 note event
  * - 인수 : clipEndTick : 후보 종료 tick
@@ -511,7 +609,7 @@ function getClippedNoteEndTick(
   const endTick = timeFractionToNumber(event.time.endTick);
   const clippedEndTick = timeFractionToNumber(clipEndTick);
 
-  if (clippedEndTick <= startTick || clippedEndTick >= endTick) {
+  if (clippedEndTick < startTick || clippedEndTick > endTick) {
     return event.time.endTick;
   }
 
@@ -529,7 +627,6 @@ function createAudioGlissScheduleEvent(
   event: GlissEvent,
   mapper: TickTimeMapper,
   noteEvents: NoteEvent[],
-  overlapInfo: GlissOverlapInfo | null,
   dynamicsTimeline: AnalyzedDynamicsSegment[],
 ): AudioGlissScheduleEvent | null {
   const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
@@ -554,8 +651,6 @@ function createAudioGlissScheduleEvent(
     endCentOffset: event.endSound.centOffset,
     curve: "linear",
     crossfadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
-    startOverlapSeconds: overlapInfo?.startOverlapSeconds ?? 0,
-    endOverlapSeconds: overlapInfo?.endOverlapSeconds ?? 0,
     effects: buildGlissTremoloEffects(event, mapper, noteEvents),
     automation: buildDynamicsGainAutomation(
       dynamicsTimeline,
@@ -563,6 +658,91 @@ function createAudioGlissScheduleEvent(
       event.endAnchorTick,
       mapper,
     ),
+  };
+}
+
+/**
+ * 연결된 GlissEvent 목록을 하나의 AudioGlissChainScheduleEvent로 변환한다.
+ * - 인수 : events : 같은 gliss id로 연결된 analyzer gliss event 목록
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 인수 : noteEvents : gliss 시작 anchor의 tremolo 정보를 찾기 위한 같은 track note event 목록
+ * - 인수 : dynamicsTimeline : analyzer가 만든 dynamics timeline
+ * - 반환값 : backend 예약용 gliss chain event 또는 유효 구간이 없으면 null
+ */
+function createAudioGlissChainScheduleEvent(
+  events: GlissEvent[],
+  mapper: TickTimeMapper,
+  noteEvents: NoteEvent[],
+  dynamicsTimeline: AnalyzedDynamicsSegment[],
+): AudioGlissChainScheduleEvent | null {
+  const firstEvent = events[0];
+  const lastEvent = events[events.length - 1];
+
+  if (firstEvent === undefined || lastEvent === undefined || events.length < 2) {
+    return null;
+  }
+
+  const startSeconds = mapper.tickToSeconds(firstEvent.startAnchorTick);
+  const endSeconds = mapper.tickToSeconds(lastEvent.endAnchorTick);
+
+  if (endSeconds <= startSeconds) {
+    return null;
+  }
+
+  const segments = events
+    .map((event) => createAudioGlissChainSegment(event, mapper))
+    .filter((segment): segment is AudioGlissChainSegment => segment !== null);
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  return {
+    eventId: `${firstEvent.trackId}:gliss-chain:${firstEvent.glissId}:${firstEvent.eventId}:${lastEvent.eventId}`,
+    trackId: firstEvent.trackId,
+    startTick: firstEvent.startAnchorTick,
+    endTick: lastEvent.endAnchorTick,
+    startSeconds,
+    endSeconds,
+    velocity: DEFAULT_VELOCITY * getTrackGain(firstEvent.trackId),
+    sourceEventKind: "glissChain",
+    segments,
+    fadeSeconds: DEFAULT_GLISS_CROSSFADE_SECONDS,
+    effects: events.flatMap((event) => buildGlissTremoloEffects(event, mapper, noteEvents)),
+    automation: buildDynamicsGainAutomation(
+      dynamicsTimeline,
+      firstEvent.startAnchorTick,
+      lastEvent.endAnchorTick,
+      mapper,
+    ),
+  };
+}
+
+/**
+ * GlissEvent 하나를 gliss chain 내부 pitch ramp 세그먼트로 변환한다.
+ * - 인수 : event : analyzer가 만든 gliss event
+ * - 인수 : mapper : tick/seconds 변환기
+ * - 반환값 : AudioGlissChainSegment 또는 길이가 없으면 null
+ */
+function createAudioGlissChainSegment(
+  event: GlissEvent,
+  mapper: TickTimeMapper,
+): AudioGlissChainSegment | null {
+  const startSeconds = mapper.tickToSeconds(event.startAnchorTick);
+  const endSeconds = mapper.tickToSeconds(event.endAnchorTick);
+
+  if (endSeconds <= startSeconds) {
+    return null;
+  }
+
+  return {
+    startSeconds,
+    endSeconds,
+    startMidi: event.startSound.midi,
+    startCentOffset: event.startSound.centOffset,
+    endMidi: event.endSound.midi,
+    endCentOffset: event.endSound.centOffset,
+    curve: "linear",
   };
 }
 

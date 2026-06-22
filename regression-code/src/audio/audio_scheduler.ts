@@ -7,6 +7,8 @@ import type {
   AudioAutomationEvent,
   AudioBackend,
   AudioEventQueue,
+  AudioGlissChainScheduleEvent,
+  AudioGlissChainSegment,
   AudioGlissScheduleEvent,
   AudioLookaheadScheduler,
   AudioNoteScheduleEvent,
@@ -229,6 +231,10 @@ function createResumedScheduleEvent(
     return createResumedNoteEvent(event, resumeSeconds, clippedAutomation);
   }
 
+  if (event.sourceEventKind === "glissChain") {
+    return createResumedGlissChainEvent(event, resumeSeconds, clippedAutomation);
+  }
+
   return createResumedGlissEvent(event, resumeSeconds, clippedAutomation);
 }
 
@@ -278,9 +284,73 @@ function createResumedGlissEvent(
     startSeconds: resumeSeconds,
     startMidi: resumedMidi,
     startCentOffset: resumedCentOffset,
-    startOverlapSeconds: 0,
     automation,
     effects: event.effects.filter((effect) => effect.endSeconds > resumeSeconds),
+  };
+}
+
+/**
+ * 진행 중인 gliss chain event를 현재 score time부터 울리는 event로 변환한다.
+ * - 인수 : event : 원본 gliss chain schedule event
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 인수 : automation : 재개 지점 기준으로 잘라낸 automation
+ * - 반환값 : 중간 진입용 gliss chain event 또는 유효하지 않으면 null
+ */
+function createResumedGlissChainEvent(
+  event: AudioGlissChainScheduleEvent,
+  resumeSeconds: number,
+  automation: AudioAutomationEvent[],
+): AudioGlissChainScheduleEvent | null {
+  const segments = event.segments
+    .filter((segment) => segment.endSeconds > resumeSeconds)
+    .map((segment) => clipGlissChainSegmentForResume(segment, resumeSeconds))
+    .filter((segment): segment is AudioGlissChainSegment => segment !== null);
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  return {
+    ...event,
+    eventId: `${event.eventId}:resume`,
+    startSeconds: resumeSeconds,
+    segments,
+    automation,
+    effects: event.effects.filter((effect) => effect.endSeconds > resumeSeconds),
+  };
+}
+
+/**
+ * gliss chain segment를 재개 지점부터 시작하도록 자르고 시작 pitch를 보간한다.
+ * - 인수 : segment : 원본 chain segment
+ * - 인수 : resumeSeconds : 재개할 score time
+ * - 반환값 : 재개 지점 기준 segment 또는 유효하지 않으면 null
+ */
+function clipGlissChainSegmentForResume(
+  segment: AudioGlissChainSegment,
+  resumeSeconds: number,
+): AudioGlissChainSegment | null {
+  if (segment.endSeconds <= resumeSeconds) {
+    return null;
+  }
+
+  if (segment.startSeconds >= resumeSeconds) {
+    return { ...segment };
+  }
+
+  const startPitch = segment.startMidi + segment.startCentOffset / 100;
+  const endPitch = segment.endMidi + segment.endCentOffset / 100;
+  const ratio = (resumeSeconds - segment.startSeconds) /
+    (segment.endSeconds - segment.startSeconds);
+  const resumedPitch = startPitch + (endPitch - startPitch) * Math.min(Math.max(ratio, 0), 1);
+  const resumedMidi = Math.round(resumedPitch);
+  const resumedCentOffset = (resumedPitch - resumedMidi) * 100;
+
+  return {
+    ...segment,
+    startSeconds: resumeSeconds,
+    startMidi: resumedMidi,
+    startCentOffset: resumedCentOffset,
   };
 }
 

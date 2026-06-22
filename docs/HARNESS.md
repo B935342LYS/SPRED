@@ -343,7 +343,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - renderer now displays `globalLines.cells` rawText as white text on global rows through `CanvasGlobalTextRenderItem`
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
-- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, dynamics gain automation, actual-overlap gainScale normalization, mid-event resume clipping, and gliss fallback bridge playback with connected-segment overlap crossfade; sampled instrument playback and full voice-span gliss merging remain later backend extensions
+- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, dynamics gain automation, actual-overlap gainScale normalization, mid-event resume clipping, standalone gliss fallback bridge playback, and connected gliss chain playback through a single oscillator with segment-level frequency ramps; sampled instrument playback and full note voice-span gliss merging remain later backend extensions
 - `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `pauseAtSeconds()`, `resume()`, `seekToSeconds()`, and `stop()`
 - seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
 - app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
@@ -371,7 +371,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.19-step4-audio-open-source-survey.md` records audio open-source survey and adoption candidates
 - `docs/implementation-memo/1.20-step4-playback-edit-global-visualization.md` records audio playback, edit UX, batch edit, and global rawText visualization progress
 - `docs/implementation-memo/1.21-step4-playback-layout-ui-progress.md` records pause/seek playback state, metadata/details UI, view helper, edit preview, app playback folder split, and layout compatibility planning progress
-- `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, and gliss fallback audio effect implementation decisions
+- `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, gliss fallback, connected gliss chain, audio overlap normalization, mid-event resume clipping, and the current gliss-chain/tremolo-gate listening diagnosis
 - `docs/implementation-memo/1.25-step5-layout-editor-ui-shell.md` records the layout editor UI shell, current placeholder boundaries, and the next layout draft step
 - `docs/implementation-memo/1.26-step5-layout-draft-apply-preset.md` records the layout draft, apply, local slot preset, file preset, and toolbar preset implementation decisions
 - `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
@@ -382,10 +382,10 @@ If memo content is explicitly adopted by the user for implementation order or st
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
 - manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
-- expand manual and browser-level tests for vibrato, tremolo, gliss fallback, seek, pause/resume, and layout-change playback reset behavior
+- expand manual and browser-level tests for vibrato, tremolo, gliss fallback, connected gliss chain, seek, pause/resume, and layout-change playback reset behavior
 - prepare a basic audio verification checklist before YouTube mode
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
-- evaluate whether gliss fallback needs note ducking or selective voice-span merging after listening tests
+- isolate the remaining connected gliss listening issue by comparing gliss chain with tremolo disabled, frequency-boundary automation simplified, gainScale disabled, and note clipping variants
 - add loop playback range selection and scheduler/controller support
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors

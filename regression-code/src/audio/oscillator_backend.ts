@@ -6,6 +6,7 @@
 import type {
   AudioAutomationEvent,
   AudioBackend,
+  AudioGlissChainScheduleEvent,
   AudioGlissScheduleEvent,
   AudioNoteScheduleEvent,
   AudioScheduleEffect,
@@ -29,6 +30,11 @@ type ActiveOscillatorNode = {
   auxiliaryNodes: AudioNode[];
   auxiliaryOscillators: OscillatorNode[];
 };
+
+type AudioPlayableScheduleEvent =
+  | AudioNoteScheduleEvent
+  | AudioGlissScheduleEvent
+  | AudioGlissChainScheduleEvent;
 
 const DEFAULT_WAVE_TYPE: OscillatorType = "sine";
 const DEFAULT_MASTER_VOLUME = 0.7;
@@ -87,6 +93,11 @@ export function createOscillatorBackend(
       }
     },
     scheduleEvent(event: AudioScheduleEvent, offsetSeconds: number): void {
+      if (event.sourceEventKind === "glissChain") {
+        scheduleGlissChainEvent(event, offsetSeconds);
+        return;
+      }
+
       if (event.sourceEventKind === "gliss") {
         scheduleGlissEvent(event, offsetSeconds);
         return;
@@ -216,30 +227,18 @@ export function createOscillatorBackend(
     offsetSeconds: number,
   ): void {
     const audioContext = getOrCreateAudioContext();
-    const eventStartTime = audioContext.currentTime + Math.max(0, offsetSeconds);
+    const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
     const durationSeconds = event.endSeconds - event.startSeconds;
 
     if (durationSeconds <= 0) {
       return;
     }
 
-    const eventEndTime = eventStartTime + durationSeconds;
-    const startOverlapSeconds = Math.min(
-      Math.max(0, event.startOverlapSeconds),
-      durationSeconds / 2,
-      Math.max(0, offsetSeconds),
-    );
-    const endOverlapSeconds = Math.min(
-      Math.max(0, event.endOverlapSeconds),
-      durationSeconds / 2,
-    );
-    const startFadeSeconds = Math.min(
+    const endTime = startTime + durationSeconds;
+    const fadeSeconds = Math.min(
       Math.max(0, event.crossfadeSeconds),
       durationSeconds / 2,
     );
-    const endFadeSeconds = startFadeSeconds;
-    const startTime = eventStartTime - startOverlapSeconds;
-    const endTime = eventEndTime + endOverlapSeconds;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const dynamicsGain = audioContext.createGain();
@@ -260,46 +259,25 @@ export function createOscillatorBackend(
       midiToFrequency(event.startMidi, event.startCentOffset),
       startTime,
     );
-    oscillator.frequency.setValueAtTime(
-      midiToFrequency(event.startMidi, event.startCentOffset),
-      eventStartTime,
-    );
     oscillator.frequency.linearRampToValueAtTime(
-      midiToFrequency(event.endMidi, event.endCentOffset),
-      eventEndTime,
-    );
-    oscillator.frequency.setValueAtTime(
       midiToFrequency(event.endMidi, event.endCentOffset),
       endTime,
     );
-    applyTremoloEffects(event, tremoloGain, eventStartTime, eventEndTime);
-    applyDynamicsAutomation(event, dynamicsGain, eventStartTime, eventEndTime);
-    applyGainScaleAutomation(event, scaleGain, eventStartTime, eventEndTime);
+    applyTremoloEffects(event, tremoloGain, startTime, endTime);
+    applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
+    applyGainScaleAutomation(event, scaleGain, startTime, endTime);
 
-    // 연결된 gliss 내부 anchor에서는 anchor 중심 constant-sum crossfade로 볼륨 튐을 줄인다.
+    // 단독 gliss fallback은 note와 같은 edge fade만 적용하고 내부 overlap은 사용하지 않는다.
     gain.gain.setValueAtTime(SILENT_GAIN, startTime);
-    if (startOverlapSeconds > 0) {
-      const fadeInEndTime = eventStartTime + startOverlapSeconds;
-
-      gain.gain.linearRampToValueAtTime(masterVolume * event.velocity, fadeInEndTime);
-    } else {
-      gain.gain.linearRampToValueAtTime(
-        masterVolume * event.velocity,
-        eventStartTime + startFadeSeconds,
-      );
-    }
-    if (endOverlapSeconds > 0) {
-      const fadeOutStartTime = Math.max(startTime, eventEndTime - endOverlapSeconds);
-
-      gain.gain.setValueAtTime(masterVolume * event.velocity, fadeOutStartTime);
-      gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
-    } else {
-      gain.gain.setValueAtTime(
-        masterVolume * event.velocity,
-        Math.max(eventStartTime + startFadeSeconds, eventEndTime - endFadeSeconds),
-      );
-      gain.gain.linearRampToValueAtTime(SILENT_GAIN, eventEndTime);
-    }
+    gain.gain.linearRampToValueAtTime(
+      masterVolume * event.velocity,
+      startTime + fadeSeconds,
+    );
+    gain.gain.setValueAtTime(
+      masterVolume * event.velocity,
+      Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
+    );
+    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
 
     if (tremoloGain !== null) {
       oscillator.connect(tremoloGain);
@@ -316,6 +294,115 @@ export function createOscillatorBackend(
     }, { once: true });
     oscillator.start(startTime);
     oscillator.stop(endTime + 0.02);
+  }
+
+  /**
+   * 연결된 gliss chain event를 하나의 oscillator와 segment별 frequency ramp로 예약한다.
+   * - 인수 : event : 예약할 gliss chain event
+   * - 인수 : offsetSeconds : 현재 audio clock 기준 예약 offset
+   * - 반환값 : 없음
+   */
+  function scheduleGlissChainEvent(
+    event: AudioGlissChainScheduleEvent,
+    offsetSeconds: number,
+  ): void {
+    const audioContext = getOrCreateAudioContext();
+    const startTime = audioContext.currentTime + Math.max(0, offsetSeconds);
+    const durationSeconds = event.endSeconds - event.startSeconds;
+
+    if (durationSeconds <= 0 || event.segments.length === 0) {
+      return;
+    }
+
+    const endTime = startTime + durationSeconds;
+    const fadeSeconds = Math.min(Math.max(0, event.fadeSeconds), durationSeconds / 2);
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const dynamicsGain = audioContext.createGain();
+    const scaleGain = audioContext.createGain();
+    const hasTremolo = event.effects.some((effect) => effect.kind === "tremolo");
+    const tremoloGain = hasTremolo ? audioContext.createGain() : null;
+    const activeNode: ActiveOscillatorNode = {
+      oscillator,
+      gain,
+      tremoloGain,
+      dynamicsGain,
+      scaleGain,
+      auxiliaryNodes: [],
+      auxiliaryOscillators: [],
+    };
+
+    oscillator.type = waveType;
+    scheduleGlissChainFrequency(event, oscillator, startTime);
+    applyTremoloEffects(event, tremoloGain, startTime, endTime);
+    applyDynamicsAutomation(event, dynamicsGain, startTime, endTime);
+    applyGainScaleAutomation(event, scaleGain, startTime, endTime);
+
+    // chain 전체의 시작과 끝에만 fade를 적용해 내부 anchor의 발음 단절을 피한다.
+    gain.gain.setValueAtTime(SILENT_GAIN, startTime);
+    gain.gain.linearRampToValueAtTime(
+      masterVolume * event.velocity,
+      startTime + fadeSeconds,
+    );
+    gain.gain.setValueAtTime(
+      masterVolume * event.velocity,
+      Math.max(startTime + fadeSeconds, endTime - fadeSeconds),
+    );
+    gain.gain.linearRampToValueAtTime(SILENT_GAIN, endTime);
+
+    if (tremoloGain !== null) {
+      oscillator.connect(tremoloGain);
+      tremoloGain.connect(dynamicsGain);
+    } else {
+      oscillator.connect(dynamicsGain);
+    }
+    dynamicsGain.connect(scaleGain);
+    scaleGain.connect(gain);
+    gain.connect(getMasterGain());
+    activeNodes.add(activeNode);
+    oscillator.addEventListener("ended", () => {
+      cleanupActiveNode(activeNode);
+    }, { once: true });
+    oscillator.start(startTime);
+    oscillator.stop(endTime + 0.02);
+  }
+
+  /**
+   * gliss chain segment 목록을 하나의 oscillator frequency automation으로 이어 붙인다.
+   * - 인수 : event : 예약할 gliss chain event
+   * - 인수 : oscillator : frequency를 자동화할 oscillator
+   * - 인수 : startTime : chain 시작 audio time
+   * - 반환값 : 없음
+   */
+  function scheduleGlissChainFrequency(
+    event: AudioGlissChainScheduleEvent,
+    oscillator: OscillatorNode,
+    startTime: number,
+  ): void {
+    const firstSegment = event.segments[0];
+
+    if (firstSegment === undefined) {
+      return;
+    }
+
+    oscillator.frequency.setValueAtTime(
+      midiToFrequency(firstSegment.startMidi, firstSegment.startCentOffset),
+      startTime,
+    );
+
+    for (const segment of event.segments) {
+      const segmentEndTime = startTime + segment.endSeconds - event.startSeconds;
+
+      if (segmentEndTime <= startTime) {
+        continue;
+      }
+
+      // 연결된 segment의 시작 pitch는 직전 ramp의 끝 pitch와 같으므로 내부 anchor에 set event를 추가하지 않는다.
+      oscillator.frequency.linearRampToValueAtTime(
+        midiToFrequency(segment.endMidi, segment.endCentOffset),
+        segmentEndTime,
+      );
+    }
   }
 
   /**
@@ -472,7 +559,7 @@ function applyVibratoEffects(
  * - 반환값 : 없음
  */
 function applyDynamicsAutomation(
-  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   dynamicsGain: GainNode,
   startTime: number,
   endTime: number,
@@ -519,7 +606,7 @@ function applyDynamicsAutomation(
  * - 반환값 : 없음
  */
 function applyGainScaleAutomation(
-  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   scaleGain: GainNode,
   startTime: number,
   endTime: number,
@@ -566,7 +653,7 @@ function applyGainScaleAutomation(
  * - 반환값 : 없음
  */
 function applyTremoloEffects(
-  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   tremoloGain: GainNode | null,
   startTime: number,
   endTime: number,
@@ -668,7 +755,7 @@ function scheduleTremoloGate(
  */
 function clampEffectTimeRange(
   effect: AudioScheduleEffect,
-  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   startTime: number,
   endTime: number,
 ): { startTime: number; endTime: number } | null {
@@ -697,7 +784,7 @@ function clampEffectTimeRange(
  */
 function clampAutomationTimeRange(
   automation: AudioAutomationEvent,
-  event: AudioNoteScheduleEvent | AudioGlissScheduleEvent,
+  event: AudioPlayableScheduleEvent,
   startTime: number,
   endTime: number,
 ): { startTime: number; endTime: number } | null {

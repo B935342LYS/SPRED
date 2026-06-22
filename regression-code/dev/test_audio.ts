@@ -136,6 +136,127 @@ function createDynamicsSegment(
   };
 }
 
+/**
+ * gliss anchor가 붙은 테스트용 note event를 만든다.
+ * - 인수 : rowId : anchor note row id
+ * - 인수 : col : anchor note column
+ * - 인수 : midi : note MIDI pitch
+ * - 인수 : role : gliss anchor role
+ * - 반환값 : NoteEvent : 테스트용 note event
+ */
+function createGlissAnchorNoteEvent(
+  rowId: string,
+  col: number,
+  midi: number,
+  role: "start" | "mid" | "end",
+): NoteEvent {
+  return {
+    eventKind: "note",
+    eventId: `basic:note:${rowId}:${col}`,
+    trackId: "basic",
+    time: {
+      startTick: numberToTimeFraction(col),
+      endTick: numberToTimeFraction(col + 1),
+    },
+    sourceCells: [{ rowId, col }],
+    text: String(midi),
+    displayTextAnchors: [],
+    display: {
+      rowId,
+      centOffset: 0,
+    },
+    sound: {
+      midi,
+      centOffset: 0,
+    },
+    effects: [],
+    glissRole: {
+      glissId: "a",
+      role,
+    },
+    glissAnchors: [
+      {
+        glissId: "a",
+        role,
+        source: { rowId, col },
+        time: {
+          startTick: numberToTimeFraction(col),
+          endTick: numberToTimeFraction(col + 1),
+        },
+        display: {
+          rowId,
+          centOffset: 0,
+        },
+      },
+    ],
+    tuplet: null,
+  };
+}
+
+/**
+ * 테스트용 gliss segment event를 만든다.
+ * - 인수 : startRowId : 시작 anchor row id
+ * - 인수 : startCol : 시작 anchor column
+ * - 인수 : startMidi : 시작 MIDI pitch
+ * - 인수 : fromKind : 시작 anchor kind
+ * - 인수 : endRowId : 종료 anchor row id
+ * - 인수 : endCol : 종료 anchor column
+ * - 인수 : endMidi : 종료 MIDI pitch
+ * - 인수 : toKind : 종료 anchor kind
+ * - 인수 : startAnchorTick : 시작 anchor tick number
+ * - 인수 : endAnchorTick : 종료 anchor tick number
+ * - 반환값 : GlissEvent : 테스트용 gliss event
+ */
+function createGlissSegmentEvent(
+  startRowId: string,
+  startCol: number,
+  startMidi: number,
+  fromKind: "start" | "mid",
+  endRowId: string,
+  endCol: number,
+  endMidi: number,
+  toKind: "mid" | "end",
+  startAnchorTick: number,
+  endAnchorTick: number,
+): GlissEvent {
+  return {
+    eventKind: "gliss",
+    eventId: `basic:gliss:a:${startRowId}:${startCol}`,
+    trackId: "basic",
+    time: {
+      startTick: numberToTimeFraction(startCol),
+      endTick: numberToTimeFraction(endCol + 1),
+    },
+    sourceCells: [
+      { rowId: startRowId, col: startCol },
+      { rowId: endRowId, col: endCol },
+    ],
+    startDisplay: {
+      rowId: startRowId,
+      centOffset: 0,
+    },
+    endDisplay: {
+      rowId: endRowId,
+      centOffset: 0,
+    },
+    startSound: {
+      midi: startMidi,
+      centOffset: 0,
+    },
+    endSound: {
+      midi: endMidi,
+      centOffset: 0,
+    },
+    glissId: "a",
+    startAnchorTick: numberToTimeFraction(startAnchorTick),
+    endAnchorTick: numberToTimeFraction(endAnchorTick),
+    fromKind,
+    toKind,
+    startAttach: "attack",
+    endAttach: "release",
+  };
+}
+
 const singleMapper = createTickTimeMapper([
   createConstantSegment(0, 16, 120, 4),
 ]);
@@ -390,75 +511,109 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
   }
 }
 
-const glissScheduleEvent = effectSchedule.events.find(
-  (event) => event.sourceEventKind === "gliss",
-);
-const glissScheduleEvents = effectSchedule.events.filter(
-  (event) => event.sourceEventKind === "gliss",
+const glissChainScheduleEvent = effectSchedule.events.find(
+  (event) => event.sourceEventKind === "glissChain",
 );
 
-assert(glissScheduleEvent !== undefined, "Schedule should include the synthetic gliss fallback.");
-assert(glissScheduleEvents.length === 2, "Schedule should include connected gliss fallback segments.");
+assert(glissChainScheduleEvent !== undefined, "Schedule should include a connected gliss chain.");
 
-if (glissScheduleEvent?.sourceEventKind === "gliss") {
-  const tremolo = glissScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
-  const dynamicsAutomation = glissScheduleEvent.automation.filter(
+if (glissChainScheduleEvent?.sourceEventKind === "glissChain") {
+  const tremolo = glissChainScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
+  const dynamicsAutomation = glissChainScheduleEvent.automation.filter(
     (automation) => automation.kind === "gainRamp",
   );
+  const firstSegment = glissChainScheduleEvent.segments[0];
+  const secondSegment = glissChainScheduleEvent.segments[1];
 
-  assertNear(glissScheduleEvent.startSeconds, 0.0625, "Gliss should start at its start anchor.");
-  assertNear(glissScheduleEvent.endSeconds, 0.375, "Gliss should end at its end anchor.");
-  assert(glissScheduleEvent.startMidi === 60, "Gliss should keep start MIDI.");
-  assert(glissScheduleEvent.endMidi === 64, "Gliss should keep end MIDI.");
-  assertNear(glissScheduleEvent.crossfadeSeconds, 0.02, "Gliss should use default crossfade.");
-  assertNear(glissScheduleEvent.startOverlapSeconds, 0, "First connected gliss should not pre-roll at its outer start.");
-  assertNear(glissScheduleEvent.endOverlapSeconds, 0.05, "First connected gliss should overlap after its internal end.");
-  assert(tremolo !== undefined, "Gliss should inherit tremolo from its start anchor.");
-  assert(dynamicsAutomation.length === 2, "Gliss should split dynamics automation by timeline segments.");
+  assertNear(glissChainScheduleEvent.startSeconds, 0.0625, "Gliss chain should start at its outer start anchor.");
+  assertNear(glissChainScheduleEvent.endSeconds, 0.5, "Gliss chain should end at its outer end anchor.");
+  assertNear(glissChainScheduleEvent.fadeSeconds, 0.02, "Gliss chain should use default edge fade.");
+  assert(glissChainScheduleEvent.segments.length === 2, "Gliss chain should keep both connected segments.");
+  assert(tremolo !== undefined, "Gliss chain should inherit tremolo from its start anchor.");
+  assert(dynamicsAutomation.length === 2, "Gliss chain should split dynamics automation by timeline segments.");
+
+  if (firstSegment !== undefined) {
+    assertNear(firstSegment.startSeconds, 0.0625, "First gliss segment should start at the first anchor.");
+    assertNear(firstSegment.endSeconds, 0.375, "First gliss segment should end at the shared anchor.");
+    assert(firstSegment.startMidi === 60, "First gliss segment should keep start MIDI.");
+    assert(firstSegment.endMidi === 64, "First gliss segment should keep shared anchor MIDI.");
+  }
+
+  if (secondSegment !== undefined) {
+    assertNear(secondSegment.startSeconds, 0.375, "Second gliss segment should start at the shared anchor.");
+    assertNear(secondSegment.endSeconds, 0.5, "Second gliss segment should end at the final anchor.");
+    assert(secondSegment.startMidi === 64, "Second gliss segment should start at shared anchor MIDI.");
+    assert(secondSegment.endMidi === 67, "Second gliss segment should keep final anchor MIDI.");
+  }
 
   if (tremolo !== undefined) {
-    assert(tremolo.division === 3, "Gliss tremolo should keep start anchor division.");
-    assertNear(tremolo.startSeconds, 0.0625, "Gliss tremolo should start with the gliss.");
-    assertNear(tremolo.endSeconds, 0.375, "Gliss tremolo should end with the gliss.");
-    assertNear(tremolo.durationTicks, 2.5, "Gliss tremolo duration should follow gliss ticks.");
+    assert(tremolo.division === 3, "Gliss chain tremolo should keep start anchor division.");
+    assertNear(tremolo.startSeconds, 0.0625, "Gliss chain tremolo should start with the first segment.");
+    assertNear(tremolo.endSeconds, 0.375, "Gliss chain tremolo should end with the first segment.");
+    assertNear(tremolo.durationTicks, 2.5, "Gliss chain tremolo duration should follow first segment ticks.");
   }
 
   if (dynamicsAutomation[0]?.kind === "gainRamp") {
-    assertNear(dynamicsAutomation[0].startSeconds, 0.0625, "Gliss first dynamics ramp should start at the gliss start.");
-    assertNear(dynamicsAutomation[0].endSeconds, 0.25, "Gliss first dynamics ramp should end at dynamics boundary.");
-    assertNear(dynamicsAutomation[0].startValue, 0.75, "Gliss dynamics should interpolate start gain.");
+    assertNear(dynamicsAutomation[0].startSeconds, 0.0625, "Gliss chain first dynamics ramp should start at chain start.");
+    assertNear(dynamicsAutomation[0].endSeconds, 0.25, "Gliss chain first dynamics ramp should end at dynamics boundary.");
+    assertNear(dynamicsAutomation[0].startValue, 0.75, "Gliss chain dynamics should interpolate start gain.");
     assertNear(dynamicsAutomation[0].endValue, 1.5, "Dynamics 150 should map to gain 1.5.");
   }
 
   if (dynamicsAutomation[1]?.kind === "gainRamp") {
-    assertNear(dynamicsAutomation[1].startSeconds, 0.25, "Gliss second dynamics segment should start at tick 2.");
-    assertNear(dynamicsAutomation[1].endSeconds, 0.375, "Gliss second dynamics segment should end at gliss end.");
+    assertNear(dynamicsAutomation[1].startSeconds, 0.25, "Gliss chain second dynamics segment should start at tick 2.");
+    assertNear(dynamicsAutomation[1].endSeconds, 0.5, "Gliss chain second dynamics segment should end at chain end.");
     assertNear(dynamicsAutomation[1].startValue, 0.8, "Dynamics 80 should map to gain 0.8.");
     assertNear(dynamicsAutomation[1].endValue, 0.8, "Instant dynamics should keep the same gain.");
   }
 }
 
-const connectedGlissScheduleEvent = glissScheduleEvents.find(
-  (event) => event.eventId === connectedEffectGlissEvent.eventId,
+const anchorOverlapSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 8, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          createGlissAnchorNoteEvent("s1-note-60", 0, 60, "start"),
+          createGlissAnchorNoteEvent("s1-note-64", 2, 64, "mid"),
+          createGlissAnchorNoteEvent("s1-note-67", 4, 67, "end"),
+          createGlissSegmentEvent("s1-note-60", 0, 60, "start", "s1-note-64", 2, 64, "mid", 0.5, 2.5),
+          createGlissSegmentEvent("s1-note-64", 2, 64, "mid", "s1-note-67", 4, 67, "end", 2.5, 4.5),
+        ],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic"],
+});
+const anchorOverlapGlissChain = anchorOverlapSchedule.events.find(
+  (event) => event.sourceEventKind === "glissChain",
 );
+const anchorOverlapMiddleNote = anchorOverlapSchedule.events.find(
+  (event) => event.eventId === "basic:note:s1-note-64:2",
+);
+const anchorOverlapChainGainScale = anchorOverlapGlissChain?.automation.filter(
+  (automation) => automation.kind === "gainScale",
+) ?? [];
 
 assert(
-  connectedGlissScheduleEvent?.sourceEventKind === "gliss",
-  "Schedule should keep the second connected gliss segment.",
+  anchorOverlapGlissChain?.sourceEventKind === "glissChain",
+  "Anchor overlap fixture should create one gliss chain.",
 );
-
-if (connectedGlissScheduleEvent?.sourceEventKind === "gliss") {
-  assertNear(
-    connectedGlissScheduleEvent.startOverlapSeconds,
-    0.05,
-    "Second connected gliss should pre-roll before its internal start.",
-  );
-  assertNear(
-    connectedGlissScheduleEvent.endOverlapSeconds,
-    0,
-    "Second connected gliss should not overlap after its outer end.",
-  );
-}
+assert(
+  anchorOverlapMiddleNote === undefined,
+  "Middle anchor note should be removed from audio schedule when connected gliss chain passes through it.",
+);
+assert(
+  anchorOverlapChainGainScale.length === 1 &&
+    anchorOverlapChainGainScale[0]?.startValue === 1 &&
+    anchorOverlapChainGainScale[0]?.endValue === 1,
+  "Connected gliss chain should not receive anchor-overlap gainScale dips.",
+);
 
 const overlapNoteEvent: NoteEvent = {
   ...effectNoteEvent,

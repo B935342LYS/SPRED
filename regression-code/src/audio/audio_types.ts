@@ -59,7 +59,7 @@ export type AudioScheduleEventBase = {
   endSeconds: number;
   velocity: number;
   automation: AudioAutomationEvent[];
-  sourceEventKind: "note" | "gliss";
+  sourceEventKind: "note" | "gliss" | "glissChain";
 };
 
 /** analyzer의 NoteEvent에서 파생된 단일 발음 예약 정보. */
@@ -79,13 +79,33 @@ export type AudioGlissScheduleEvent = AudioScheduleEventBase & {
   endCentOffset: number;
   curve: "linear";
   crossfadeSeconds: number;
-  startOverlapSeconds: number;
-  endOverlapSeconds: number;
+  effects: AudioScheduleEffect[];
+};
+
+/** 연결된 GlissEvent 체인 내부의 개별 pitch ramp 세그먼트. */
+export type AudioGlissChainSegment = {
+  startSeconds: number;
+  endSeconds: number;
+  startMidi: number;
+  startCentOffset: number;
+  endMidi: number;
+  endCentOffset: number;
+  curve: "linear";
+};
+
+/** 연결된 GlissEvent 여러 개를 하나의 oscillator로 잇는 발음 예약 정보. */
+export type AudioGlissChainScheduleEvent = AudioScheduleEventBase & {
+  sourceEventKind: "glissChain";
+  segments: AudioGlissChainSegment[];
+  fadeSeconds: number;
   effects: AudioScheduleEffect[];
 };
 
 /** audio backend가 예약할 수 있는 발음 이벤트. */
-export type AudioScheduleEvent = AudioNoteScheduleEvent | AudioGlissScheduleEvent;
+export type AudioScheduleEvent =
+  | AudioNoteScheduleEvent
+  | AudioGlissScheduleEvent
+  | AudioGlissChainScheduleEvent;
 
 /** NoteEffectSegment에서 audio backend로 넘기는 구간 효과 정보. */
 export type AudioScheduleEffect =
