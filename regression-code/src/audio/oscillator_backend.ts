@@ -662,7 +662,7 @@ function applyTremoloEffects(
     return;
   }
 
-  tremoloGain.gain.setValueAtTime(1, startTime);
+  tremoloGain.gain.value = 1;
 
   const tremoloEffects = event.effects
     .filter((effect) => effect.kind === "tremolo")

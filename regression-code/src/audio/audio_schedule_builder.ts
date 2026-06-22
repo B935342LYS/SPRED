@@ -86,7 +86,7 @@ export function buildAudioScheduleWithMapper(
       noteEvents,
       glissEvents,
     );
-    const glissChains = buildConnectedGlissChains(glissEvents);
+    const glissChains = buildConnectedGlissChains(glissEvents, noteEvents);
     const chainedGlissEvents = new Set<GlissEvent>(glissChains.flat());
 
     // 선택된 track의 note, 단독 gliss fallback, 연결 gliss chain을 audio schedule event로 변환한다.
@@ -333,6 +333,7 @@ function mergeAdjacentConstantGainScaleAutomation(
  */
 function buildConnectedGlissChains(
   glissEvents: GlissEvent[],
+  noteEvents: NoteEvent[],
 ): GlissEvent[][] {
   const sortedEvents = [...glissEvents].sort((left, right) =>
     timeFractionToNumber(left.startAnchorTick) - timeFractionToNumber(right.startAnchorTick),
@@ -353,7 +354,7 @@ function buildConnectedGlissChains(
       currentChain.push(currentEvent);
     }
 
-    if (nextEvent !== undefined && areConnectedGlissEvents(currentEvent, nextEvent)) {
+    if (nextEvent !== undefined && areConnectedGlissEvents(currentEvent, nextEvent, noteEvents)) {
       currentChain.push(nextEvent);
       continue;
     }
@@ -377,13 +378,16 @@ function buildConnectedGlissChains(
 function areConnectedGlissEvents(
   currentEvent: GlissEvent,
   nextEvent: GlissEvent,
+  noteEvents: NoteEvent[],
 ): boolean {
   return currentEvent.trackId === nextEvent.trackId &&
     currentEvent.glissId === nextEvent.glissId &&
     timeFractionToNumber(currentEvent.endAnchorTick) ===
       timeFractionToNumber(nextEvent.startAnchorTick) &&
     currentEvent.endSound.midi === nextEvent.startSound.midi &&
-    currentEvent.endSound.centOffset === nextEvent.startSound.centOffset;
+    currentEvent.endSound.centOffset === nextEvent.startSound.centOffset &&
+    hasGlissTremoloEffect(currentEvent, noteEvents) ===
+      hasGlissTremoloEffect(nextEvent, noteEvents);
 }
 
 /**
@@ -862,6 +866,19 @@ function buildGlissTremoloEffects(
       division: tremDivision,
     },
   ];
+}
+
+/**
+ * gliss 시작 anchor에 tremolo effect가 걸려 있는지 확인한다.
+ * - 인수 : event : analyzer가 만든 gliss event
+ * - 인수 : noteEvents : 같은 track의 note event 목록
+ * - 반환값 : tremolo division이 있으면 true
+ */
+function hasGlissTremoloEffect(
+  event: GlissEvent,
+  noteEvents: NoteEvent[],
+): boolean {
+  return findStartAnchorTremoloDivision(event, noteEvents) !== null;
 }
 
 /**

@@ -511,60 +511,41 @@ if (effectScheduleEvent?.sourceEventKind === "note") {
   }
 }
 
-const glissChainScheduleEvent = effectSchedule.events.find(
+const tremoloBoundaryGlissChainEvent = effectSchedule.events.find(
   (event) => event.sourceEventKind === "glissChain",
 );
+const tremoloBoundaryGlissEvents = effectSchedule.events.filter(
+  (event) => event.sourceEventKind === "gliss",
+);
 
-assert(glissChainScheduleEvent !== undefined, "Schedule should include a connected gliss chain.");
+assert(
+  tremoloBoundaryGlissChainEvent === undefined,
+  "Tremolo state changes at a shared anchor should split connected gliss chains.",
+);
+assert(
+  tremoloBoundaryGlissEvents.length === 2,
+  "Tremolo boundary fixture should keep two separate gliss schedule events.",
+);
 
-if (glissChainScheduleEvent?.sourceEventKind === "glissChain") {
-  const tremolo = glissChainScheduleEvent.effects.find((effect) => effect.kind === "tremolo");
-  const dynamicsAutomation = glissChainScheduleEvent.automation.filter(
+const tremoloGlissEvent = tremoloBoundaryGlissEvents[0];
+
+if (tremoloGlissEvent?.sourceEventKind === "gliss") {
+  const tremolo = tremoloGlissEvent.effects.find((effect) => effect.kind === "tremolo");
+  const dynamicsAutomation = tremoloGlissEvent.automation.filter(
     (automation) => automation.kind === "gainRamp",
   );
-  const firstSegment = glissChainScheduleEvent.segments[0];
-  const secondSegment = glissChainScheduleEvent.segments[1];
 
-  assertNear(glissChainScheduleEvent.startSeconds, 0.0625, "Gliss chain should start at its outer start anchor.");
-  assertNear(glissChainScheduleEvent.endSeconds, 0.5, "Gliss chain should end at its outer end anchor.");
-  assertNear(glissChainScheduleEvent.fadeSeconds, 0.02, "Gliss chain should use default edge fade.");
-  assert(glissChainScheduleEvent.segments.length === 2, "Gliss chain should keep both connected segments.");
-  assert(tremolo !== undefined, "Gliss chain should inherit tremolo from its start anchor.");
-  assert(dynamicsAutomation.length === 2, "Gliss chain should split dynamics automation by timeline segments.");
-
-  if (firstSegment !== undefined) {
-    assertNear(firstSegment.startSeconds, 0.0625, "First gliss segment should start at the first anchor.");
-    assertNear(firstSegment.endSeconds, 0.375, "First gliss segment should end at the shared anchor.");
-    assert(firstSegment.startMidi === 60, "First gliss segment should keep start MIDI.");
-    assert(firstSegment.endMidi === 64, "First gliss segment should keep shared anchor MIDI.");
-  }
-
-  if (secondSegment !== undefined) {
-    assertNear(secondSegment.startSeconds, 0.375, "Second gliss segment should start at the shared anchor.");
-    assertNear(secondSegment.endSeconds, 0.5, "Second gliss segment should end at the final anchor.");
-    assert(secondSegment.startMidi === 64, "Second gliss segment should start at shared anchor MIDI.");
-    assert(secondSegment.endMidi === 67, "Second gliss segment should keep final anchor MIDI.");
-  }
+  assertNear(tremoloGlissEvent.startSeconds, 0.0625, "Tremolo gliss should start at its start anchor.");
+  assertNear(tremoloGlissEvent.endSeconds, 0.375, "Tremolo gliss should end at its end anchor.");
+  assert(tremoloGlissEvent.startMidi === 60, "Tremolo gliss should keep start MIDI.");
+  assert(tremoloGlissEvent.endMidi === 64, "Tremolo gliss should keep end MIDI.");
+  assert(tremolo !== undefined, "Tremolo gliss should inherit tremolo from its start anchor.");
+  assert(dynamicsAutomation.length === 2, "Tremolo gliss should split dynamics automation by timeline segments.");
 
   if (tremolo !== undefined) {
-    assert(tremolo.division === 3, "Gliss chain tremolo should keep start anchor division.");
-    assertNear(tremolo.startSeconds, 0.0625, "Gliss chain tremolo should start with the first segment.");
-    assertNear(tremolo.endSeconds, 0.375, "Gliss chain tremolo should end with the first segment.");
-    assertNear(tremolo.durationTicks, 2.5, "Gliss chain tremolo duration should follow first segment ticks.");
-  }
-
-  if (dynamicsAutomation[0]?.kind === "gainRamp") {
-    assertNear(dynamicsAutomation[0].startSeconds, 0.0625, "Gliss chain first dynamics ramp should start at chain start.");
-    assertNear(dynamicsAutomation[0].endSeconds, 0.25, "Gliss chain first dynamics ramp should end at dynamics boundary.");
-    assertNear(dynamicsAutomation[0].startValue, 0.75, "Gliss chain dynamics should interpolate start gain.");
-    assertNear(dynamicsAutomation[0].endValue, 1.5, "Dynamics 150 should map to gain 1.5.");
-  }
-
-  if (dynamicsAutomation[1]?.kind === "gainRamp") {
-    assertNear(dynamicsAutomation[1].startSeconds, 0.25, "Gliss chain second dynamics segment should start at tick 2.");
-    assertNear(dynamicsAutomation[1].endSeconds, 0.5, "Gliss chain second dynamics segment should end at chain end.");
-    assertNear(dynamicsAutomation[1].startValue, 0.8, "Dynamics 80 should map to gain 0.8.");
-    assertNear(dynamicsAutomation[1].endValue, 0.8, "Instant dynamics should keep the same gain.");
+    assert(tremolo.division === 3, "Tremolo gliss should keep start anchor division.");
+    assertNear(tremolo.startSeconds, 0.0625, "Tremolo gliss tremolo should start with the gliss.");
+    assertNear(tremolo.endSeconds, 0.375, "Tremolo gliss tremolo should end with the gliss.");
   }
 }
 
