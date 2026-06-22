@@ -256,7 +256,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus is the edit/playback/layout verification and reporting loop: UI input -> score JSON rawText/layout mutation -> parse/analyze/render rebuild -> Web Audio playback/seek check -> report preparation
+- current focus is layout stabilization documentation and report preparation, followed by track layer planning, audio verification, and YouTube mode planning
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
@@ -285,7 +285,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
 - parser verification has been introduced through `npm run test:parse`
-- current near-term focus is stabilizing audio effect playback behavior and preparing report / presentation materials after the first audio effect pass
+- current near-term focus is documenting the completed layout preset stabilization pass and preparing the next track layer feature step
 - the first analyzer MVP scope is fixed to default note text and `"-"` hold only
 - UI layout customization MVP now distinguishes original `instData.presetId` from user-created `layoutPresetId`
 - `score_validate.ts` now rejects ScoreFiles without any of the fixed `basic`, `optional`, and `extra` tracks
@@ -345,8 +345,11 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
 - `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
 - `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the fixed 3-slot localStorage policy per `instrumentPresetId`
-- the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply performs ScoreFile full rebuild after deletion confirmation, and Local/File preset save/load are connected
+- the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply creates a structurally shared next ScoreFile after deletion confirmation, and Local/File preset save/load are connected
 - the outer layout toolbar now shows `Default Layout` plus Local Slot 1..3; Default reapplies the score-load-time layout snapshot, filled slots can be applied directly, and empty slots fall back to Default
+- layout preset names are limited to 30 characters, layout preset JSON is limited to 256 KiB, preset file names use the simplified `layout-{preset name}.json` rule, and layout apply/preset apply reset playback runtime
+- local score save is limited to 3 MiB, score JSON file load is limited to 8 MiB, and score cell `rawText` is validated at the score and edit-input boundaries
+- unused layout preset index helpers, unused generic JSON download helpers, and stale unused variables/imports were removed; `tsc --noUnusedLocals --noUnusedParameters` passes
 - root layout test fixtures have been added for a 2-octave layout with fixed 21px gap rows and a 3-octave layout without gap rows
 - `docs/implementation-memo/1.15-step2-edit-render-verification-loop.md` records the current edit/analyze/render verification loop implementation
 - `docs/implementation-memo/1.16-weekly-report-draft-step2-edit-render.md` provides a weekly report draft for the grid-renderer-afterward work segment
@@ -358,12 +361,15 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.22-step4-basic-audio-effects.md` records vibrato, tremolo, and gliss fallback audio effect implementation decisions
 - `docs/implementation-memo/1.25-step5-layout-editor-ui-shell.md` records the layout editor UI shell, current placeholder boundaries, and the next layout draft step
 - `docs/implementation-memo/1.26-step5-layout-draft-apply-preset.md` records the layout draft, apply, local slot preset, file preset, and toolbar preset implementation decisions
+- `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
-- latest verified commands: `npm run typecheck`, `npm run test:layout`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run build`
+- latest verified commands: `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:layout`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- expand manual and browser-level tests for vibrato, tremolo, and gliss fallback playback quality
+- implement track layer UI/edit/render/playback filtering over the existing fixed `basic`, `optional`, and `extra` tracks
+- expand manual and browser-level tests for vibrato, tremolo, gliss fallback, seek, pause/resume, and layout-change playback reset behavior
+- prepare a basic audio verification checklist before YouTube mode
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
 - evaluate whether gliss fallback needs note ducking or selective voice-span merging after listening tests
 - add loop playback range selection and scheduler/controller support
@@ -371,7 +377,7 @@ Deferred planned work:
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
 - add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
-- refactor layout dialog and toolbar binding out of `app_view_binding.ts` into a dedicated layout UI binding module after the report milestone
+- consider explicit local layout slot clear/delete UI after practical preset usage feedback
 - define a production build path that strips or minifies comments for GitHub Pages deployment
 
 ## 11. Current Boundary Notes
