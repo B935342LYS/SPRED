@@ -15,8 +15,6 @@ const DEFAULT_LAYOUT_WIDTH =
   CANVAS_METRICS.baseLayoutPaddingWidth +
   CANVAS_METRICS.baseLayoutLabelWidth +
   CANVAS_METRICS.baseLayoutPaddingWidth;
-const MAX_CANVAS_BITMAP_DIMENSION = 16_384;
-const MAX_CANVAS_BITMAP_AREA = 67_108_864;
 
 type NormalizedCanvasRenderOptions = {
   zoom: number;
@@ -36,32 +34,6 @@ type NormalizedCanvasRenderOptions = {
  */
 function isPositiveFinite(value: number): boolean {
   return Number.isFinite(value) && value > 0;
-}
-
-/**
- * 큰 score canvas가 브라우저 bitmap 한계를 넘지 않도록 layer별 DPR을 낮춘다.
- * - 인수 : cssWidth : CSS pixel 기준 너비
- * - 인수 : cssHeight : CSS pixel 기준 높이
- * - 인수 : requestedDevicePixelRatio : 화면에서 요청한 DPR
- * - 반환값 : canvas bitmap 한계를 넘지 않는 effective DPR
- */
-function clampDevicePixelRatioForCanvas(
-  cssWidth: number,
-  cssHeight: number,
-  requestedDevicePixelRatio: number,
-): number {
-  // canvas bitmap의 최대 가로/세로 크기를 넘지 않는 DPR 비율을 계산한다.
-  const dimensionLimitedRatio = Math.min(
-    requestedDevicePixelRatio,
-    MAX_CANVAS_BITMAP_DIMENSION / Math.max(1, cssWidth),
-    MAX_CANVAS_BITMAP_DIMENSION / Math.max(1, cssHeight),
-  );
-  const areaLimitedRatio = Math.sqrt(
-    MAX_CANVAS_BITMAP_AREA / Math.max(1, cssWidth * cssHeight),
-  );
-
-  // dimension 제한과 area 제한을 모두 만족하는 DPR을 반환한다.
-  return Math.max(0.25, Math.min(dimensionLimitedRatio, areaLimitedRatio));
 }
 
 /**
@@ -184,12 +156,8 @@ function resizeCanvasLayer(
   cssHeight: number,
   devicePixelRatio: number,
 ): void {
-  // canvas 크기에 맞춰 실제 적용할 DPR과 bitmap 크기를 계산한다.
-  const effectiveDevicePixelRatio = clampDevicePixelRatioForCanvas(
-    cssWidth,
-    cssHeight,
-    devicePixelRatio,
-  );
+  // 1차 사용자 테스트에서는 긴 악보 화질을 우선하여 브라우저 canvas 한계 clamp를 임시로 적용하지 않는다.
+  const effectiveDevicePixelRatio = devicePixelRatio;
   const bitmapWidth = Math.max(
     1,
     Math.floor(cssWidth * effectiveDevicePixelRatio),

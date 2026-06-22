@@ -5,19 +5,19 @@
     },
 
     "musicData" : {
-        "musicTitle" : "testScore",
-        "musicArtist" : "testArtist",
-        "musicGenre" : "testGenre",
+        "musicTitle" : "Untitled",
+        "musicArtist" : "Unknown Artist",
+        "musicGenre" : "Unspecified",
 
-        "scoreWriter" : "testSheetWriter",
-        "comment" : "This is a test score for Otamatone DX Basic.",
+        "scoreWriter" : "Anonymous",
+        "comment" : "",
         "scoreDifficulty" : {
-            "basic" : 1,
-            "optional" : 5,
-            "extra" : 10
+            "basic" : 0,
+            "optional" : 0,
+            "extra" : 0
         },
-        "createdAt": "2000-09-09T10:00:00+09:00",
-        "updatedAt": "2000-09-09T10:00:00+09:00",
+        "createdAt": "1970-01-01T00:00:00.000Z",
+        "updatedAt": "1970-01-01T00:00:00.000Z",
 
         "youtube": {
             "videoId": "",
@@ -134,19 +134,7 @@
         {
             "trackId": "basic",
             "trackName": "basic",
-            "cells": [
-                { "rowId": "s1-note-52", "col": 0, "rawText": "E3" },
-                { "rowId": "s1-note-52", "col": 1, "rawText": "-" },
-                { "rowId": "s1-note-52", "col": 2, "rawText": "-" },
-                { "rowId": "s1-note-52", "col": 3, "rawText": "-" },                             
-                { "rowId": "s1-note-53", "col": 4, "rawText": "F3" },
-                { "rowId": "s1-note-53", "col": 5, "rawText": "-" },
-                { "rowId": "s1-note-53", "col": 6, "rawText": "F3" },
-                { "rowId": "s1-note-53", "col": 7, "rawText": "-" },
-                { "rowId": "s1-note-54", "col": 8, "rawText": "F#3" },
-                { "rowId": "s1-note-54", "col": 9, "rawText": "F#3" },
-                { "rowId": "s1-note-54", "col": 10, "rawText": "F#3" }
-            ]
+            "cells": []
         },
         {
             "trackId": "optional",

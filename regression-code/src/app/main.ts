@@ -41,7 +41,7 @@ import {
   bindYoutubeControls,
   type YoutubePlaybackControl,
 } from "./youtube/youtube_binding";
-import sampleScoreJson from "../../dev/test_cases/minimal-valid-score.json?raw";
+import templateScoreJson from "../assets/templates/default-score.json?raw";
 
 /**
  * sample JSON을 로드하고 base canvas renderer를 실행한다.
@@ -54,17 +54,17 @@ async function boot(): Promise<void> {
 
   populateAbsolutePitchOptions(dom.absolutePitchSelect);
 
-  const sampleLoadResult = loadScoreTextAsInitialState(
-    sampleScoreJson,
-    "sample score",
+  const templateLoadResult = loadScoreTextAsInitialState(
+    templateScoreJson,
+    "template score",
     "template",
   );
 
-  if (!sampleLoadResult.ok) {
-    throw new Error(sampleLoadResult.message);
+  if (!templateLoadResult.ok) {
+    throw new Error(templateLoadResult.message);
   }
 
-  let state = sampleLoadResult.state;
+  let state = templateLoadResult.state;
   let playbackRuntime: AppPlaybackRuntime;
   let notePreviewRuntime: AppNotePreviewRuntime;
   let youtubeControl: YoutubePlaybackControl;
@@ -177,7 +177,7 @@ async function boot(): Promise<void> {
 
   render();
   syncPlaybackUi(dom, state, playbackRuntime);
-  setStatus(0, "sample auto load: done");
+  setStatus(0, "template auto load: done");
 
   youtubeControl = bindYoutubeControls(dom, appSession);
   bindViewControls(dom, appSession);
@@ -212,7 +212,7 @@ function createNoopYoutubeControl(): YoutubePlaybackControl {
 window.addEventListener("DOMContentLoaded", () => {
   boot().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Unknown boot error.";
-    setStatus(0, "sample auto load: failed");
+    setStatus(0, "template auto load: failed");
     setStatus(1, message);
   });
 });

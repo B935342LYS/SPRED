@@ -300,7 +300,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `regression-code/src/core/parse/parse_note_cell.ts` now implements the first-stage note parser path for mute, pletExtend, pletHead, default note, hold-only cells, and general note modifiers
 - `regression-code/src/core/parse/build_parsed_document.ts` now accepts `RuntimeDocument` as the public parse input and assembles single-cell parser results into `ParsedScoreDocument`
 - document-level parser public API now uses `RuntimeDocument` instead of separate `ScoreFile` and `ScoreIndexes` arguments to keep score/index pairs synchronized for later runtime editing and partial update work
-- `regression-code/dev/test_cases/minimal-valid-score.json` is the current score load fixture
+- `regression-code/dev/test_cases/minimal-valid-score.json` is the current parser/score test fixture
 - `regression-code/dev/test_score.ts` verifies the fixture through `loadRuntimeDocument()`
 - `regression-code/dev/test_parse.ts` verifies fixture global cells through `parseGlobalCell()`, fixture track cells through `parseNoteCell()`, direct note modifier samples, direct pletHead samples, and `buildParsedDocument()`
 - TypeScript verification has been introduced through `regression-code/tsconfig.json`, `npm run typecheck`, and `npm run test:score`
@@ -389,6 +389,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
+- the app boot template score now lives at `regression-code/src/assets/templates/default-score.json`; it keeps the default instrument/layout/global rows but starts with default music metadata and empty tracks, while dev fixtures under `regression-code/dev/test_cases/` remain test-only inputs
+- renderer DPR downscaling for very wide canvas layers is temporarily disabled for first user testing to improve long-score sharpness; the Expand panel warns that large scores may lag or render incorrectly until viewport/tile rendering replaces this policy
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
 
 Deferred planned work:
