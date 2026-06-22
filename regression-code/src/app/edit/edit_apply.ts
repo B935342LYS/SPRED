@@ -13,6 +13,9 @@ import { MAX_CELL_RAW_TEXT_LENGTH } from "../../core/score/score_limits";
 /** edit 적용 대상 row 종류. */
 export type EditRowKind = "global" | "note" | "gap";
 
+/** score text edit batch가 무효화하는 런타임 산출물 종류. */
+export type EditInvalidationKind = "noteCell" | "globalCell" | "mixedCell";
+
 /**
  * score edit 적용 대상 좌표.
  * - 인수 : 없음
@@ -52,6 +55,37 @@ export type ScoreTextEdit = {
   selection: ScoreEditSelection;
   rawText: string;
 };
+
+/**
+ * edit batch가 note/global 중 어느 영역을 바꾸는지 분류한다.
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : note/global/mixed invalidation 종류
+ */
+export function getScoreTextEditInvalidationKind(
+  edits: readonly ScoreTextEdit[],
+): EditInvalidationKind {
+  let hasNote = false;
+  let hasGlobal = false;
+
+  // edit 목록을 순회하며 note/global rowKind가 함께 들어왔는지 확인한다.
+  for (const edit of edits) {
+    if (edit.selection.rowKind === "note") {
+      hasNote = true;
+    } else if (edit.selection.rowKind === "global") {
+      hasGlobal = true;
+    }
+
+    if (hasNote && hasGlobal) {
+      return "mixedCell";
+    }
+  }
+
+  if (hasGlobal) {
+    return "globalCell";
+  }
+
+  return "noteCell";
+}
 
 /**
  * ScoreFile JSON 구조를 편집용으로 깊은 복사한다.

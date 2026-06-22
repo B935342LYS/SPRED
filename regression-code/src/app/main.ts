@@ -11,6 +11,7 @@ import {
 import { bindFileControls } from "./app_file_binding";
 import { bindViewControls } from "./app_view_binding";
 import type { ScoreTextEdit } from "./edit/edit_apply";
+import { getScoreTextEditInvalidationKind } from "./edit/edit_apply";
 import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
 import { syncLayoutToolbarPresetSelectForCurrentScore } from "./layout/layout_dialog_binding";
@@ -19,6 +20,7 @@ import {
 } from "./pitch_label";
 import {
   renderApp,
+  renderAppPartial,
   setStatus,
   syncLeftStatus,
   syncMusicMetadata,
@@ -80,6 +82,24 @@ async function boot(): Promise<void> {
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
+  const renderAfterScoreTextEdit = (edits: ScoreTextEdit[]): void => {
+    const invalidationKind = getScoreTextEditInvalidationKind(edits);
+
+    if (invalidationKind === "noteCell") {
+      state = renderAppPartial(dom, state, "note");
+    } else if (invalidationKind === "globalCell") {
+      state = renderAppPartial(dom, state, "global");
+    } else {
+      state = renderApp(dom, state);
+    }
+
+    syncMusicMetadata(dom, state);
+    syncLeftStatus(dom, state);
+    syncUiControls(dom, state);
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, { getState: () => state });
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
+
   playbackRuntime = createAppPlaybackRuntime(dom, state);
   notePreviewRuntime = createAppNotePreviewRuntime(dom);
   youtubeControl = createNoopYoutubeControl();
@@ -119,7 +139,7 @@ async function boot(): Promise<void> {
     // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
     state = applyRawTextBatchEditToState(state, edits);
 
-    render();
+    renderAfterScoreTextEdit(edits);
     resetPlaybackForCurrentState();
   };
 

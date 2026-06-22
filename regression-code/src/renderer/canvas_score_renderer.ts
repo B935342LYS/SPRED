@@ -11,12 +11,16 @@ import {
   drawScoreMarkers,
   drawScoreOverlayMarkers,
 } from "./canvas_marker_renderer";
-import { drawScoreNotes } from "./canvas_note_renderer";
+import {
+  drawScoreGlobalTexts,
+  drawScoreNotes,
+} from "./canvas_note_renderer";
 import type {
   CanvasAnalyzedRenderInput,
   CanvasGlobalTextRenderItem,
   CanvasMarkerItem,
   CanvasMuteRenderItem,
+  CanvasRedrawScope,
   CanvasRenderInput,
   CanvasRenderOptions,
   CanvasRenderResult,
@@ -52,6 +56,74 @@ export function renderCanvasScore(
   return {
     layout,
   };
+}
+
+/**
+ * 기존 base/layout layer를 유지하고 편집 영향이 있는 동적 layer만 다시 그린다.
+ * - 인수 : target : layout/base/note/marker canvas target
+ * - 인수 : input : renderer 전용 입력 DTO
+ * - 인수 : options : UI 표시 옵션
+ * - 인수 : scope : 다시 그릴 동적 layer 범위
+ * - 인수 : previousLayout : 직전 full render에서 계산된 layout
+ * - 반환값 : 렌더 결과 metadata
+ */
+export function renderCanvasScorePartial(
+  target: CanvasRenderTarget,
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+  options: CanvasRenderOptions,
+  scope: Exclude<CanvasRedrawScope, "all">,
+  previousLayout: CanvasRenderResult["layout"],
+): CanvasRenderResult {
+  const layout = buildCanvasScoreLayout(input, options);
+
+  if (!canReuseCanvasLayerSizes(previousLayout, layout)) {
+    return renderCanvasScore(target, input, options);
+  }
+
+  const noteItems = getNoteItems(input);
+  const muteItems = getMuteItems(input);
+  const globalTextItems = getGlobalTextItems(input);
+  const markerItems = getMarkerItems(input);
+
+  if (scope === "note") {
+    drawScoreMarkers(target.marker.context, layout, markerItems);
+    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
+    drawScoreOverlayMarkers(target.note.context, layout, markerItems);
+  } else {
+    // 전역 marker는 현재 note marker와 같은 canvas에 있으므로 marker layer 전체를 다시 그린다.
+    drawScoreMarkers(target.marker.context, layout, markerItems);
+    drawScoreGlobalTexts(target.note.context, layout, globalTextItems);
+  }
+
+  return {
+    layout,
+  };
+}
+
+/**
+ * 기존 canvas bitmap과 base/layout draw를 재사용해도 되는지 확인한다.
+ * - 인수 : previousLayout : 직전 renderer layout
+ * - 인수 : nextLayout : 다음 renderer layout
+ * - 반환값 : 동적 layer만 다시 그려도 되는 같은 좌표계인지 여부
+ */
+function canReuseCanvasLayerSizes(
+  previousLayout: CanvasRenderResult["layout"],
+  nextLayout: CanvasRenderResult["layout"],
+): boolean {
+  return previousLayout.stageWidth === nextLayout.stageWidth &&
+    previousLayout.stageHeight === nextLayout.stageHeight &&
+    previousLayout.layoutWidth === nextLayout.layoutWidth &&
+    previousLayout.columnWidth === nextLayout.columnWidth &&
+    previousLayout.rows.length === nextLayout.rows.length &&
+    previousLayout.rows.every((row, index) => {
+      const nextRow = nextLayout.rows[index];
+
+      return nextRow !== undefined &&
+        row.rowId === nextRow.rowId &&
+        row.kind === nextRow.kind &&
+        row.y === nextRow.y &&
+        row.height === nextRow.height;
+    });
 }
 
 /**

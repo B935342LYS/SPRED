@@ -39,6 +39,8 @@ export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
   noteItems: CanvasNoteRenderItem[];
   muteItems: CanvasMuteRenderItem[];
   globalTextItems: CanvasGlobalTextRenderItem[];
+  globalMarkerItems: CanvasMarkerItem[];
+  noteMarkerItems: CanvasMarkerItem[];
   markerItems: CanvasMarkerItem[];
 };
 
@@ -269,3 +271,6 @@ export type CanvasMarkerItem =
 export type CanvasRenderResult = {
   layout: CanvasScoreLayout;
 };
+
+/** renderer가 다시 그릴 canvas layer 범위. */
+export type CanvasRedrawScope = "all" | "note" | "global";

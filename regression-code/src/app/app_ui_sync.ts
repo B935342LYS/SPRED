@@ -2,8 +2,12 @@
  * AppState를 DOM과 canvas renderer에 반영하는 동기화 함수를 제공한다.
  */
 
-import { renderCanvasScore } from "../renderer/canvas_score_renderer";
+import {
+  renderCanvasScore,
+  renderCanvasScorePartial,
+} from "../renderer/canvas_score_renderer";
 import type {
+  CanvasRedrawScope,
   CanvasRenderOptions,
   CanvasRenderResult,
 } from "../renderer/canvas_types";
@@ -328,6 +332,47 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
   // 오른쪽 tail 폭은 playback 기준선이 마지막 tick까지 따라갈 수 있도록 scroll extent만 확장한다.
+  const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
+
+  updateStageCssVars(
+    result.layout.stageWidth,
+    result.layout.stageWidth + horizontalTailWidth,
+    result.layout.stageHeight,
+    result.layout.layoutWidth,
+  );
+  syncLayoutScroll(dom.scoreArea, dom.layoutStage);
+  setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
+  setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+
+  return {
+    ...state,
+    layout: result.layout,
+  };
+}
+
+/**
+ * AppState 안의 renderInput으로 편집 영향 layer만 다시 그리고 layout 상태를 유지한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 인수 : scope : 다시 그릴 canvas 동적 layer 범위
+ * - 반환값 : renderer layout이 반영된 새 상태
+ */
+export function renderAppPartial(
+  dom: AppDom,
+  state: AppState,
+  scope: Exclude<CanvasRedrawScope, "all">,
+): AppState {
+  if (state.layout === null) {
+    return renderApp(dom, state);
+  }
+
+  const result: CanvasRenderResult = renderCanvasScorePartial(
+    dom.target,
+    state.renderInput,
+    createRenderOptions(dom.zoomInput),
+    scope,
+    state.layout,
+  );
   const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
 
   updateStageCssVars(

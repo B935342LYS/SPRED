@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { createInitialState } from "../src/app/app_runtime";
-import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
+import {
+  applyScoreCellRawTextBatch,
+  getScoreTextEditInvalidationKind,
+} from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
 import { normalizeNumberRawInput } from "../src/app/edit/edit_number";
@@ -330,6 +333,58 @@ if (loadResult.ok && tupletResult.kind === "apply") {
       rawText: "120<",
     },
   ]);
+
+  assert(
+    getScoreTextEditInvalidationKind([
+      {
+        selection: {
+          trackId: "basic",
+          rowId: "s1-note-60",
+          rowKind: "note",
+          col: 2,
+        },
+        rawText: "C4",
+      },
+    ]) === "noteCell",
+    "Note-only edit batch should invalidate note cells.",
+  );
+  assert(
+    getScoreTextEditInvalidationKind([
+      {
+        selection: {
+          trackId: "basic",
+          rowId: "global-bpm",
+          rowKind: "global",
+          col: 2,
+        },
+        rawText: "120<",
+      },
+    ]) === "globalCell",
+    "Global-only edit batch should invalidate global cells.",
+  );
+  assert(
+    getScoreTextEditInvalidationKind([
+      {
+        selection: {
+          trackId: "basic",
+          rowId: "s1-note-60",
+          rowKind: "note",
+          col: 2,
+        },
+        rawText: "C4",
+      },
+      {
+        selection: {
+          trackId: "basic",
+          rowId: "global-bpm",
+          rowKind: "global",
+          col: 2,
+        },
+        rawText: "120<",
+      },
+    ]) === "mixedCell",
+    "Mixed edit batch should be classified as the mixed fallback.",
+  );
 
   assert(batchApplyResult.ok, "Batch edit should apply note and global cells together.");
 

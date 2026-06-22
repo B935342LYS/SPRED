@@ -72,6 +72,32 @@ export function drawScoreNotes(
 }
 
 /**
+ * note canvas 안의 global row 텍스트 영역만 다시 그린다.
+ * - 인수 : context : note layer canvas 2D context
+ * - 인수 : layout : CSS pixel 기준 score layout
+ * - 인수 : globalTextItems : 전역 행 rawText 표시 item 목록
+ * - 반환값 : 없음
+ */
+export function drawScoreGlobalTexts(
+  context: CanvasRenderingContext2D,
+  layout: CanvasScoreLayout,
+  globalTextItems: CanvasGlobalTextRenderItem[] = [],
+): void {
+  const rowById = createLayoutRowMap(layout);
+
+  // global row 영역만 지워 note row의 note/event 표시를 유지한다.
+  for (const row of layout.rows) {
+    if (row.kind === "global") {
+      context.clearRect(0, row.y, layout.stageWidth, row.height);
+    }
+  }
+
+  for (const item of globalTextItems) {
+    drawGlobalText(context, layout, rowById, item);
+  }
+}
+
+/**
  * layout row를 rowId 기준 Map으로 만든다.
  * - 인수 : layout : CSS pixel 기준 score layout
  * - 반환값 : Map<string, CanvasLayoutRow> : note item row 조회용 Map

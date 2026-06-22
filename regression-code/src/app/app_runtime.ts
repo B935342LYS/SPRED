@@ -19,8 +19,10 @@ import type {
 } from "../core/score/types";
 import {
   buildCanvasGlobalTextRenderItems,
+  buildCanvasGlobalMarkerItems,
   buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
+  buildCanvasNoteMarkerItems,
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
@@ -133,12 +135,16 @@ export function buildAnalyzedCanvasRenderInput(
     createCanvasRenderInput(document),
     reverseRows,
   );
+  const globalMarkerItems = buildCanvasGlobalMarkerItems(analysis);
+  const noteMarkerItems = buildCanvasNoteMarkerItems(analysis, activeTrackIds);
 
   return {
     ...renderInput,
     globalTextItems: buildCanvasGlobalTextRenderItems(document.score),
     noteItems: buildCanvasNoteRenderItems(analysis, activeTrackIds),
     muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
+    globalMarkerItems,
+    noteMarkerItems,
     markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
   };
 }
