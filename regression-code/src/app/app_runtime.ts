@@ -34,6 +34,7 @@ import type {
   ScoreSelection,
 } from "./app_types";
 import { applyLayoutDraftToScore } from "./layout/layout_apply";
+import { createLayoutDraftBundle } from "./layout/layout_draft";
 import type { LayoutDraftBundle } from "./layout/layout_types";
 
 /**
@@ -107,6 +108,7 @@ export function createInitialState(
     },
     selection: null,
     layout: null,
+    defaultLayoutDraft: createLayoutDraftBundle(document.score),
   };
 }
 

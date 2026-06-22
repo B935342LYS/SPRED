@@ -103,6 +103,7 @@ function syncLayoutDialogFromDraft(
     dom.layoutStringSelect.appendChild(createStringOption(stringInfo));
     dom.layoutStringList.appendChild(createStringSummaryRow(stringInfo, instData.supportsOpen));
   }
+  bindLayoutStringPitchInputs(dom);
 
   dom.layoutStringSelect.value = draft.selectedStringId ?? "";
   dom.layoutNoteHeightInput.value = String(getLayoutDraftCommonNoteHeight(draft));
@@ -199,12 +200,13 @@ function createStringSummaryRow(
   const row = document.createElement("div");
 
   row.className = "layout-table-row";
+  row.dataset.stringId = stringInfo.stringId;
   row.append(
     createLayoutCell(stringInfo.stringId),
     createLayoutCell(stringInfo.stringName),
-    createPitchSelect(stringInfo.minMidi, "Min MIDI"),
-    createPitchSelect(stringInfo.maxMidi, "Max MIDI"),
-    createPitchSelect(stringInfo.openMidi ?? stringInfo.minMidi, "Open MIDI", true),
+    createPitchSelect(stringInfo.minMidi, "Min MIDI", "minMidi"),
+    createPitchSelect(stringInfo.maxMidi, "Max MIDI", "maxMidi"),
+    createPitchSelect(stringInfo.openMidi ?? stringInfo.minMidi, "Open MIDI", "openMidi", true),
   );
 
   return row;
@@ -219,11 +221,13 @@ function createStringSummaryRow(
 function createPitchSelect(
   selectedMidi: number,
   label: string,
+  field: "minMidi" | "maxMidi" | "openMidi",
   disabled = false,
 ): HTMLSelectElement {
   const select = document.createElement("select");
 
   select.className = "layout-string-pitch-select";
+  select.dataset.field = field;
   select.setAttribute("aria-label", label);
   select.disabled = disabled;
 
@@ -695,6 +699,7 @@ function readLayoutDraftFromDialog(dom: AppDom): LayoutDraftBundle {
   const draft = requireActiveLayoutDraft();
   const layoutPresetDisplayName = dom.layoutPresetNameInput.value.trim()
     || draft.layoutPresetDisplayName;
+  const strings = readLayoutInstrumentStringsFromDialog(dom, draft);
 
   return {
     ...draft,
@@ -704,9 +709,82 @@ function readLayoutDraftFromDialog(dom: AppDom): LayoutDraftBundle {
       family: dom.layoutFamilyInput.value,
       instName: layoutPresetDisplayName,
       supportsOpen: dom.layoutSupportsOpenInput.checked,
-      strings: draft.instData.strings.map((string) => ({ ...string })),
+      strings,
     },
   };
+}
+
+/**
+ * layout dialog의 string MIDI select 값을 draft instData strings로 읽는다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : draft : 기존 string 정보를 보관한 현재 layout draft
+ * - 반환값 : dialog 입력값이 반영된 악기 string 목록
+ */
+function readLayoutInstrumentStringsFromDialog(
+  dom: AppDom,
+  draft: LayoutDraftBundle,
+): InstrumentString[] {
+  const rowByStringId = new Map<string, HTMLElement>();
+
+  dom.layoutStringList.querySelectorAll<HTMLElement>(".layout-table-row").forEach((row) => {
+    const stringId = row.dataset.stringId;
+
+    if (stringId !== undefined) {
+      rowByStringId.set(stringId, row);
+    }
+  });
+
+  return draft.instData.strings.map((stringInfo) => {
+    const row = rowByStringId.get(stringInfo.stringId);
+
+    if (row === undefined) {
+      return { ...stringInfo };
+    }
+
+    const minMidi = readLayoutStringPitchSelect(row, "minMidi", stringInfo.minMidi);
+    const maxMidi = readLayoutStringPitchSelect(row, "maxMidi", stringInfo.maxMidi);
+    const openMidi = readLayoutStringPitchSelect(row, "openMidi", stringInfo.openMidi ?? minMidi);
+
+    const { openMidi: _openMidi, ...baseStringInfo } = stringInfo;
+
+    return {
+      ...baseStringInfo,
+      minMidi,
+      maxMidi,
+      ...(dom.layoutSupportsOpenInput.checked ? { openMidi } : {}),
+    };
+  });
+}
+
+/**
+ * string 요약 row에서 지정한 MIDI select 값을 읽는다.
+ * - 인수 : row : string 요약 row DOM 요소
+ * - 인수 : field : 읽을 MIDI 필드명
+ * - 인수 : fallback : select를 찾지 못하거나 숫자가 아니면 사용할 값
+ * - 반환값 : 선택된 MIDI 값
+ */
+function readLayoutStringPitchSelect(
+  row: HTMLElement,
+  field: "minMidi" | "maxMidi" | "openMidi",
+  fallback: number,
+): number {
+  const select = row.querySelector<HTMLSelectElement>(`select[data-field="${field}"]`);
+  const value = select === null ? Number.NaN : Number.parseInt(select.value, 10);
+
+  return Number.isInteger(value) ? value : fallback;
+}
+
+/**
+ * string MIDI select 변경을 현재 active layout draft의 instData에 즉시 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 반환값 : 없음
+ */
+function bindLayoutStringPitchInputs(dom: AppDom): void {
+  dom.layoutStringList.querySelectorAll<HTMLSelectElement>(".layout-string-pitch-select").forEach((select) => {
+    select.addEventListener("change", () => {
+      activeLayoutDraft = readLayoutDraftFromDialog(dom);
+    });
+  });
 }
 
 /**
@@ -862,8 +940,16 @@ function applyLayoutToolbarPreset(
   session: LayoutDialogBindingSession,
 ): void {
   const selectedValue = dom.layoutPresetToolbarSelect.value;
+  const state = session.getState();
 
   if (selectedValue === "default") {
+    applyLayoutToolbarDraft(
+      dom,
+      session,
+      state.defaultLayoutDraft,
+      selectedValue,
+      "Default layout",
+    );
     return;
   }
 
@@ -875,22 +961,17 @@ function applyLayoutToolbarPreset(
   }
 
   try {
-    const state = session.getState();
     const instrumentPresetId = state.document.score.instData.presetId;
     const preset = loadLayoutPresetSlotFromLocalStorage(instrumentPresetId, slotNumber);
 
     if (preset === null) {
-      const nextState = {
-        ...state,
-        statusMessage: {
-          level: "warning" as const,
-          text: `Slot ${slotNumber} is empty. Default layout remains active.`,
-        },
-      };
-
-      session.setState(nextState);
-      syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
-      syncLeftStatus(dom, nextState);
+      applyLayoutToolbarDraft(
+        dom,
+        session,
+        state.defaultLayoutDraft,
+        "default",
+        `Slot ${slotNumber} fallback default layout`,
+      );
       return;
     }
 
@@ -898,45 +979,8 @@ function applyLayoutToolbarPreset(
       preset,
       createLayoutDraftBundle(state.document.score),
     );
-    const deletionSummary = calculateLayoutCellDeletionSummary(state.document.score, draft);
-    let allowCellDeletion = false;
-
-    if (deletionSummary.totalCount > 0) {
-      allowCellDeletion = window.confirm(
-        `This layout preset will delete ${deletionSummary.totalCount} track cell(s). Continue?`,
-      );
-
-      if (!allowCellDeletion) {
-        const nextState = {
-          ...state,
-          statusMessage: {
-            level: "warning" as const,
-            text: "Layout preset apply was cancelled before deleting track cells.",
-          },
-        };
-
-        session.setState(nextState);
-        syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
-        syncLeftStatus(dom, nextState);
-        return;
-      }
-    }
-
-    const nextState = applyLayoutDraftEditToState(state, draft, allowCellDeletion);
-
-    session.setState(nextState);
-
-    if (nextState.statusMessage.level !== "info") {
-      syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
-      syncLeftStatus(dom, nextState);
-      return;
-    }
-
-    session.render();
-    syncLeftStatus(dom, session.getState());
-    syncLayoutToolbarPresetSelectForCurrentScore(dom, session, selectedValue);
+    applyLayoutToolbarDraft(dom, session, draft, selectedValue, "Layout preset");
   } catch (error: unknown) {
-    const state = session.getState();
     const message = error instanceof Error ? error.message : "Unknown layout preset apply error.";
     const nextState = {
       ...state,
@@ -950,6 +994,62 @@ function applyLayoutToolbarPreset(
     syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
     syncLeftStatus(dom, nextState);
   }
+}
+
+/**
+ * toolbar에서 선택한 layout draft를 현재 score에 적용한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 인수 : draft : 적용할 layout draft
+ * - 인수 : selectedValue : 적용 성공 후 toolbar에서 유지할 선택값
+ * - 인수 : label : 확인창과 상태 메시지에 사용할 layout 종류
+ * - 반환값 : 없음
+ */
+function applyLayoutToolbarDraft(
+  dom: AppDom,
+  session: LayoutDialogBindingSession,
+  draft: LayoutDraftBundle,
+  selectedValue: string,
+  label: string,
+): void {
+  const state = session.getState();
+  const deletionSummary = calculateLayoutCellDeletionSummary(state.document.score, draft);
+  let allowCellDeletion = false;
+
+  if (deletionSummary.totalCount > 0) {
+    allowCellDeletion = window.confirm(
+      `${label} will delete ${deletionSummary.totalCount} track cell(s). Continue?`,
+    );
+
+    if (!allowCellDeletion) {
+      const nextState = {
+        ...state,
+        statusMessage: {
+          level: "warning" as const,
+          text: `${label} apply was cancelled before deleting track cells.`,
+        },
+      };
+
+      session.setState(nextState);
+      syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+      syncLeftStatus(dom, nextState);
+      return;
+    }
+  }
+
+  const nextState = applyLayoutDraftEditToState(state, draft, allowCellDeletion);
+
+  session.setState(nextState);
+
+  if (nextState.statusMessage.level !== "info") {
+    syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
+    syncLeftStatus(dom, nextState);
+    return;
+  }
+
+  session.render();
+  syncLeftStatus(dom, session.getState());
+  syncLayoutToolbarPresetSelectForCurrentScore(dom, session, selectedValue);
 }
 
 /**

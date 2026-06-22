@@ -443,6 +443,24 @@ function addNoteRow(
     };
   }
 
+  const stringInfo = draft.instData.strings.find((string) => string.stringId === stringId);
+
+  if (stringInfo === undefined) {
+    return {
+      ok: false,
+      level: "warning",
+      message: `Cannot find string ${stringId}.`,
+    };
+  }
+
+  if (midi < stringInfo.minMidi || midi > stringInfo.maxMidi) {
+    return {
+      ok: false,
+      level: "warning",
+      message: `${formatPitchName(midi, "sharp")} is outside ${stringId} range ${formatPitchName(stringInfo.minMidi, "sharp")}..${formatPitchName(stringInfo.maxMidi, "sharp")}.`,
+    };
+  }
+
   if (draft.rowDefinitions.some((row) => row.type === "note" && row.stringId === stringId && row.midi === midi)) {
     return {
       ok: false,

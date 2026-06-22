@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs";
 
 import {
+  applyLayoutDraftEditToState,
+  createInitialState,
+} from "../src/app/app_runtime";
+import {
   applyLayoutDraftToScore,
   calculateLayoutCellDeletionSummary,
 } from "../src/app/layout/layout_apply";
 import {
+  addLayoutDraftRow,
   createLayoutDraftBundle,
   deleteLayoutDraftRow,
 } from "../src/app/layout/layout_draft";
@@ -76,6 +81,44 @@ if (loadResult.ok) {
   const score = loadResult.document.score;
   const draft = createLayoutDraftBundle(score);
   const presetResult = createUserLayoutPresetData(draft, score.instData.presetId);
+  const outOfRangeNoteAddResult = addLayoutDraftRow(draft, {
+    rowType: "note",
+    height: 7,
+    position: "above",
+  });
+
+  assert(
+    !outOfRangeNoteAddResult.ok,
+    "Layout draft should block note row insertion outside the selected string MIDI range.",
+  );
+
+  globalThis.localStorage.setItem(
+    `layout-slot:${score.instData.presetId}:1`,
+    JSON.stringify({
+      formatVersion: "1",
+      layoutPresetId: "slot-1",
+      layoutPresetDisplayName: "Broken Local Slot",
+      instrumentPresetId: score.instData.presetId,
+      createdAt: "2026-06-21T00:00:00.000Z",
+      updatedAt: "2026-06-21T00:00:00.000Z",
+      instData: score.instData,
+      rowDefinitions: [
+        {
+          rowId: "s1-note-92",
+          type: "note",
+          stringId: "s1",
+          midi: 92,
+          height: 7,
+          displayLabel: "G#6",
+        },
+      ],
+    }),
+  );
+
+  assert(
+    loadLayoutPresetSlotFromLocalStorage(score.instData.presetId, 1) === null,
+    "Invalid local layout preset slot should be cleared and treated as empty.",
+  );
 
   assert(presetResult.ok, "Layout preset data should be created from a valid draft.");
 
@@ -98,8 +141,8 @@ if (loadResult.ok) {
         "Layout preset restore should keep editable row count.",
       );
       assert(
-        createLayoutPresetFileName(parsedPresetResult.value).endsWith(".json"),
-        "Layout preset file name should use .json extension.",
+        createLayoutPresetFileName(parsedPresetResult.value) === "layout-Otamatone_DX_Basic.json",
+        "Layout preset file name should use only the layout preset display name.",
       );
       assert(
         emptySlots.length === 3 && emptySlots.every((slot) => slot.preset === null),
@@ -207,6 +250,23 @@ if (loadResult.ok) {
           "Layout apply should not mutate the original ScoreFile.",
         );
       }
+
+      const initialState = createInitialState(loadResult.document);
+      const changedState = applyLayoutDraftEditToState(initialState, noteDeleteResult.draft, true);
+      const restoredState = applyLayoutDraftEditToState(
+        changedState,
+        initialState.defaultLayoutDraft,
+        false,
+      );
+
+      assert(
+        changedState.document.score.layout.rowDefinitions.every((row) => row.rowId !== "s1-note-52"),
+        "Changed state should remove the deleted note row before default restore.",
+      );
+      assert(
+        restoredState.document.score.layout.rowDefinitions.some((row) => row.rowId === "s1-note-52"),
+        "Default layout draft should restore the loaded score layout rows.",
+      );
     }
   }
 }

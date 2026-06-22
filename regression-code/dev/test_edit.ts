@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { resolveTupletHeadPlacementHit } from "../src/app/app_controller";
+import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { createInitialState } from "../src/app/app_runtime";
 import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";

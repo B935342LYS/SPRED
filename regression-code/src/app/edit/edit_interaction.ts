@@ -12,7 +12,7 @@ import {
   composeTupletSlotTextFromRow,
   resolveTupletHeadPlacementHit,
   setActiveTupletSlotText,
-} from "../app_controller";
+} from "./edit_controller";
 import { resolveAutoDefaultText } from "../pitch_label";
 import type { ScoreTextEdit } from "./edit_apply";
 import { composeEditRawText } from "./edit_core";

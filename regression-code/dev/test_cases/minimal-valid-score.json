@@ -48,6 +48,7 @@
             { "rowId": "global-spb", "type": "global", "kind": "stepsPerBeat", "height": 21 },
             { "rowId": "global-dyn", "type": "global", "kind": "dynamics", "height": 21 },
 
+            { "rowId": "s1-gap-85-86", "type": "gap", "stringId": "s1", "fromMidi": 85, "toMidi": 86, "height": 7 },
             { "rowId": "s1-note-85", "type": "note", "stringId": "s1", "midi": 85, "height": 7, "displayLabel": "C#6" },
             { "rowId": "s1-gap-84-85", "type": "gap", "stringId": "s1", "fromMidi": 84, "toMidi": 85, "height": 6 },
             { "rowId": "s1-note-84", "type": "note", "stringId": "s1", "midi": 84, "height": 7, "displayLabel": "C6" },

@@ -7,17 +7,17 @@ import type {
   AppState,
   ScoreHit,
   ScoreSelection,
-} from "./app_types";
-import { composeEditRawText } from "./edit/edit_core";
+} from "../app_types";
+import { composeEditRawText } from "./edit_core";
 import type {
   DefaultEditMode,
   DefaultNoteEditInput,
   GlissEditInput,
   HoldEditToken,
-} from "./edit/edit_default";
-import type { TupletEditDraft } from "./edit/edit_tuplet";
-import { resolveAutoDefaultText } from "./pitch_label";
-import { parseNoteCell } from "../core/parse/parse_note_cell";
+} from "./edit_default";
+import type { TupletEditDraft } from "./edit_tuplet";
+import { resolveAutoDefaultText } from "../pitch_label";
+import { parseNoteCell } from "../../core/parse/parse_note_cell";
 
 /**
  * DOM의 edit panel 입력값을 일반 note rawText 합성 입력으로 읽는다.

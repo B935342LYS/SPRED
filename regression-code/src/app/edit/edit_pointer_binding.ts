@@ -8,7 +8,7 @@ import type {
   ScoreHit,
   ScoreSelection,
 } from "../app_types";
-import { handleScoreClick } from "../app_controller";
+import { handleScoreClick } from "./edit_controller";
 import { syncLeftStatus } from "../app_ui_sync";
 import type { AppNotePreviewRuntime } from "../playback/app_note_preview";
 import { hitTestScoreCell } from "../score_hit_test";

@@ -17,6 +17,7 @@ import type {
 } from "../renderer/canvas_types";
 import type { DefaultNoteEditInput } from "./edit/edit_default";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
+import type { LayoutDraftBundle } from "./layout/layout_types";
 
 /** 사용자가 볼 수 있는 짧은 상태 메시지의 중요도. */
 export type UiStatusLevel = "info" | "warning" | "error";
@@ -84,6 +85,7 @@ export type AppState = {
   statusMessage: UiStatusMessage;
   selection: ScoreSelection | null;
   layout: CanvasScoreLayout | null;
+  defaultLayoutDraft: LayoutDraftBundle;
 };
 
 /** 앱 진입점에서 제어하는 DOM 요소 묶음. */

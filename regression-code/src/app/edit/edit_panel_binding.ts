@@ -11,7 +11,7 @@ import {
   readDefaultNoteEditInput,
   syncDefaultEditToolFromDom,
   syncTupletEditToolFromDom,
-} from "../app_controller";
+} from "./edit_controller";
 import {
   syncLeftStatus,
   syncUiControls,

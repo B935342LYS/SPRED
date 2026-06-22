@@ -77,9 +77,8 @@ export function loadLayoutPresetSlotFromLocalStorage(
   instrumentPresetId: string,
   slotNumber: LocalLayoutPresetSlotNumber,
 ): UserLayoutPresetData | null {
-  const presetText = localStorage.getItem(
-    createLayoutPresetSlotKey(instrumentPresetId, slotNumber),
-  );
+  const slotKey = createLayoutPresetSlotKey(instrumentPresetId, slotNumber);
+  const presetText = localStorage.getItem(slotKey);
 
   if (presetText === null) {
     return null;
@@ -88,7 +87,9 @@ export function loadLayoutPresetSlotFromLocalStorage(
   const result = parseUserLayoutPresetJson(presetText);
 
   if (!result.ok) {
-    throw new Error(result.message);
+    // 로컬 슬롯은 개인 캐시이므로 깨진 이전 데이터가 새 저장을 막지 않도록 비운다.
+    localStorage.removeItem(slotKey);
+    return null;
   }
 
   return result.value;

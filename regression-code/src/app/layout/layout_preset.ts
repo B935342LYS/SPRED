@@ -198,10 +198,9 @@ export function createLayoutDraftFromPreset(
  * - 반환값 : 다운로드 파일명
  */
 export function createLayoutPresetFileName(preset: UserLayoutPresetData): string {
-  const safeInstrumentPresetId = sanitizeFileNamePart(preset.instrumentPresetId);
   const safeDisplayName = sanitizeFileNamePart(preset.layoutPresetDisplayName);
 
-  return `layout-${safeInstrumentPresetId}-${safeDisplayName}.json`;
+  return `layout-${safeDisplayName}.json`;
 }
 
 /**
