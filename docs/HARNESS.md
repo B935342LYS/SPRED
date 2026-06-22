@@ -26,6 +26,7 @@ Primary spec roots:
 - `docs/2.3-audio-playback-module-spec.md`
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
+- `docs/2.6-track-layer-ui-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/1.0-development-spec.md`
@@ -85,6 +86,9 @@ Memo roots:
 `docs/2.5-layout-preset-format-spec.md` : `spec`
 - layout preset JSON format shared by Local Save/Load and File Save/Load
 
+`docs/2.6-track-layer-ui-spec.md` : `spec`
+- active track UI, inactive track 반투명 renderer 정책, playback filtering, draw order, track overlap 정책
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -112,11 +116,12 @@ Read in this order for implementation work:
 6. `docs/2.3-audio-playback-module-spec.md`
 7. `docs/2.4-layout-edit-ui-spec.md`
 8. `docs/2.5-layout-preset-format-spec.md`
-9. `docs/1.5-note-cell-parser-spec.md`
-10. `docs/1.6-global-cell-parser-spec.md`
-11. `docs/1.7-analyzer-event-list-spec.md`
-12. `docs/1.3-score-json-format.md`
-13. `docs/1.0-development-spec.md`
+9. `docs/2.6-track-layer-ui-spec.md`
+10. `docs/1.5-note-cell-parser-spec.md`
+11. `docs/1.6-global-cell-parser-spec.md`
+12. `docs/1.7-analyzer-event-list-spec.md`
+13. `docs/1.3-score-json-format.md`
+14. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -128,6 +133,7 @@ Interpretation rules:
 - audio generator, playback controller, scheduler, and Web Audio backend module structure follows `2.3` first
 - layout editor UI, draft edit flow, and apply flow follows `2.4` first
 - layout preset save/load format follows `2.5` first
+- active track UI, inactive track 반투명 renderer 정책, playback filtering, overlap 정책은 `2.6`을 우선한다
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -176,6 +182,9 @@ Layout editing:
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
 
+Track layer:
+- `docs/2.6-track-layer-ui-spec.md`
+
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
@@ -199,6 +208,7 @@ Appendix:
 - `2.3-audio-playback-module-spec.md`
 - `2.4-layout-edit-ui-spec.md`
 - `2.5-layout-preset-format-spec.md`
+- `2.6-track-layer-ui-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
@@ -345,6 +355,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
 - `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
 - `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the fixed 3-slot localStorage policy per `instrumentPresetId`
+- `docs/2.6-track-layer-ui-spec.md`는 첫 active track UI와 active track 대상 edit/playback, inactive track 반투명 render, `extra -> optional -> basic` draw order, 동일 track gain 정책, `src/track/track_control.ts` 공용 정책 모듈 후보를 정의한다
 - the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply creates a structurally shared next ScoreFile after deletion confirmation, and Local/File preset save/load are connected
 - the outer layout toolbar now shows `Default Layout` plus Local Slot 1..3; Default reapplies the score-load-time layout snapshot, filled slots can be applied directly, and empty slots fall back to Default
 - layout preset names are limited to 30 characters, layout preset JSON is limited to 256 KiB, preset file names use the simplified `layout-{preset name}.json` rule, and layout apply/preset apply reset playback runtime
@@ -362,12 +373,13 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.25-step5-layout-editor-ui-shell.md` records the layout editor UI shell, current placeholder boundaries, and the next layout draft step
 - `docs/implementation-memo/1.26-step5-layout-draft-apply-preset.md` records the layout draft, apply, local slot preset, file preset, and toolbar preset implementation decisions
 - `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
+- `docs/implementation-memo/1.28-step6-track-layer-spec-decisions.md` records the finalized active track policy, inactive render/audio behavior, playing-state toggle rule, and `src/track/track_control.ts` module decision before implementation
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - latest verified commands: `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:layout`, `npm run build`
 
 Deferred planned work:
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
-- implement track layer UI/edit/render/playback filtering over the existing fixed `basic`, `optional`, and `extra` tracks
+- implement active track UI, active track 대상 batch edit/playback, inactive track 반투명 render, and `src/track/track_control.ts` over the existing fixed `basic`, `optional`, and `extra` tracks
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, seek, pause/resume, and layout-change playback reset behavior
 - prepare a basic audio verification checklist before YouTube mode
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
