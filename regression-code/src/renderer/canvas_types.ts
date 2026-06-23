@@ -133,6 +133,7 @@ export type CanvasViewport = {
  * - 반환값 : tick/row 기준 note 표시 정보
  */
 export type CanvasNoteRenderItem = {
+  sourceEventId: string;
   rowId: string;
   displayCentOffset: number;
   startTick: number;
@@ -190,6 +191,7 @@ export type CanvasNoteLayoutItem = CanvasNoteRenderItem & {
  * - 반환값 : tick/row 기준 mute 텍스트 표시 정보
  */
 export type CanvasMuteRenderItem = {
+  sourceEventId: string;
   rowId: string;
   startTick: number;
   endTick: number;
@@ -234,6 +236,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "gliss";
+      sourceEventId: string;
       startRowId: string;
       startCentOffset: number;
       startTick: number;
@@ -246,6 +249,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "glissOrphanAnchor";
+      sourceEventId: string;
       rowId: string;
       centOffset: number;
       tick: number;
@@ -255,6 +259,7 @@ export type CanvasMarkerItem =
     }
   | {
       kind: "tupletContainer";
+      sourceEventId: string;
       rowId: string;
       startTick: number;
       endTick: number;

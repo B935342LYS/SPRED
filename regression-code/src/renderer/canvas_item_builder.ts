@@ -49,6 +49,7 @@ export function buildCanvasNoteRenderItems(
       }
 
       items.push({
+        sourceEventId: event.eventId,
         rowId: event.display.rowId,
         displayCentOffset: event.display.centOffset,
         startTick: timeFractionToNumber(event.time.startTick),
@@ -136,6 +137,7 @@ export function buildCanvasMuteRenderItems(
       }
 
       items.push({
+        sourceEventId: event.eventId,
         rowId: event.display.rowId,
         startTick: timeFractionToNumber(event.time.startTick),
         endTick: timeFractionToNumber(event.time.endTick),
@@ -232,6 +234,7 @@ export function buildCanvasNoteMarkerItems(
         if (isTupletGroupEvent(event)) {
           items.push({
             kind: "tupletContainer",
+            sourceEventId: event.eventId,
             rowId: event.containerRowId,
             startTick: timeFractionToNumber(event.time.startTick),
             endTick: timeFractionToNumber(event.time.endTick),
@@ -242,6 +245,7 @@ export function buildCanvasNoteMarkerItems(
         } else if (isTupletExtendGroupEvent(event)) {
           items.push({
             kind: "tupletContainer",
+            sourceEventId: event.eventId,
             rowId: event.rowId,
             startTick: timeFractionToNumber(event.time.startTick),
             endTick: timeFractionToNumber(event.time.endTick),
@@ -259,6 +263,7 @@ export function buildCanvasNoteMarkerItems(
       });
       items.push({
         kind: "gliss",
+        sourceEventId: event.eventId,
         startRowId: event.startDisplay.rowId,
         startCentOffset: event.startDisplay.centOffset,
         startTick: timeFractionToNumber(event.startAnchorTick),
@@ -288,6 +293,7 @@ export function buildCanvasNoteMarkerItems(
 
         items.push({
           kind: "glissOrphanAnchor",
+          sourceEventId: event.eventId,
           rowId: anchor.display.rowId,
           centOffset: anchor.display.centOffset,
           tick: timeRangeCenterToNumber(anchor.time),

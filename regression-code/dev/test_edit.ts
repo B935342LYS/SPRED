@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { createInitialState } from "../src/app/app_runtime";
+import { applyRawTextBatchToScore } from "../src/app/app_runtime";
 import {
   applyScoreCellRawTextBatch,
   getScoreTextEditInvalidationKind,
@@ -453,6 +454,82 @@ if (loadResult.ok && tupletResult.kind === "apply") {
 
     assert(localSaveRejected, "Local score save should reject JSON larger than the local limit.");
   }
+
+  const globalOnlyState = applyRawTextBatchToScore(placementState, [
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "global-bpm",
+        rowKind: "global",
+        col: 3,
+      },
+      rawText: "90",
+    },
+  ]);
+
+  assert(
+    globalOnlyState.analysis.trackResults === placementState.analysis.trackResults,
+    "Global-only edit should reuse previous track analysis.",
+  );
+  assert(
+    globalOnlyState.renderInput.noteItems === placementState.renderInput.noteItems &&
+      globalOnlyState.renderInput.noteMarkerItems === placementState.renderInput.noteMarkerItems,
+    "Global-only edit should reuse note-derived renderer item groups.",
+  );
+  assert(
+    globalOnlyState.renderInput.globalTextItems !== placementState.renderInput.globalTextItems &&
+      globalOnlyState.renderInput.globalMarkerItems !== placementState.renderInput.globalMarkerItems,
+    "Global-only edit should rebuild global renderer item groups.",
+  );
+
+  const optionalOnlyState = applyRawTextBatchToScore(placementState, [
+    {
+      selection: {
+        trackId: "optional",
+        rowId: "s1-note-60",
+        rowKind: "note",
+        col: 4,
+      },
+      rawText: "C4",
+    },
+  ]);
+  const previousBasicTrackResult = placementState.analysis.trackResults.find(
+    (trackResult) => trackResult.trackId === "basic",
+  );
+  const previousOptionalTrackResult = placementState.analysis.trackResults.find(
+    (trackResult) => trackResult.trackId === "optional",
+  );
+  const nextBasicTrackResult = optionalOnlyState.analysis.trackResults.find(
+    (trackResult) => trackResult.trackId === "basic",
+  );
+  const nextOptionalTrackResult = optionalOnlyState.analysis.trackResults.find(
+    (trackResult) => trackResult.trackId === "optional",
+  );
+
+  assert(
+    optionalOnlyState.analysis.timingTimeline === placementState.analysis.timingTimeline &&
+      optionalOnlyState.analysis.dynamicsTimeline === placementState.analysis.dynamicsTimeline,
+    "Note-only edit should reuse global timing and dynamics analysis.",
+  );
+  assert(
+    previousBasicTrackResult === nextBasicTrackResult,
+    "Note-only edit should reuse unedited track analysis.",
+  );
+  assert(
+    previousOptionalTrackResult !== nextOptionalTrackResult,
+    "Note-only edit should rebuild edited track analysis.",
+  );
+  assert(
+    optionalOnlyState.renderInput.globalTextItems === placementState.renderInput.globalTextItems &&
+      optionalOnlyState.renderInput.globalMarkerItems === placementState.renderInput.globalMarkerItems,
+    "Note-only edit should reuse global renderer item groups.",
+  );
+  assert(
+    optionalOnlyState.renderInput.noteItems.some((item) =>
+      item.trackId === "optional" && item.sourceEventId === "optional:note:s1-note-60:4"
+    ),
+    "Note-only edit should add renderer items for the edited track.",
+  );
 }
 
 console.log("Edit composer test completed.");

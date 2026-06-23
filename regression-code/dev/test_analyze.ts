@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
+import { diffAnalyzedEventsById } from "../src/core/analyze/event_diff";
 import type {
   GlissEvent,
   AnalysisResult,
@@ -296,6 +297,7 @@ function testMuteAnalysis(sourceText: string): void {
   assert(muteEvent !== undefined, "Missing mute event.");
 
   if (muteEvent !== undefined) {
+    assert(muteEvent.eventId === "basic:mute:s1-note-60:26", "MuteEvent eventId should be stable.");
     assert(muteEvent.text === "memo", "MuteEvent should keep display text without // prefix.");
     assert(muteEvent.display.rowId === "s1-note-60", "MuteEvent display row mismatch.");
     assert(
@@ -320,6 +322,7 @@ function testMuteAnalysis(sourceText: string): void {
   assert(muteItems.length === 1, "MuteEvent should convert to one mute render item.");
   assert(
     muteItems[0]?.rowId === "s1-note-60" &&
+      muteItems[0].sourceEventId === "basic:mute:s1-note-60:26" &&
       muteItems[0].startTick === 26 &&
       muteItems[0].endTick === 27 &&
       muteItems[0].text === "memo",
@@ -445,6 +448,7 @@ function testGlissAnalysis(sourceText: string): void {
 
   assert(
     firstConnectedMarker?.kind === "gliss" &&
+      firstConnectedMarker.sourceEventId === "basic:gliss:a:s1-note-60:30" &&
       firstConnectedMarker.startRowId === "s1-note-60" &&
       firstConnectedMarker.endRowId === "s1-note-64" &&
       firstConnectedMarker.startTick === 30.5 &&
@@ -546,6 +550,10 @@ function testTupletAnalysis(sourceText: string): void {
 
   if (groupEvent !== undefined) {
     assert(groupEvent.groupId === "basic:tuplet:s1-note-60:42", "Tuplet group id should be stable.");
+    assert(
+      groupEvent.eventId === "tupletGroup:basic:tuplet:s1-note-60:42",
+      "Tuplet group eventId should be stable.",
+    );
     assert(groupEvent.divNum === 3, "Tuplet division should be preserved.");
     assert(groupEvent.extendCells.length === 1, "Tuplet group should include one extend cell.");
     assert(
@@ -588,6 +596,7 @@ function testTupletAnalysis(sourceText: string): void {
   }
 
   if (restSlot !== undefined) {
+    assert(restSlot.eventId === "basic:rest:s1-note-60:42:slot:1", "Tuplet rest eventId should be stable.");
     assert(restSlot.display === null, "Tuplet rest slot should not have display position.");
     assert(restSlot.sourceCells[0]?.slotIndex === 1, "Rest tuplet slot source should keep slotIndex 1.");
     assert(
@@ -628,6 +637,10 @@ function testTupletAnalysis(sourceText: string): void {
   assert(tupletMarker !== undefined, "Tuplet group should convert to one container marker item.");
 
   if (tupletMarker !== undefined && tupletMarker.kind === "tupletContainer") {
+    assert(
+      tupletMarker.sourceEventId === "tupletGroup:basic:tuplet:s1-note-60:42",
+      "Tuplet marker should keep source eventId.",
+    );
     assert(tupletMarker.rowId === "s1-note-60", "Tuplet container should use head cell row.");
     assert(tupletMarker.startTick === 42 && tupletMarker.endTick === 44, "Tuplet container should keep group span.");
     assert(tupletMarker.divNum === 3, "Tuplet container should keep division label value.");
@@ -753,6 +766,10 @@ function testTupletExtendOnlyAnalysis(sourceText: string): void {
   assert(extendGroup !== undefined, "Missing tuplet extend group event.");
 
   if (extendGroup !== undefined) {
+    assert(
+      extendGroup.eventId === "tupletExtendGroup:basic:tuplet-extend:s1-note-60:52",
+      "Tuplet extend group eventId should be stable.",
+    );
     assert(extendGroup.rowId === "s1-note-60", "Tuplet extend group should keep extend row.");
     assert(
       tickToNumber(extendGroup.time.startTick) === 52 &&
@@ -777,6 +794,10 @@ function testTupletExtendOnlyAnalysis(sourceText: string): void {
   assert(extendMarker !== undefined, "Tuplet extend group should convert to a container marker.");
 
   if (extendMarker !== undefined && extendMarker.kind === "tupletContainer") {
+    assert(
+      extendMarker.sourceEventId === "tupletExtendGroup:basic:tuplet-extend:s1-note-60:52",
+      "Tuplet extend marker should keep source eventId.",
+    );
     assert(extendMarker.rowId === "s1-note-60", "Tuplet extend marker should keep extend row.");
     assert(extendMarker.startTick === 52 && extendMarker.endTick === 54, "Tuplet extend marker span mismatch.");
     assert(extendMarker.divNum === null, "Tuplet extend marker should not draw a division label.");
@@ -847,6 +868,10 @@ function testTupletGlissAnalysis(sourceText: string): void {
   assert(
     tupletGlissNoteItems.length === 2,
     "Long tuplet gliss start/mid slot notes should convert to two anchor-square note items.",
+  );
+  assert(
+    tupletGlissNoteItems[0]?.sourceEventId === "basic:note:s1-note-60:58:slot:0",
+    "Tuplet gliss note item should keep source eventId.",
   );
 
   const firstMarker = glissMarkers[0];
@@ -926,6 +951,65 @@ function testTupletGlissAnalysis(sourceText: string): void {
       item.displayShape === "rect"
     ),
     "Long tuplet gliss end note should keep the normal rectangle shape.",
+  );
+}
+
+/**
+ * eventId 기반 analyzer event diff가 추가/삭제/변경/유지를 분류하는지 검증한다.
+ * - 인수 : analysis : 기본 fixture 분석 결과
+ * - 반환값 : 없음
+ */
+function testAnalyzedEventDiff(analysis: AnalysisResult): void {
+  const previousEvents = analysis.trackResults.flatMap((trackResult) => trackResult.events);
+  const changedEvent = previousEvents.find((event) => event.eventKind === "note");
+  const removedEvent = previousEvents.find(
+    (event) => event.eventKind === "note" && event.eventId !== changedEvent?.eventId,
+  );
+  const unchangedEvent = previousEvents.find(
+    (event) => event.eventId !== changedEvent?.eventId && event.eventId !== removedEvent?.eventId,
+  );
+
+  assert(unchangedEvent !== undefined, "Diff fixture should have at least one event.");
+  assert(changedEvent !== undefined, "Diff fixture should have a note event to modify.");
+  assert(removedEvent !== undefined, "Diff fixture should have a note event to remove.");
+
+  if (unchangedEvent === undefined || changedEvent === undefined || removedEvent === undefined) {
+    return;
+  }
+
+  const changedNextEvent: NoteEvent = {
+    ...(changedEvent as NoteEvent),
+    text: `${(changedEvent as NoteEvent).text}!`,
+  };
+  const addedNextEvent: NoteEvent = {
+    ...changedNextEvent,
+    eventId: "basic:note:s1-note-60:999",
+    sourceCells: [
+      {
+        rowId: "s1-note-60",
+        col: 999,
+      },
+    ],
+  };
+  const nextEvents = previousEvents
+    .filter((event) => event.eventId !== removedEvent.eventId)
+    .map((event) => event.eventId === changedEvent.eventId ? changedNextEvent : event);
+
+  nextEvents.push(addedNextEvent);
+
+  const diff = diffAnalyzedEventsById(previousEvents, nextEvents);
+  const duplicateDiff = diffAnalyzedEventsById(previousEvents, [
+    ...previousEvents,
+    unchangedEvent,
+  ]);
+
+  assert(diff.added.some((entry) => entry.eventId === addedNextEvent.eventId), "Diff should report added event.");
+  assert(diff.removed.some((entry) => entry.eventId === removedEvent.eventId), "Diff should report removed event.");
+  assert(diff.changed.some((entry) => entry.eventId === changedEvent.eventId), "Diff should report changed event.");
+  assert(diff.unchanged.some((entry) => entry.eventId === unchangedEvent.eventId), "Diff should report unchanged event.");
+  assert(
+    duplicateDiff.duplicateEventIds.includes(unchangedEvent.eventId),
+    "Diff should report duplicate eventId for fallback handling.",
   );
 }
 
@@ -1316,4 +1400,5 @@ if (!result.ok) {
   testTupletGlissAnalysis(jsonText);
   testGlobalTimelineAnalysis(jsonText);
   testBpmMarkerConversion();
+  testAnalyzedEventDiff(analysis);
 }

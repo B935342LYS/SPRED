@@ -16,6 +16,7 @@
     "test:view": "tsx ./dev/test_view.ts",
     "test:youtube": "tsx ./dev/test_youtube.ts",
     "test:audio": "tsx ./dev/test_audio.ts",
+    "test:partial": "tsx ./dev/test_partial_rebuild.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
   },
   "devDependencies": {
