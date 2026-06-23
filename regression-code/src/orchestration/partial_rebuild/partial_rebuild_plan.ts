@@ -34,6 +34,7 @@ export function createPartialRebuildPlan(
         redrawScope: "all",
         groups: ["layoutBase", "noteItems", "muteItems", "noteMarkers", "globalTextItems", "globalMarkers"],
         changedEventIds,
+        dirtyTickRange: null,
       },
       audio: {
         scope: "fullSchedule",
@@ -51,6 +52,7 @@ export function createPartialRebuildPlan(
         redrawScope: "all",
         groups: ["noteItems", "muteItems", "noteMarkers", "globalTextItems", "globalMarkers"],
         changedEventIds,
+        dirtyTickRange: null,
       },
       audio: {
         scope: "fullSchedule",
@@ -125,6 +127,7 @@ function createNoteRendererPlan(
     redrawScope: "note",
     groups: Array.from(groups).sort(compareRendererInvalidationGroups),
     changedEventIds,
+    dirtyTickRange: createDirtyTickRange(dirtyEntries),
   };
 }
 
@@ -138,7 +141,49 @@ function createGlobalRendererPlan(changedEventIds: string[]): RendererInvalidati
     redrawScope: "global",
     groups: ["globalTextItems", "globalMarkers"],
     changedEventIds,
+    dirtyTickRange: null,
   };
+}
+
+/**
+ * 변경된 event entry 목록에서 dirty tick 범위를 만든다.
+ * - 인수 : entries : 추가/삭제/변경 event diff entry
+ * - 반환값 : dirty tick 범위 또는 변경 event가 없으면 null
+ */
+function createDirtyTickRange(
+  entries: readonly AnalyzedEventDiffResult["changed"][number][],
+): { startTick: number; endTick: number } | null {
+  let startTick = Number.POSITIVE_INFINITY;
+  let endTick = Number.NEGATIVE_INFINITY;
+
+  for (const entry of entries) {
+    for (const event of [entry.previous, entry.next]) {
+      if (event === null) {
+        continue;
+      }
+
+      startTick = Math.min(startTick, timeFractionToNumber(event.time.startTick));
+      endTick = Math.max(endTick, timeFractionToNumber(event.time.endTick));
+    }
+  }
+
+  if (!Number.isFinite(startTick) || !Number.isFinite(endTick)) {
+    return null;
+  }
+
+  return {
+    startTick,
+    endTick,
+  };
+}
+
+/**
+ * analyzer TimeFraction shape를 number tick으로 변환한다.
+ * - 인수 : value : numerator/denominator tick 값
+ * - 반환값 : number tick
+ */
+function timeFractionToNumber(value: { numerator: number; denominator: number }): number {
+  return value.numerator / value.denominator;
 }
 
 /**

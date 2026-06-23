@@ -80,6 +80,11 @@ assert(notePlan.fallback === "none", "Note plan should not require fallback.");
 assert(notePlan.renderer.redrawScope === "note", "Note plan should redraw note scope.");
 assert(notePlan.renderer.groups.includes("noteItems"), "Note plan should invalidate note items.");
 assert(notePlan.renderer.groups.includes("noteMarkers"), "Note plan should invalidate note-derived markers.");
+assert(
+  notePlan.renderer.dirtyTickRange?.startTick === 0 &&
+    notePlan.renderer.dirtyTickRange.endTick === 1,
+  "Note plan should expose a dirty tick range for note redraw.",
+);
 assert(notePlan.audio.scope === "eventSet", "Note plan should allow event-set audio invalidation.");
 assert(
   notePlan.audio.changedEventIds.join(",") === "basic:note:s1-note-60:0,basic:note:s1-note-62:1",
@@ -121,6 +126,33 @@ assert(structurePlan.renderer.groups.includes("layoutBase"), "Structure changes 
 
 const previousRenderInput = createRenderInputFixture("C4", "memo", "old-global");
 const nextRenderInput = createRenderInputFixture("D4", "memo", "new-global");
+previousRenderInput.noteMarkerItems = [
+  {
+    kind: "glissOrphanAnchor",
+    sourceEventId: "basic:note:s1-note-67:9",
+    rowId: "s1-note-60",
+    centOffset: 0,
+    tick: 0,
+    role: "start",
+    trackId: "basic",
+    renderAlpha: 1,
+  },
+];
+nextRenderInput.noteMarkerItems = [
+  {
+    kind: "gliss",
+    sourceEventId: "basic:gliss:a:s1-note-60:0",
+    startRowId: "s1-note-60",
+    startCentOffset: 0,
+    startTick: 0,
+    endRowId: "s1-note-60",
+    endCentOffset: 0,
+    endTick: 1,
+    hasTrem: false,
+    trackId: "basic",
+    renderAlpha: 1,
+  },
+];
 const patchedNoteInput = applyPartialRenderInputPatch(previousRenderInput, nextRenderInput, notePlan);
 const patchedGlobalInput = applyPartialRenderInputPatch(previousRenderInput, nextRenderInput, globalPlan);
 
@@ -129,6 +161,11 @@ assert(patchedNoteInput.muteItems[0]?.text === "memo", "Note patch should preser
 assert(
   patchedNoteInput.globalTextItems[0]?.text === "old-global",
   "Note patch should preserve global text items.",
+);
+assert(
+  patchedNoteInput.noteMarkerItems === nextRenderInput.noteMarkerItems &&
+    patchedNoteInput.noteMarkerItems[0]?.kind === "gliss",
+  "Note patch should replace the full note marker group because orphan gliss state can change through neighboring events.",
 );
 assert(
   patchedGlobalInput.noteItems[0]?.text === "C4" &&

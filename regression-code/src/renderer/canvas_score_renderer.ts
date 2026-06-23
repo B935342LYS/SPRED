@@ -9,14 +9,17 @@ import {
 import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
 import {
   drawScoreMarkers,
+  drawScoreOverlayMarkersInRange,
   drawScoreOverlayMarkers,
 } from "./canvas_marker_renderer";
 import {
+  drawScoreNotesInRange,
   drawScoreGlobalTexts,
   drawScoreNotes,
 } from "./canvas_note_renderer";
 import type {
   CanvasAnalyzedRenderInput,
+  CanvasDirtyTickRange,
   CanvasGlobalTextRenderItem,
   CanvasMarkerItem,
   CanvasMuteRenderItem,
@@ -44,14 +47,16 @@ export function renderCanvasScore(
   const noteItems = getNoteItems(input);
   const muteItems = getMuteItems(input);
   const globalTextItems = getGlobalTextItems(input);
-  const markerItems = getMarkerItems(input);
+  const globalMarkerItems = getGlobalMarkerItems(input);
+  const noteMarkerItems = getNoteMarkerItems(input);
 
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
   drawScoreGrid(target.base.context, layout);
-  drawScoreMarkers(target.marker.context, layout, markerItems);
+  drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
+  drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
   drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
-  drawScoreOverlayMarkers(target.note.context, layout, markerItems);
+  drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
 
   return {
     layout,
@@ -73,6 +78,7 @@ export function renderCanvasScorePartial(
   options: CanvasRenderOptions,
   scope: Exclude<CanvasRedrawScope, "all">,
   previousLayout: CanvasRenderResult["layout"],
+  dirtyTickRange?: CanvasDirtyTickRange | null,
 ): CanvasRenderResult {
   const layout = buildCanvasScoreLayout(input, options);
 
@@ -83,15 +89,22 @@ export function renderCanvasScorePartial(
   const noteItems = getNoteItems(input);
   const muteItems = getMuteItems(input);
   const globalTextItems = getGlobalTextItems(input);
-  const markerItems = getMarkerItems(input);
+  const globalMarkerItems = getGlobalMarkerItems(input);
+  const noteMarkerItems = getNoteMarkerItems(input);
 
   if (scope === "note") {
-    drawScoreMarkers(target.marker.context, layout, markerItems);
-    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
-    drawScoreOverlayMarkers(target.note.context, layout, markerItems);
+    if (dirtyTickRange === null || dirtyTickRange === undefined) {
+      drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
+      drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
+      drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+    } else {
+      // gliss 연결선은 endpoint 편집만으로도 전체 기울기가 바뀌므로 note marker layer는 전체를 다시 그린다.
+      drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
+      drawScoreNotesInRange(target.note.context, layout, noteItems, muteItems, dirtyTickRange);
+      drawScoreOverlayMarkersInRange(target.note.context, layout, noteMarkerItems, dirtyTickRange);
+    }
   } else {
-    // 전역 marker는 현재 note marker와 같은 canvas에 있으므로 marker layer 전체를 다시 그린다.
-    drawScoreMarkers(target.marker.context, layout, markerItems);
+    drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
     drawScoreGlobalTexts(target.note.context, layout, globalTextItems);
   }
 
@@ -181,6 +194,36 @@ function getMarkerItems(
 ): CanvasMarkerItem[] {
   if ("markerItems" in input) {
     return input.markerItems;
+  }
+
+  return [];
+}
+
+/**
+ * renderer 입력에서 global marker item 목록을 꺼낸다.
+ * - 인수 : input : renderer 입력
+ * - 반환값 : CanvasMarkerItem[] : global marker layer가 그릴 item 목록
+ */
+function getGlobalMarkerItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasMarkerItem[] {
+  if ("globalMarkerItems" in input) {
+    return input.globalMarkerItems;
+  }
+
+  return getMarkerItems(input);
+}
+
+/**
+ * renderer 입력에서 note marker item 목록을 꺼낸다.
+ * - 인수 : input : renderer 입력
+ * - 반환값 : CanvasMarkerItem[] : note marker layer가 그릴 item 목록
+ */
+function getNoteMarkerItems(
+  input: CanvasRenderInput | CanvasAnalyzedRenderInput,
+): CanvasMarkerItem[] {
+  if ("noteMarkerItems" in input) {
+    return input.noteMarkerItems;
   }
 
   return [];

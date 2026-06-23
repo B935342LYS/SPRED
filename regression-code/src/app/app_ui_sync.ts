@@ -7,6 +7,7 @@ import {
   renderCanvasScorePartial,
 } from "../renderer/canvas_score_renderer";
 import type {
+  CanvasDirtyTickRange,
   CanvasRedrawScope,
   CanvasRenderOptions,
   CanvasRenderResult,
@@ -355,12 +356,14 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : state : 현재 앱 상태
  * - 인수 : scope : 다시 그릴 canvas 동적 layer 범위
+ * - 인수 : dirtyTickRange : note scope에서 부분 redraw할 tick 범위
  * - 반환값 : renderer layout이 반영된 새 상태
  */
 export function renderAppPartial(
   dom: AppDom,
   state: AppState,
   scope: Exclude<CanvasRedrawScope, "all">,
+  dirtyTickRange: CanvasDirtyTickRange | null = null,
 ): AppState {
   if (state.layout === null) {
     return renderApp(dom, state);
@@ -372,6 +375,7 @@ export function renderAppPartial(
     createRenderOptions(dom.zoomInput),
     scope,
     state.layout,
+    dirtyTickRange,
   );
   const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
 

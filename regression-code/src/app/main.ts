@@ -91,7 +91,7 @@ async function boot(): Promise<void> {
     const redrawScope = plan?.renderer.redrawScope ?? getScoreTextEditRedrawScope(edits);
 
     if (redrawScope === "note") {
-      state = renderAppPartial(dom, state, "note");
+      state = renderAppPartial(dom, state, "note", plan?.renderer.dirtyTickRange ?? null);
     } else if (redrawScope === "global") {
       state = renderAppPartial(dom, state, "global");
     } else {

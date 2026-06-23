@@ -4,7 +4,6 @@
 
 import type {
   CanvasAnalyzedRenderInput,
-  CanvasMarkerItem,
   CanvasMuteRenderItem,
   CanvasNoteRenderItem,
 } from "../../renderer/canvas_types";
@@ -48,7 +47,7 @@ export function applyPartialRenderInputPatch(
       ? nextInput.globalMarkerItems
       : previousInput.globalMarkerItems,
     noteMarkerItems: groups.has("noteMarkers")
-      ? patchSourceEventMarkers(previousInput.noteMarkerItems, nextInput.noteMarkerItems, changedEventIds)
+      ? nextInput.noteMarkerItems
       : previousInput.noteMarkerItems,
     markerItems: shouldUseNextMarkers ? nextInput.markerItems : previousInput.markerItems,
   };
@@ -74,41 +73,6 @@ function patchSourceEventItems<TItem extends CanvasNoteRenderItem | CanvasMuteRe
     ...previousItems.filter((item) => !changedEventIds.has(item.sourceEventId)),
     ...nextItems.filter((item) => changedEventIds.has(item.sourceEventId)),
   ];
-}
-
-/**
- * sourceEventId를 가진 note marker item 배열에서 변경 eventId에 해당하는 항목만 교체한다.
- * - 인수 : previousItems : 편집 전 marker item 배열
- * - 인수 : nextItems : 편집 후 full rebuild marker item 배열
- * - 인수 : changedEventIds : 교체 대상 sourceEventId set
- * - 반환값 : 변경 event만 next marker로 바꾼 marker 배열
- */
-function patchSourceEventMarkers(
-  previousItems: readonly CanvasMarkerItem[],
-  nextItems: readonly CanvasMarkerItem[],
-  changedEventIds: ReadonlySet<string>,
-): CanvasMarkerItem[] {
-  if (changedEventIds.size === 0) {
-    return [...previousItems];
-  }
-
-  return [
-    ...previousItems.filter((item) => !hasChangedSourceEventId(item, changedEventIds)),
-    ...nextItems.filter((item) => hasChangedSourceEventId(item, changedEventIds)),
-  ];
-}
-
-/**
- * marker item이 변경 대상 sourceEventId를 가지는지 확인한다.
- * - 인수 : item : marker item
- * - 인수 : changedEventIds : 변경 대상 sourceEventId set
- * - 반환값 : 변경 대상 여부
- */
-function hasChangedSourceEventId(
-  item: CanvasMarkerItem,
-  changedEventIds: ReadonlySet<string>,
-): boolean {
-  return "sourceEventId" in item && changedEventIds.has(item.sourceEventId);
 }
 
 /**

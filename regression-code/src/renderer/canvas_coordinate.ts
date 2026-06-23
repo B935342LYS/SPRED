@@ -218,4 +218,5 @@ export function resizeCanvasLayers(
   resizeCanvasLayer(target.base, layout.stageWidth, layout.stageHeight, dpr);
   resizeCanvasLayer(target.note, layout.stageWidth, layout.stageHeight, dpr);
   resizeCanvasLayer(target.marker, layout.stageWidth, layout.stageHeight, dpr);
+  resizeCanvasLayer(target.noteMarker, layout.stageWidth, layout.stageHeight, dpr);
 }

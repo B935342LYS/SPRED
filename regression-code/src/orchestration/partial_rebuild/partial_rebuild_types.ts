@@ -3,7 +3,7 @@
  */
 
 import type { AnalyzedEventDiffEntry } from "../../core/analyze/event_diff";
-import type { CanvasRedrawScope } from "../../renderer/canvas_types";
+import type { CanvasDirtyTickRange, CanvasRedrawScope } from "../../renderer/canvas_types";
 
 /** partial rebuild planner가 받는 편집 종류. */
 export type PartialRebuildEditKind =
@@ -32,6 +32,7 @@ export type RendererInvalidationPlan = {
   redrawScope: CanvasRedrawScope;
   groups: RendererInvalidationGroup[];
   changedEventIds: string[];
+  dirtyTickRange: CanvasDirtyTickRange | null;
 };
 
 /** audio 갱신 계획. */

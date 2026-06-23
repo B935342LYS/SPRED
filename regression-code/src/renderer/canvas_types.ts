@@ -75,6 +75,7 @@ export type CanvasRenderTarget = {
   base: CanvasLayerTarget;
   note: CanvasLayerTarget;
   marker: CanvasLayerTarget;
+  noteMarker: CanvasLayerTarget;
 };
 
 /** 좌표 계산 이후 renderer 내부에서 사용하는 행 종류. */
@@ -279,3 +280,9 @@ export type CanvasRenderResult = {
 
 /** renderer가 다시 그릴 canvas layer 범위. */
 export type CanvasRedrawScope = "all" | "note" | "global";
+
+/** 부분 redraw에서 사용할 tick 범위. */
+export type CanvasDirtyTickRange = {
+  startTick: number;
+  endTick: number;
+};
