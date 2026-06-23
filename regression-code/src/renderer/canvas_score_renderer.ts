@@ -62,6 +62,10 @@ export function renderCanvasScore(
   const muteItems = getMuteItems(input);
   const globalTextItems = getGlobalTextItems(input);
   const globalMarkerItems = getGlobalMarkerItems(input);
+  const globalAndLoopMarkerItems = [
+    ...globalMarkerItems,
+    ...(options.loopMarkers ?? []),
+  ];
   const noteMarkerItems = getNoteMarkerItems(input);
 
   if (options.dynamicViewport !== undefined) {
@@ -71,7 +75,7 @@ export function renderCanvasScore(
       ? options.devicePixelRatio
       : 1;
 
-    const visibleGlobalMarkerItems = filterVisibleMarkerItems(globalMarkerItems, viewportRange);
+    const visibleGlobalMarkerItems = filterVisibleMarkerItems(globalAndLoopMarkerItems, viewportRange);
     const visibleNoteMarkerItems = filterVisibleMarkerItems(noteMarkerItems, viewportRange);
     const visibleNoteItems = filterVisibleNoteItems(noteItems, viewportRange);
     const visibleMuteItems = filterVisibleMuteItems(muteItems, viewportRange);
@@ -114,7 +118,7 @@ export function renderCanvasScore(
   resizeCanvasLayers(target, layout, options);
   drawLayoutGrid(target.layout.context, layout);
   drawScoreGrid(target.base.context, layout);
-  drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
+  drawScoreMarkers(target.marker.context, layout, globalAndLoopMarkerItems);
   drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
   drawScoreNotes(
     target.note.context,
@@ -158,6 +162,10 @@ export function renderCanvasScorePartial(
   const muteItems = getMuteItems(input);
   const globalTextItems = getGlobalTextItems(input);
   const globalMarkerItems = getGlobalMarkerItems(input);
+  const globalAndLoopMarkerItems = [
+    ...globalMarkerItems,
+    ...(options.loopMarkers ?? []),
+  ];
   const noteMarkerItems = getNoteMarkerItems(input);
 
   if (options.dynamicViewport !== undefined && scope === "note") {
@@ -166,7 +174,7 @@ export function renderCanvasScorePartial(
       ? options.devicePixelRatio
       : 1;
     const viewportRange = createCanvasVisibleTickRange(layout, dynamicViewport);
-    const visibleGlobalMarkerItems = filterVisibleMarkerItems(globalMarkerItems, viewportRange);
+    const visibleGlobalMarkerItems = filterVisibleMarkerItems(globalAndLoopMarkerItems, viewportRange);
     const visibleNoteMarkerItems = filterVisibleMarkerItems(noteMarkerItems, viewportRange);
     const visibleNoteItems = filterVisibleNoteItems(noteItems, viewportRange);
     const visibleMuteItems = filterVisibleMuteItems(muteItems, viewportRange);
@@ -263,7 +271,7 @@ export function renderCanvasScorePartial(
     drawScoreMarkers(
       target.marker.context,
       layout,
-      filterVisibleMarkerItems(globalMarkerItems, viewportRange),
+      filterVisibleMarkerItems(globalAndLoopMarkerItems, viewportRange),
       { preserveExisting: true },
     );
     drawScoreNotes(
@@ -311,7 +319,7 @@ export function renderCanvasScorePartial(
       drawScoreOverlayMarkersInRange(target.note.context, layout, noteMarkerItems, dirtyTickRange);
     }
   } else {
-    drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
+    drawScoreMarkers(target.marker.context, layout, globalAndLoopMarkerItems);
     drawScoreGlobalTexts(target.note.context, layout, globalTextItems);
   }
 

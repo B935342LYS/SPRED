@@ -161,8 +161,13 @@ assert(
   "Menu theme state should update to dark.",
 );
 assert(
-  initialState.speedScale === 1 && !initialState.textOff,
-  "Initial view options should use 1.0x speed and text on.",
+  initialState.speedScale === 1 &&
+    !initialState.textOff &&
+    !initialState.loop.enabled &&
+    initialState.loop.startTick === null &&
+    initialState.loop.endTick === null &&
+    initialState.loop.pickMode === null,
+  "Initial view options should use 1.0x speed, text on, and loop off with default bounds.",
 );
 assert(
   clearedState.document.score.globalLines.columnCount === 1000,

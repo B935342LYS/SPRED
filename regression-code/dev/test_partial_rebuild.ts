@@ -4,6 +4,7 @@ import { createPartialRebuildPlan } from "../src/orchestration/partial_rebuild/p
 import { applyPartialRenderInputPatch } from "../src/orchestration/partial_rebuild/partial_rebuild_render_patch";
 import type { CanvasAnalyzedRenderInput } from "../src/renderer/canvas_types";
 import {
+  filterVisibleMarkerItems,
   filterVisibleMuteItems,
   filterVisibleNoteItems,
 } from "../src/renderer/canvas_visible_range";
@@ -266,6 +267,21 @@ const visibleMuteItems = filterVisibleMuteItems([
 assert(
   visibleMuteItems.map((item) => item.sourceEventId).join(",") === "mute-overlap",
   "Visible mute filter should use the same indexed overlap rule.",
+);
+
+const visibleMarkerItems = filterVisibleMarkerItems([
+  { kind: "loopBoundary", tick: 10, role: "start" },
+  { kind: "loopBoundary", tick: 20, role: "end" },
+  { kind: "loopBoundary", tick: 24, role: "end" },
+], visibleRange);
+
+assert(
+  visibleMarkerItems.length === 2 &&
+    visibleMarkerItems[0]?.kind === "loopBoundary" &&
+    visibleMarkerItems[0].role === "start" &&
+    visibleMarkerItems[1]?.kind === "loopBoundary" &&
+    visibleMarkerItems[1].role === "end",
+  "Visible marker filter should include loop boundaries inside the viewport range.",
 );
 
 console.log("Partial rebuild plan test completed.");

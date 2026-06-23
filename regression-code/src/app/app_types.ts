@@ -75,6 +75,17 @@ export type ScoreOrigin = "template" | "loaded" | "saved";
 /** 메뉴 영역에 적용하는 UI theme. */
 export type MenuTheme = "light" | "dark";
 
+/** Loop 시작/끝 column 선택을 기다리는 상태. */
+export type LoopPickMode = "start" | "end";
+
+/** score JSON에 저장하지 않는 runtime loop range 상태. */
+export type LoopState = {
+  enabled: boolean;
+  startTick: number | null;
+  endTick: number | null;
+  pickMode: LoopPickMode | null;
+};
+
 /** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
 export type AppState = {
   document: RuntimeDocument;
@@ -87,6 +98,7 @@ export type AppState = {
   menuTheme: MenuTheme;
   speedScale: number;
   textOff: boolean;
+  loop: LoopState;
   mode: AppMode;
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
@@ -129,6 +141,11 @@ export type AppDom = {
   zoomInput: HTMLInputElement;
   speedInput: HTMLInputElement;
   textOffInput: HTMLInputElement;
+  loopToggleButton: HTMLButtonElement;
+  loopStartSelect: HTMLSelectElement;
+  loopEndSelect: HTMLSelectElement;
+  loopStartValue: HTMLElement;
+  loopEndValue: HTMLElement;
   fullscreenButton: HTMLButtonElement;
   fitHeightButton: HTMLButtonElement;
   reverseButton: HTMLButtonElement;

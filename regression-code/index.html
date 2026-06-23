@@ -50,23 +50,23 @@
                         <div class="menu-panel loop-panel">
                             <div class="edit-control-row">
                                 <span class="micro-label">Loop</span>
-                                <button type="button" class="pill-toggle off" disabled>Off</button>
+                                <button type="button" class="pill-toggle loop-toggle off" aria-pressed="false">Off</button>
                             </div>
                             <label class="inline-field">
                                 Start
-                                <select disabled>
-                                    <option>First</option>
-                                    <option>Select Start Column</option>
+                                <select class="loop-start-select">
+                                    <option value="first">First</option>
+                                    <option value="pick">Select Start Column</option>
                                 </select>
-                                <span class="preview-pill">--</span>
+                                <span class="preview-pill loop-start-value">First</span>
                             </label>
                             <label class="inline-field">
                                 End
-                                <select disabled>
-                                    <option>Last</option>
-                                    <option>Select End Column</option>
+                                <select class="loop-end-select">
+                                    <option value="last">Last</option>
+                                    <option value="pick">Select End Column</option>
                                 </select>
-                                <span class="preview-pill">--</span>
+                                <span class="preview-pill loop-end-value">Last</span>
                             </label>
                         </div>
                     </div>
