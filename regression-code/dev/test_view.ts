@@ -87,7 +87,9 @@ const document = createRuntimeDocument(JSON.parse(jsonText) as ScoreFile);
 const initialState = createInitialState(document);
 const reversedState = applyReverseRowsToState(initialState, true);
 const expandedState = applyExpandColumnsToState(initialState, 12);
+const largeExpandedState = applyExpandColumnsToState(initialState, 1500);
 const invalidExpandState = applyExpandColumnsToState(initialState, 0);
+const overLimitExpandState = applyExpandColumnsToState(initialState, 10000);
 const darkThemeState = applyMenuThemeToState(initialState, "dark");
 const clearAllTimestamp = "2026-06-22T00:00:00.000Z";
 const clearedState = applyClearAllScoreToState(initialState, clearAllTimestamp);
@@ -109,8 +111,19 @@ assert(
   "Expand should rebuild renderer input with the new column count.",
 );
 assert(
+  largeExpandedState.document.score.globalLines.columnCount ===
+    initialState.document.score.globalLines.columnCount + 1500,
+  "Expand should allow more than the former per-action 960 column limit.",
+);
+assert(
   invalidExpandState.statusMessage.level === "warning",
   "Invalid expand count should produce a warning state.",
+);
+assert(
+  overLimitExpandState.statusMessage.level === "warning" &&
+    overLimitExpandState.document.score.globalLines.columnCount ===
+      initialState.document.score.globalLines.columnCount,
+  "Expand should still reject changes above the total score column limit.",
 );
 assert(
   trimmedState.document.score.globalLines.columnCount === 10,
