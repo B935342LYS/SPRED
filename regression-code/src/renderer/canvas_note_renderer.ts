@@ -861,6 +861,7 @@ function getLayoutZoom(layout: CanvasScoreLayout): number {
   return layout.layoutFontSize / 12;
 }
 
+
 /**
  * trackId와 midi에 맞는 legacy note fill 색상을 반환한다.
  * - 인수 : trackId : note가 속한 track id

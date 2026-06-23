@@ -4,6 +4,7 @@
 
 import {
   buildCanvasScoreLayout,
+  resizeCanvasLayerToDynamicViewport,
   resizeCanvasLayers,
 } from "./canvas_coordinate";
 import { drawLayoutGrid, drawScoreGrid } from "./canvas_grid_renderer";
@@ -91,6 +92,52 @@ export function renderCanvasScorePartial(
   const globalTextItems = getGlobalTextItems(input);
   const globalMarkerItems = getGlobalMarkerItems(input);
   const noteMarkerItems = getNoteMarkerItems(input);
+
+  if (options.dynamicViewport !== undefined && scope === "note") {
+    const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
+      ? options.devicePixelRatio
+      : 1;
+    resizeCanvasLayerToDynamicViewport(
+      target.note,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
+    resizeCanvasLayerToDynamicViewport(
+      target.noteMarker,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
+
+    drawScoreMarkers(target.noteMarker.context, layout, noteMarkerItems);
+    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
+    drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+
+    return {
+      layout,
+    };
+  }
+
+  if (options.dynamicViewport !== undefined && scope === "global") {
+    const dpr = Number.isFinite(options.devicePixelRatio) && options.devicePixelRatio > 0
+      ? options.devicePixelRatio
+      : 1;
+    resizeCanvasLayerToDynamicViewport(
+      target.note,
+      layout,
+      options.dynamicViewport,
+      dpr,
+    );
+
+    drawScoreMarkers(target.marker.context, layout, globalMarkerItems);
+    drawScoreNotes(target.note.context, layout, noteItems, muteItems, globalTextItems);
+    drawScoreOverlayMarkers(target.note.context, layout, noteMarkerItems);
+
+    return {
+      layout,
+    };
+  }
 
   if (scope === "note") {
     if (dirtyTickRange === null || dirtyTickRange === undefined) {

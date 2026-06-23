@@ -286,8 +286,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score rendering performance, and the next loop-playback/viewport-rendering tasks
-- current partial rebuild planning starts from note/global edit invalidation and canvas layer redraw separation before deeper parser/analyzer partial updates
+- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score edit/render performance, and the next loop-playback/viewport-rendering tasks
+- current partial rebuild work has moved past note/global invalidation and canvas layer separation into partial parsed-document reuse, edited-track analyzer/render item rebuild, and drag input batching
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
@@ -336,8 +336,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - the left menu status line has been added for user-facing load/edit/error messages
 - minimal edit mode is implemented for the `basic` track: CUSTOM/AUTO/default modifier input writes note cell rawText, empty input deletes a cell, and edit-mode right click deletes cells
 - CUSTOM defaultText input escapes parser reserved characters internally while showing the user-entered characters in the input and rendered score
-- edit-mode mutation currently performs full rebuild: `ScoreFile` mutation -> `createRuntimeDocument()` -> `buildParsedDocument()` -> `analyzeDocument()` -> canvas item builders -> `renderCanvasScore()`
-- edit-mode mutation now supports note/global batch edits so drag input can update many cells before a single full rebuild
+- edit-mode mutation now uses a partial rebuild path for note/global rawText edits: score text mutation -> runtime document/index rebuild -> parsed document group reuse -> edited track or global analyzer rebuild -> renderer item group patch -> partial canvas redraw
+- edit-mode mutation now supports note/global batch edits, and drag input batches pointermove edits by animation frame before applying the partial rebuild path
 - `src/app/edit/` now separates edit logic into `edit_core.ts`, `edit_default.ts`, `edit_tuplet.ts`, and `edit_apply.ts`
 - `edit_core.ts` returns apply/delete/blocked commands, `edit_default.ts` handles defaultText escaping and note rawText composition, `edit_tuplet.ts` handles tuplet draft/finalize helpers, and `edit_apply.ts` applies note/global cell upsert/delete to `ScoreFile`
 - score pointer coordinate resolution currently uses the graphics UI convention name `hitTestScoreCell()` and edit-mode hit testing can use nearest-note row slop for thin note rows
@@ -397,10 +397,15 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.26-step5-layout-draft-apply-preset.md` records the layout draft, apply, local slot preset, file preset, and toolbar preset implementation decisions
 - `docs/implementation-memo/1.27-step5-layout-storage-constraints-cleanup.md` records layout preset limits, score/localStorage limits, structural-sharing apply, playback reset, validation boundaries, cleanup, and the next work order
 - `docs/implementation-memo/1.28-step6-track-layer-spec-decisions.md` records the finalized active track policy, inactive render/audio behavior, playing-state toggle rule, and `src/track/track_control.ts` module decision before implementation
+- `docs/implementation-memo/1.29-step7-partial-rebuild-performance.md` records partial rebuild performance profiling, score clone narrowing, parsed document reuse, renderer dirty-range fixes, and drag input batching
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md` defines note/global/mixed/structure edit invalidation groups, renderer item grouping, layer redraw boundaries, and the first partial rebuild staging policy
+- partial rebuild implementation now includes `src/orchestration/partial_rebuild/`, `eventId`-based event diffing, note/global renderer group patching, edited-track parsed/analyzer reuse, and app-level partial render planning
+- renderer layer separation now uses layout/base/global marker/note marker/note canvases; note edits avoid base/global marker redraw, global edits avoid note item redraw, and note marker redraw is kept broad enough to avoid gliss/orphan artifacts
+- long-score edit profiling showed the initial `apply raw text + rebuild artifacts` bottleneck was reduced by replacing whole-ScoreFile JSON deep clone with targeted track/global cell array cloning and by reusing parsed document groups
+- drag editing now batches pointermove-generated score edits by `requestAnimationFrame`, with pointerup/pointercancel flushing pending edits, to reduce repeated rebuild/render/playback-reset work during fast drags
 - the app boot template score now lives at `regression-code/src/assets/templates/default-score.json`; it keeps the default instrument/layout/global rows but starts with default music metadata and empty tracks, while dev fixtures under `regression-code/dev/test_cases/` remain test-only inputs
 - renderer DPR downscaling uses a temporary first-test cap of about 65535 bitmap px width and 720 bitmap px height to improve long-score sharpness without fully unbounded canvas allocation; the Expand panel warns that large scores may lag or render incorrectly until viewport/tile rendering replaces this policy
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
@@ -409,12 +414,12 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 Deferred planned work:
 - long-score performance roadmap:
-  - problem 1: editing large scores still runs full rebuild from score mutation through runtime document, parse, analyze, renderer item rebuild, and full canvas render, causing large delays
+  - problem 1: editing large scores no longer runs the full parse/analyze/render path for ordinary note/global rawText edits, but still rebuilds `RuntimeDocument` / `ScoreIndexes` and can accumulate render/playback-reset work during dense interactions
   - problem 2: scores around or above 5000 columns can exceed practical browser canvas limits; the current 720px bitmap-height cap is only a temporary sharpness/stability compromise
   - first target: introduce bounded viewport rendering that draws only the visible score columns plus a small overscan range while keeping the full ScoreFile and AnalysisResult as the source of truth
   - second target: split long-score rendering into reusable column tiles or dirty ranges so scroll, edit, and playback do not require redrawing the full score width
-  - third target: after render scope is bounded, reduce edit latency with partial parse/analyze or dirty-column rebuild around changed cells
-- first partial rebuild staging target: classify edit batches as note/global/mixed/structure, split global vs note renderer items, and avoid base/layout redraw for cell rawText edits before attempting parser/analyzer partial updates
+  - third target: after render scope is bounded, reduce remaining edit latency with runtime index partial update, analyzer range partial, or dirty-column rebuild around changed cells
+- first partial rebuild staging target is implemented for ordinary rawText edits; remaining work is runtime index/audio partial update and viewport/tile rendering
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
 - manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, connected gliss chain, seek, pause/resume, and layout-change playback reset behavior

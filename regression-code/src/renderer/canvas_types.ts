@@ -53,6 +53,14 @@ export type CanvasRenderOptions = {
   zoom: number;
   devicePixelRatio: number;
   columnWidth?: number;
+  dynamicViewport?: CanvasDynamicViewport;
+};
+
+/** 동적 canvas layer를 현재 viewport 근처로 제한하기 위한 범위. */
+export type CanvasDynamicViewport = {
+  scrollLeft: number;
+  width: number;
+  overscanPx: number;
 };
 
 /**

@@ -15,7 +15,7 @@ import type {
 /**
  * 이전/다음 renderer 입력과 partial rebuild plan을 합성해 실제 render에 사용할 입력을 만든다.
  * - 인수 : previousInput : 편집 전 renderer 입력
- * - 인수 : nextInput : full rebuild로 만든 편집 후 renderer 입력
+ * - 인수 : nextInput : 편집 후 partial artifact 또는 fallback rebuild로 만든 renderer 입력
  * - 인수 : plan : renderer/audio 갱신 계획
  * - 반환값 : plan이 지시한 item group만 교체한 renderer 입력
  */

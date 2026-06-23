@@ -276,12 +276,23 @@ export function syncLayoutScroll(
  * - 인수 : zoomInput : zoom slider DOM 요소
  * - 반환값 : renderer 좌표 계산 옵션
  */
-export function createRenderOptions(zoomInput: HTMLInputElement): CanvasRenderOptions {
+export function createRenderOptions(
+  zoomInput: HTMLInputElement,
+  scoreArea?: HTMLElement,
+): CanvasRenderOptions {
   const zoom = Number(zoomInput.value) / 100;
+  const dynamicViewport = scoreArea !== undefined
+    ? {
+        scrollLeft: scoreArea.scrollLeft,
+        width: scoreArea.clientWidth,
+        overscanPx: Math.max(128, scoreArea.clientWidth * 0.25),
+      }
+    : undefined;
 
   return {
     zoom,
     devicePixelRatio: window.devicePixelRatio || 1,
+    dynamicViewport,
   };
 }
 
@@ -369,12 +380,13 @@ export function renderAppPartial(
     return renderApp(dom, state);
   }
 
+  const previousLayout = state.layout;
   const result: CanvasRenderResult = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput),
+    createRenderOptions(dom.zoomInput, dom.scoreArea),
     scope,
-    state.layout,
+    previousLayout,
     dirtyTickRange,
   );
   const horizontalTailWidth = Math.max(0, dom.scoreArea.clientWidth);
@@ -388,6 +400,32 @@ export function renderAppPartial(
   syncLayoutScroll(dom.scoreArea, dom.layoutStage);
   setStatus(1, `analysis: ${state.renderInput.noteItems.length} notes`);
   setStatus(2, `renderer: ${result.layout.rows.length} rows`);
+
+  return {
+    ...state,
+    layout: result.layout,
+  };
+}
+
+/**
+ * scroll 위치가 바뀐 뒤 현재 viewport에 맞춰 note/note marker 동적 layer만 다시 그린다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : state : 현재 앱 상태
+ * - 반환값 : renderer layout이 유지/갱신된 앱 상태
+ */
+export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppState {
+  if (state.layout === null) {
+    return state;
+  }
+
+  const result = renderCanvasScorePartial(
+    dom.target,
+    state.renderInput,
+    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    "note",
+    state.layout,
+    null,
+  );
 
   return {
     ...state,

@@ -6,7 +6,10 @@ import { analyzeDynamicsTimeline } from "../../core/analyze/analyze_dynamics";
 import { analyzeTimingTimeline } from "../../core/analyze/analyze_timing";
 import { analyzeTrackEvents } from "../../core/analyze/analyze_track";
 import type { AnalysisResult } from "../../core/analyze/types";
-import { buildParsedDocument } from "../../core/parse/build_parsed_document";
+import {
+  buildParsedGlobalCells,
+  buildParsedTrackCells,
+} from "../../core/parse/build_parsed_document";
 import type { ParsedScoreDocument } from "../../core/parse/types";
 import type { RuntimeDocument, TrackId } from "../../core/score/types";
 import {
@@ -89,13 +92,13 @@ function buildNoteEditRuntimeArtifacts(
     return null;
   }
 
-  const parsed = buildParsedDocument(nextDocument);
+  const editedTrackIdSet = new Set<TrackId>(editedTrackIds);
+  const parsed = buildNoteEditParsedDocument(state.parsed, nextDocument, editedTrackIdSet);
   const context = {
     score: nextDocument.score,
     indexes: nextDocument.indexes,
     parsed,
   };
-  const editedTrackIdSet = new Set<TrackId>(editedTrackIds);
   const nextTrackResults = state.analysis.trackResults.map((trackResult) =>
     editedTrackIdSet.has(trackResult.trackId)
       ? analyzeTrackEvents(trackResult.trackId, context)
@@ -170,7 +173,7 @@ function buildGlobalEditRuntimeArtifacts(
   nextDocument: RuntimeDocument,
   renderBaseInput: CanvasRenderInput,
 ): ScoreTextEditPartialArtifacts {
-  const parsed = buildParsedDocument(nextDocument);
+  const parsed = buildGlobalEditParsedDocument(state.parsed, nextDocument);
   const context = {
     score: nextDocument.score,
     indexes: nextDocument.indexes,
@@ -200,6 +203,54 @@ function buildGlobalEditRuntimeArtifacts(
         ...state.renderInput.noteMarkerItems,
       ],
     },
+  };
+}
+
+/**
+ * note edit에 필요한 parsed document를 edited track만 교체해 만든다.
+ * - 인수 : previousParsed : 편집 전 parsed document
+ * - 인수 : nextDocument : 편집 후 런타임 문서
+ * - 인수 : editedTrackIds : 편집된 note track set
+ * - 반환값 : edited track parser 결과만 갱신한 parsed document
+ */
+function buildNoteEditParsedDocument(
+  previousParsed: ParsedScoreDocument,
+  nextDocument: RuntimeDocument,
+  editedTrackIds: ReadonlySet<TrackId>,
+): ParsedScoreDocument {
+  const noteCellsByTrackAndCol = new Map(previousParsed.noteCellsByTrackAndCol);
+
+  // edited track만 next document의 cell 배열을 다시 파싱하고 나머지 track/global parser 결과는 재사용한다.
+  for (const trackId of editedTrackIds) {
+    const track = nextDocument.indexes.trackById.get(trackId);
+
+    if (track === undefined) {
+      noteCellsByTrackAndCol.delete(trackId);
+      continue;
+    }
+
+    noteCellsByTrackAndCol.set(trackId, buildParsedTrackCells(track));
+  }
+
+  return {
+    noteCellsByTrackAndCol,
+    globalCellsByKindAndCol: previousParsed.globalCellsByKindAndCol,
+  };
+}
+
+/**
+ * global edit에 필요한 parsed document를 global parser 결과만 교체해 만든다.
+ * - 인수 : previousParsed : 편집 전 parsed document
+ * - 인수 : nextDocument : 편집 후 런타임 문서
+ * - 반환값 : global parser 결과만 갱신한 parsed document
+ */
+function buildGlobalEditParsedDocument(
+  previousParsed: ParsedScoreDocument,
+  nextDocument: RuntimeDocument,
+): ParsedScoreDocument {
+  return {
+    noteCellsByTrackAndCol: previousParsed.noteCellsByTrackAndCol,
+    globalCellsByKindAndCol: buildParsedGlobalCells(nextDocument.score, nextDocument.indexes),
   };
 }
 

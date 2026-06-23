@@ -160,7 +160,7 @@ export function applyScoreCellRawTextBatch(
     }
   }
 
-  const nextScore = cloneScoreFile(score);
+  const nextScore = cloneScoreFileForTextEdits(score, edits);
   let deletedCount = 0;
 
   for (const edit of edits) {
@@ -180,6 +180,48 @@ export function applyScoreCellRawTextBatch(
     score: nextScore,
     isDelete: deletedCount === edits.length,
     updated: edits.length,
+  };
+}
+
+/**
+ * score text edit 적용에 필요한 ScoreFile 부분만 복제한다.
+ * - 인수 : score : 현재 score JSON
+ * - 인수 : edits : 적용할 score cell 편집 목록
+ * - 반환값 : 편집 대상 track/global cell 배열만 독립 복제한 score JSON
+ */
+function cloneScoreFileForTextEdits(
+  score: ScoreFile,
+  edits: readonly ScoreTextEdit[],
+): ScoreFile {
+  const invalidationKind = getScoreTextEditInvalidationKind(edits);
+  const shouldCloneGlobalLines =
+    invalidationKind === "globalCell" || invalidationKind === "mixedCell";
+  const shouldCloneTracks =
+    invalidationKind === "noteCell" || invalidationKind === "mixedCell";
+  const editedTrackIds = new Set(
+    edits
+      .filter((edit) => edit.selection.rowKind === "note")
+      .map((edit) => edit.selection.trackId),
+  );
+
+  return {
+    ...score,
+    globalLines: shouldCloneGlobalLines
+      ? {
+          ...score.globalLines,
+          cells: [...score.globalLines.cells],
+        }
+      : score.globalLines,
+    tracks: shouldCloneTracks
+      ? score.tracks.map((track) =>
+          editedTrackIds.has(track.trackId)
+            ? {
+                ...track,
+                cells: [...track.cells],
+              }
+            : track
+        )
+      : score.tracks,
   };
 }
 
