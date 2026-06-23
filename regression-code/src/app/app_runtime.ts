@@ -197,6 +197,8 @@ export function createInitialState(
     activeTrackIds: [...DEFAULT_ACTIVE_TRACK_IDS],
     reverseRows: false,
     menuTheme: "light",
+    speedScale: 1,
+    textOff: false,
     mode: { kind: "view" },
     busy: { kind: "idle" },
     statusMessage: {

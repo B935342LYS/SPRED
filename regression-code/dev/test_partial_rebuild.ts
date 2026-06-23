@@ -3,6 +3,10 @@ import type { AnalyzedEvent, NoteEvent } from "../src/core/analyze/types";
 import { createPartialRebuildPlan } from "../src/orchestration/partial_rebuild/partial_rebuild_plan";
 import { applyPartialRenderInputPatch } from "../src/orchestration/partial_rebuild/partial_rebuild_render_patch";
 import type { CanvasAnalyzedRenderInput } from "../src/renderer/canvas_types";
+import {
+  filterVisibleMuteItems,
+  filterVisibleNoteItems,
+} from "../src/renderer/canvas_visible_range";
 
 /**
  * 테스트 조건이 거짓이면 프로세스를 실패 상태로 만든다.
@@ -171,6 +175,97 @@ assert(
   patchedGlobalInput.noteItems[0]?.text === "C4" &&
     patchedGlobalInput.globalTextItems[0]?.text === "new-global",
   "Global patch should preserve note items and replace global text items.",
+);
+
+const visibleRange = {
+  startTick: 10,
+  endTick: 20,
+  startX: 210,
+  endX: 420,
+};
+const visibleNoteItems = filterVisibleNoteItems([
+  {
+    sourceEventId: "before",
+    rowId: "s1-note-60",
+    displayCentOffset: 0,
+    startTick: 0,
+    endTick: 4,
+    midi: 60,
+    text: "A",
+    displayShape: "rect",
+    displayTextAnchors: [],
+    effects: [],
+  },
+  {
+    sourceEventId: "long-overlap",
+    rowId: "s1-note-60",
+    displayCentOffset: 0,
+    startTick: 2,
+    endTick: 12,
+    midi: 60,
+    text: "B",
+    displayShape: "rect",
+    displayTextAnchors: [],
+    effects: [],
+  },
+  {
+    sourceEventId: "inside",
+    rowId: "s1-note-60",
+    displayCentOffset: 0,
+    startTick: 14,
+    endTick: 15,
+    midi: 60,
+    text: "C",
+    displayShape: "rect",
+    displayTextAnchors: [],
+    effects: [],
+  },
+  {
+    sourceEventId: "after",
+    rowId: "s1-note-60",
+    displayCentOffset: 0,
+    startTick: 24,
+    endTick: 25,
+    midi: 60,
+    text: "D",
+    displayShape: "rect",
+    displayTextAnchors: [],
+    effects: [],
+  },
+], visibleRange);
+
+assert(
+  visibleNoteItems.map((item) => item.sourceEventId).join(",") === "long-overlap,inside",
+  "Visible note filter should keep overlapping items in original draw order.",
+);
+
+const visibleMuteItems = filterVisibleMuteItems([
+  {
+    sourceEventId: "mute-before",
+    rowId: "s1-note-60",
+    startTick: 0,
+    endTick: 3,
+    text: "before",
+  },
+  {
+    sourceEventId: "mute-overlap",
+    rowId: "s1-note-60",
+    startTick: 9,
+    endTick: 11,
+    text: "overlap",
+  },
+  {
+    sourceEventId: "mute-after",
+    rowId: "s1-note-60",
+    startTick: 22,
+    endTick: 23,
+    text: "after",
+  },
+], visibleRange);
+
+assert(
+  visibleMuteItems.map((item) => item.sourceEventId).join(",") === "mute-overlap",
+  "Visible mute filter should use the same indexed overlap rule.",
 );
 
 console.log("Partial rebuild plan test completed.");

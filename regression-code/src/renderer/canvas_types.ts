@@ -51,6 +51,8 @@ export type CanvasAnalyzedRenderInput = CanvasRenderInput & {
  */
 export type CanvasRenderOptions = {
   zoom: number;
+  speedScale?: number;
+  hideNoteText?: boolean;
   devicePixelRatio: number;
   columnWidth?: number;
   dynamicViewport?: CanvasDynamicViewport;

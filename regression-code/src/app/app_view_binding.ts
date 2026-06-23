@@ -197,6 +197,56 @@ function applyZoomPreservingViewportLeftEdge(
 }
 
 /**
+ * speed 배율 변경 전 viewport 왼쪽 edge tick을 변경 후에도 유지한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applySpeedPreservingViewportLeftEdge(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  const leftEdgeTick = getViewportLeftEdgeTick(dom, session.getState());
+  const speedPercent = Number(dom.speedInput.value);
+  const speedScale = Number.isFinite(speedPercent)
+    ? Math.min(Math.max(speedPercent / 100, 1), 4)
+    : 1;
+
+  session.setState({
+    ...session.getState(),
+    speedScale,
+    statusMessage: {
+      level: "info",
+      text: `Speed: ${speedScale.toFixed(2)}x`,
+    },
+  });
+  session.render();
+  restoreViewportLeftEdgeTick(dom, session, leftEdgeTick);
+}
+
+/**
+ * Text off 설정을 note/mute text layer에 반영한다.
+ * - 인수 : dom : 앱에서 제어하는 DOM 요소
+ * - 인수 : session : app 상태와 render callback 묶음
+ * - 반환값 : 없음
+ */
+function applyTextOff(
+  dom: AppDom,
+  session: ViewBindingSession,
+): void {
+  session.setState({
+    ...session.getState(),
+    textOff: dom.textOffInput.checked,
+    statusMessage: {
+      level: "info",
+      text: dom.textOffInput.checked ? "Text off enabled." : "Text off disabled.",
+    },
+  });
+  session.setState(renderDynamicViewportLayers(dom, session.getState()));
+  syncLeftStatus(dom, session.getState());
+}
+
+/**
  * view 관련 DOM event를 app 상태 변경 흐름에 연결한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
  * - 인수 : session : app 상태와 render callback 묶음
@@ -236,6 +286,14 @@ export function bindViewControls(
   // zoom 값이 확정되면 현재 입력값으로 전체 canvas score를 다시 그린다.
   dom.zoomInput.addEventListener("change", () => {
     applyZoomPreservingViewportLeftEdge(dom, session, Number(dom.zoomInput.value));
+  });
+
+  dom.speedInput.addEventListener("change", () => {
+    applySpeedPreservingViewportLeftEdge(dom, session);
+  });
+
+  dom.textOffInput.addEventListener("change", () => {
+    applyTextOff(dom, session);
   });
 
   dom.fitHeightButton.addEventListener("click", () => {

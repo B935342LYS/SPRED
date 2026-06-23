@@ -191,6 +191,8 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
     button.disabled = isBusy;
   });
   dom.zoomInput.disabled = isBusy;
+  dom.speedInput.disabled = isBusy;
+  dom.textOffInput.disabled = isBusy;
   dom.reverseButton.disabled = isBusy;
   dom.themeButton.disabled = isBusy;
   dom.expandColumnInput.disabled = isBusy;
@@ -228,6 +230,8 @@ export function syncViewOptionControls(dom: AppDom, state: AppState): void {
   dom.reverseButton.setAttribute("aria-pressed", String(state.reverseRows));
   dom.themeButton.textContent = state.menuTheme === "dark" ? "Dark" : "Light";
   dom.themeButton.setAttribute("aria-pressed", String(state.menuTheme === "dark"));
+  dom.speedInput.value = String(Math.round(state.speedScale * 100));
+  dom.textOffInput.checked = state.textOff;
   dom.appShell.dataset.menuTheme = state.menuTheme;
 }
 
@@ -278,6 +282,7 @@ export function syncLayoutScroll(
  */
 export function createRenderOptions(
   zoomInput: HTMLInputElement,
+  state: AppState,
   scoreArea?: HTMLElement,
 ): CanvasRenderOptions {
   const zoom = Number(zoomInput.value) / 100;
@@ -291,6 +296,8 @@ export function createRenderOptions(
 
   return {
     zoom,
+    speedScale: state.speedScale,
+    hideNoteText: state.textOff,
     devicePixelRatio: window.devicePixelRatio || 1,
     dynamicViewport,
   };
@@ -359,7 +366,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   const result: CanvasRenderResult = renderCanvasScore(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
   );
 
   // renderer가 계산한 stage 크기를 CSS 변수에 반영하고 label scroll 위치를 맞춘다.
@@ -404,7 +411,7 @@ export function renderAppPartial(
   const result: CanvasRenderResult = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
     scope,
     previousLayout,
     dirtyTickRange,
@@ -441,7 +448,7 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
   const result = renderCanvasScorePartial(
     dom.target,
     state.renderInput,
-    createRenderOptions(dom.zoomInput, dom.scoreArea),
+    createRenderOptions(dom.zoomInput, state, dom.scoreArea),
     "note",
     state.layout,
     null,

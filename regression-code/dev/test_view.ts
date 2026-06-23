@@ -14,6 +14,7 @@ import type { AppDom } from "../src/app/app_types";
 import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
 import type { ScoreFile } from "../src/core/score/types";
 import type { CanvasRenderInput } from "../src/renderer/canvas_types";
+import { buildCanvasScoreLayout } from "../src/renderer/canvas_coordinate";
 
 /**
  * 테스트 조건이 거짓이면 프로세스를 실패 상태로 만든다.
@@ -160,6 +161,10 @@ assert(
   "Menu theme state should update to dark.",
 );
 assert(
+  initialState.speedScale === 1 && !initialState.textOff,
+  "Initial view options should use 1.0x speed and text on.",
+);
+assert(
   clearedState.document.score.globalLines.columnCount === 1000,
   "Clear All should reset columnCount to 1000.",
 );
@@ -231,6 +236,17 @@ const overlappingFitTargetDom = {
 assert(
   getScoreAreaFitTargetHeight(overlappingFitTargetDom) === 380,
   "Fit Height target should stop at the current visible status footer top.",
+);
+
+const speedLayout = buildCanvasScoreLayout(input, {
+  zoom: 1,
+  speedScale: 2,
+  devicePixelRatio: 1,
+});
+
+assert(
+  speedLayout.columnWidth === input.baseColumnWidthPx * 2,
+  "Speed scale should change renderer column width without changing source layout data.",
 );
 
 console.log("View option test completed.");

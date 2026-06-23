@@ -85,6 +85,8 @@ export type AppState = {
   activeTrackIds: TrackId[];
   reverseRows: boolean;
   menuTheme: MenuTheme;
+  speedScale: number;
+  textOff: boolean;
   mode: AppMode;
   busy: AppBusyState;
   statusMessage: UiStatusMessage;
@@ -125,6 +127,8 @@ export type AppDom = {
   localSaveButton: HTMLButtonElement;
   localLoadButton: HTMLButtonElement;
   zoomInput: HTMLInputElement;
+  speedInput: HTMLInputElement;
+  textOffInput: HTMLInputElement;
   fullscreenButton: HTMLButtonElement;
   fitHeightButton: HTMLButtonElement;
   reverseButton: HTMLButtonElement;
