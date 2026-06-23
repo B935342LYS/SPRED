@@ -9,6 +9,8 @@ import {
   applyTrimRightColumnsToState,
   createInitialState,
 } from "../src/app/app_runtime";
+import { getScoreAreaFitTargetHeight } from "../src/app/app_view_actions";
+import type { AppDom } from "../src/app/app_types";
 import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
 import type { ScoreFile } from "../src/core/score/types";
 import type { CanvasRenderInput } from "../src/renderer/canvas_types";
@@ -23,6 +25,37 @@ function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+/**
+ * fit height 테스트용 DOM element stub을 만든다.
+ * - 인수 : clientHeight : element의 clientHeight 값
+ * - 인수 : top : viewport 기준 top 좌표
+ * - 인수 : height : viewport 기준 height 값
+ * - 인수 : queryResult : querySelector가 반환할 선택적 자식 stub
+ * - 반환값 : HTMLElement로 취급할 수 있는 최소 stub
+ */
+function createElementStub(
+  clientHeight: number,
+  top: number,
+  height: number,
+  queryResult: HTMLElement | null = null,
+): HTMLElement {
+  return {
+    clientHeight,
+    getBoundingClientRect: () => ({
+      top,
+      bottom: top + height,
+      left: 0,
+      right: 0,
+      width: 0,
+      height,
+      x: 0,
+      y: top,
+      toJSON: () => undefined,
+    }),
+    querySelector: () => queryResult,
+  } as unknown as HTMLElement;
 }
 
 const input: CanvasRenderInput = {
@@ -161,6 +194,30 @@ assert(
   clearedState.document.score.musicData.youtube.videoId === "" &&
     clearedState.document.score.musicData.youtube.offsetMs === 0,
   "Clear All should reset youtube sync data.",
+);
+
+const statusStub = createElementStub(28, 720, 28);
+const fitTargetDom = {
+  appShell: createElementStub(800, 0, 800, statusStub),
+  scoreViewer: createElementStub(140, 200, 140),
+  scoreArea: createElementStub(140, 200, 140),
+} as unknown as AppDom;
+
+assert(
+  getScoreAreaFitTargetHeight(fitTargetDom) === 520,
+  "Fit Height should use the status footer top as the score area bottom.",
+);
+
+const overlappingStatusStub = createElementStub(28, 580, 28);
+const overlappingFitTargetDom = {
+  appShell: createElementStub(800, 0, 800, overlappingStatusStub),
+  scoreViewer: createElementStub(140, 200, 140),
+  scoreArea: createElementStub(140, 200, 140),
+} as unknown as AppDom;
+
+assert(
+  getScoreAreaFitTargetHeight(overlappingFitTargetDom) === 380,
+  "Fit Height target should stop at the current visible status footer top.",
 );
 
 console.log("View option test completed.");
