@@ -596,6 +596,145 @@ assert(
   "Connected gliss chain should not receive anchor-overlap gainScale dips.",
 );
 
+const singleAnchorMuteSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 4, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          createGlissAnchorNoteEvent("s1-note-60", 0, 60, "start"),
+          createGlissAnchorNoteEvent("s1-note-64", 2, 64, "end"),
+          createGlissSegmentEvent("s1-note-60", 0, 60, "start", "s1-note-64", 2, 64, "end", 0.5, 2.5),
+        ],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic"],
+});
+const singleAnchorMuteNotes = singleAnchorMuteSchedule.events.filter(
+  (event) => event.sourceEventKind === "note",
+);
+const singleAnchorMuteGliss = singleAnchorMuteSchedule.events.find(
+  (event) => event.sourceEventKind === "gliss",
+);
+
+assert(singleAnchorMuteNotes.length === 0, "Single-cell gliss anchor notes should be muted.");
+assert(
+  singleAnchorMuteGliss?.sourceEventKind === "gliss",
+  "Single-cell gliss anchors should keep the fallback gliss event.",
+);
+
+if (singleAnchorMuteGliss?.sourceEventKind === "gliss") {
+  assertNear(
+    singleAnchorMuteGliss.startSeconds,
+    0,
+    "Single-cell start anchor gliss should start audio at the source cell start.",
+  );
+}
+
+const longStartAnchorNote: NoteEvent = {
+  ...createGlissAnchorNoteEvent("s1-note-60", 2, 60, "start"),
+  eventId: "basic:note:s1-note-60:0",
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(3),
+  },
+  sourceCells: [
+    { rowId: "s1-note-60", col: 0 },
+    { rowId: "s1-note-60", col: 1 },
+    { rowId: "s1-note-60", col: 2 },
+  ],
+  effects: [
+    {
+      time: {
+        startTick: numberToTimeFraction(0),
+        endTick: numberToTimeFraction(2),
+      },
+      vib: true,
+      trem: null,
+    },
+  ],
+};
+const longEndAnchorNote: NoteEvent = {
+  ...createGlissAnchorNoteEvent("s1-note-67", 4, 67, "end"),
+  eventId: "basic:note:s1-note-67:4",
+  time: {
+    startTick: numberToTimeFraction(4),
+    endTick: numberToTimeFraction(6),
+  },
+  sourceCells: [
+    { rowId: "s1-note-67", col: 4 },
+    { rowId: "s1-note-67", col: 5 },
+  ],
+  effects: [
+    {
+      time: {
+        startTick: numberToTimeFraction(4),
+        endTick: numberToTimeFraction(6),
+      },
+      vib: false,
+      trem: { division: 4 },
+    },
+  ],
+};
+const longAnchorExtensionSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 8, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          longStartAnchorNote,
+          longEndAnchorNote,
+          createGlissSegmentEvent("s1-note-60", 2, 60, "start", "s1-note-67", 4, 67, "end", 2.5, 4.5),
+        ],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic"],
+});
+const longAnchorExtensionNotes = longAnchorExtensionSchedule.events.filter(
+  (event) => event.sourceEventKind === "note",
+);
+const longAnchorExtensionChain = longAnchorExtensionSchedule.events.find(
+  (event) => event.sourceEventKind === "glissChain",
+);
+
+assert(longAnchorExtensionNotes.length === 0, "Long-note gliss anchors should be muted after chain absorption.");
+assert(
+  longAnchorExtensionChain?.sourceEventKind === "glissChain",
+  "Long-note gliss anchors should promote a single gliss segment to a chain.",
+);
+
+if (longAnchorExtensionChain?.sourceEventKind === "glissChain") {
+  const [startSegment, glissSegment, endSegment] = longAnchorExtensionChain.segments;
+  const vibrato = longAnchorExtensionChain.effects.find((effect) => effect.kind === "vibrato");
+  const tremolo = longAnchorExtensionChain.effects.find((effect) => effect.kind === "tremolo");
+
+  assert(longAnchorExtensionChain.segments.length === 3, "Long-note chain should include two constant pitch segments and one ramp.");
+  assertNear(longAnchorExtensionChain.startSeconds, 0, "Long-note chain should start at the absorbed start note.");
+  assertNear(longAnchorExtensionChain.endSeconds, 0.75, "Long-note chain should end at the absorbed end note.");
+  assertNear(startSegment?.startSeconds ?? -1, 0, "Start extension should begin at note start.");
+  assertNear(startSegment?.endSeconds ?? -1, 0.3125, "Start extension should end at the gliss start anchor.");
+  assert(startSegment?.startMidi === 60 && startSegment.endMidi === 60, "Start extension should keep constant pitch.");
+  assertNear(glissSegment?.startSeconds ?? -1, 0.3125, "Ramp should start at the gliss start anchor.");
+  assertNear(glissSegment?.endSeconds ?? -1, 0.5625, "Ramp should end at the gliss end anchor.");
+  assertNear(endSegment?.startSeconds ?? -1, 0.5625, "End extension should start at the gliss end anchor.");
+  assertNear(endSegment?.endSeconds ?? -1, 0.75, "End extension should continue through the long end note.");
+  assert(endSegment?.startMidi === 67 && endSegment.endMidi === 67, "End extension should keep constant pitch.");
+  assert(vibrato !== undefined, "Absorbed start long note should preserve vibrato on the chain.");
+  assert(tremolo !== undefined, "Absorbed end long note should preserve tremolo on the chain.");
+}
+
 const overlapNoteEvent: NoteEvent = {
   ...effectNoteEvent,
   eventId: "basic:note:s1-note-60:8",
