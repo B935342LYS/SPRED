@@ -286,7 +286,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score edit/render performance, and the next loop-playback/viewport-rendering tasks
+- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, and the next loop-playback connection tasks
 - current partial rebuild work has moved past note/global invalidation and canvas layer separation into partial parsed-document reuse, edited-track analyzer/render item rebuild, and drag input batching
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
@@ -399,6 +399,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.28-step6-track-layer-spec-decisions.md` records the finalized active track policy, inactive render/audio behavior, playing-state toggle rule, and `src/track/track_control.ts` module decision before implementation
 - `docs/implementation-memo/1.29-step7-partial-rebuild-performance.md` records partial rebuild performance profiling, score clone narrowing, parsed document reuse, renderer dirty-range fixes, and drag input batching
 - `docs/implementation-memo/1.30-step8-user-test-stabilization.md` records first user-test follow-up work around playback position preservation, input/storage safeguards, Local Save/Load confirmation, fullscreen/Fit Height/zoom/status footer layout, and publish staging updates
+- `docs/implementation-memo/1.31-step9-viewport-view-loop-ui.md` records viewport bounded rendering implementation, performance profiling/removal, View menu Speed/Text off behavior, Loop marker UI first pass, and publish staging synchronization
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
@@ -408,24 +409,26 @@ If memo content is explicitly adopted by the user for implementation order or st
 - long-score edit profiling showed the initial `apply raw text + rebuild artifacts` bottleneck was reduced by replacing whole-ScoreFile JSON deep clone with targeted track/global cell array cloning and by reusing parsed document groups
 - drag editing now batches pointermove-generated score edits by `requestAnimationFrame`, with pointerup/pointercancel flushing pending edits, to reduce repeated rebuild/render/playback-reset work during fast drags
 - the app boot template score now lives at `regression-code/src/assets/templates/default-score.json`; it keeps the default instrument/layout/global rows but starts with default music metadata and empty tracks, while dev fixtures under `regression-code/dev/test_cases/` remain test-only inputs
-- renderer DPR downscaling uses a temporary first-test cap of about 65535 bitmap px width and 720 bitmap px height to improve long-score sharpness without fully unbounded canvas allocation; the Expand panel warns that large scores may lag or render incorrectly until viewport/tile rendering replaces this policy
+- long-score viewport bounded rendering first pass is implemented: static row background stays fixed, dynamic grid/global marker/note marker/note layers render only the current viewport plus overscan, scroll redraw is merged through `requestAnimationFrame`, and visible item filtering uses tick-range indexes for note/global text/marker groups
+- View menu runtime options are connected: Speed scales renderer column width from `1.0x` to `4.0x` without changing timing/audio seconds, Text Scale was removed, and Text off hides note `displayText` plus mute text while keeping global row rawText visible
+- Loop UI first pass is connected as runtime view state: Loop on/off, First/Last defaults, `Select Column` pick mode, repeated boundary picking, translucent bottom loop markers, edit-mode disabling/off behavior, and score/layout/column reset behavior are implemented; playback looping remains a follow-up connection task
+- Expand right now relies on the global `MAX_SCORE_COLUMN_COUNT` limit instead of a separate one-action column cap
+- renderer DPR downscaling still caps very large bitmap allocation, but long-score scroll/render no longer depends on full-score-width dynamic layer redraw; tile rendering remains a later optimization only if viewport bounded rendering proves insufficient
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
 - `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
 - latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
 
 Deferred planned work:
 - long-score performance roadmap:
-  - problem 1: editing large scores no longer runs the full parse/analyze/render path for ordinary note/global rawText edits, but still rebuilds `RuntimeDocument` / `ScoreIndexes` and can accumulate render/playback-reset work during dense interactions
-  - problem 2: scores around or above 5000 columns can exceed practical browser canvas limits; the current 720px bitmap-height cap is only a temporary sharpness/stability compromise
-  - first target: introduce bounded viewport rendering that draws only the visible score columns plus a small overscan range while keeping the full ScoreFile and AnalysisResult as the source of truth
-  - second target: split long-score rendering into reusable column tiles or dirty ranges so scroll, edit, and playback do not require redrawing the full score width
-  - third target: after render scope is bounded, reduce remaining edit latency with runtime index partial update, analyzer range partial, or dirty-column rebuild around changed cells
-- first partial rebuild staging target is implemented for ordinary rawText edits; remaining work is runtime index/audio partial update and viewport/tile rendering
+  - first viewport bounded rendering target is implemented and should be rechecked on lower-end laptops with real 9000+ column scores
+  - if remaining lag appears, next candidates are tile/chunk rendering for dynamic layers, time-budget based scroll redraw throttling, and further note marker visibility indexing
+  - after render scope is bounded, remaining edit latency can be reduced with runtime index partial update, analyzer range partial, or dirty-column rebuild around changed cells
+- first partial rebuild staging target is implemented for ordinary rawText edits; remaining work is runtime index/audio partial update and any additional viewport/tile optimization proven necessary by testing
 - verify the current edit/analyze/render path through JSON download/load round trip with saved local files
 - manually verify active track UI behavior in browser, including empty active track state, inactive alpha visibility, multi-track edit overwrite, playing-state toggle lock, paused-state toggle resume, and playback reset
 - expand manual and browser-level tests for vibrato, tremolo, gliss fallback, connected gliss chain, seek, pause/resume, and layout-change playback reset behavior
 - continue user-test verification of the GitHub Pages build, especially YouTube mode with real embeddable and embedding-blocked videos, including offset tuning, Reload, seek, pause/resume, stop, score load, and empty video input behavior
-- replace the temporary full-canvas long-score policy with viewport/tile rendering or another bounded partial render path; current Expand behavior is known to become slower as the score grows because rebuild/render still operates at full score scope
+- connect Loop UI range to playback controller/scheduler behavior and confirm interaction with YouTube follower playback
 - connect dynamics automation and refined tuplet timing behavior to the audio generator
 - add loop playback range selection and scheduler/controller support after YouTube sync
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable

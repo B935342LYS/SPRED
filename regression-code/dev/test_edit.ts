@@ -145,6 +145,23 @@ const autoFlatPitchResult = composeEditRawText({
   }),
 });
 
+const glissHoldStartPresetResult = composeEditRawText({
+  kind: "default",
+  input: createDefaultInput({
+    mode: "autoSharp",
+    autoText: "C4",
+    customText: "ignored",
+    hold: "~",
+    gliss: {
+      kind: "holdStart",
+      id: "c",
+    },
+    tremDivision: "3",
+    absolutePitch: "60",
+    microPitch: "12.5",
+  }),
+});
+
 const deleteResult = composeEditRawText({
   kind: "default",
   input: createDefaultInput(),
@@ -223,6 +240,11 @@ assert(
   autoFlatPitchResult.kind === "apply" &&
     autoFlatPitchResult.rawText === "Db4+@p(61)@m(12.5)",
   "AUTO flat should use generated display text and keep effective pitch modifiers.",
+);
+assert(
+  glissHoldStartPresetResult.kind === "apply" &&
+    glissHoldStartPresetResult.rawText === "-@g(c,S)",
+  "Gliss hold-start preset should ignore Default/Long values and compose -@g(id,S).",
 );
 assert(deleteResult.kind === "delete", "Empty CUSTOM input without modifiers should delete.");
 assert(blockedResult.kind === "blocked", "Vibrato hold and tremolo should be blocked.");

@@ -783,6 +783,53 @@ if (loadResult.ok) {
     "Loop cycle should not duplicate an event already scheduled from wrapped lookahead.",
   );
 
+  scheduler.resetScheduledEvents();
+  scheduledEvents.length = 0;
+
+  assert(
+    scheduler.scheduleLookahead(
+      0.45,
+      {
+        enabled: true,
+        startSeconds: 0.125,
+        endSeconds: 0.5,
+      },
+      0,
+    ) >= 1,
+    "Loop scheduler should schedule wrapped next-cycle events.",
+  );
+  assert(
+    scheduledEvents.some((scheduledEvent) =>
+      scheduledEvent.event.startSeconds === 0.125 &&
+      scheduledEvent.event.endSeconds <= 0.5,
+    ),
+    "Loop start should resume an event crossing the start boundary.",
+  );
+  assert(
+    scheduledEvents.every((scheduledEvent) => scheduledEvent.event.endSeconds <= 0.5),
+    "Loop scheduler should hard-cut events at the exclusive end boundary.",
+  );
+
+  scheduler.resetScheduledEvents();
+  scheduledEvents.length = 0;
+
+  assert(
+    scheduler.scheduleLookahead(
+      0.49,
+      {
+        enabled: true,
+        startSeconds: 0,
+        endSeconds: 0.5,
+      },
+      0,
+    ) >= 1,
+    "Loop end lookahead should schedule the next cycle while cutting current-cycle notes.",
+  );
+  assert(
+    scheduledEvents.every((scheduledEvent) => scheduledEvent.event.endSeconds <= 0.5),
+    "A note crossing loop end should be clipped before backend scheduling.",
+  );
+
   let fakeAudioTime = 0;
   const controllerScheduledEvents: Array<{ event: AudioScheduleEvent; offsetSeconds: number }> = [];
   const controllerBackend: AudioBackend = {
@@ -839,6 +886,32 @@ if (loadResult.ok) {
   controller.stop();
   assert(controller.getState().kind === "stopped", "Stop should enter stopped state.");
   assertNear(controller.getCurrentScoreSeconds(), 0, "Stop should reset score time.");
+
+  fakeAudioTime = 0;
+  await controller.playFromSeconds(
+    0.6,
+    {
+      enabled: true,
+      startSeconds: 0.25,
+      endSeconds: 0.75,
+    },
+  );
+  assertNear(controller.getCurrentScoreSeconds(), 0.6, "Loop playback should start inside the loop range.");
+
+  fakeAudioTime = 0.2;
+  assertNear(controller.getCurrentScoreSeconds(), 0.3, "Loop playback should wrap at loop end.");
+
+  await controller.seekToSeconds(
+    1.25,
+    {
+      enabled: true,
+      startSeconds: 0.25,
+      endSeconds: 0.75,
+    },
+  );
+  assertNear(controller.getCurrentScoreSeconds(), 0.25, "Loop playback should clamp outside seek to loop start.");
+
+  controller.stop();
 }
 
 console.log("Audio timing mapper test completed.");
