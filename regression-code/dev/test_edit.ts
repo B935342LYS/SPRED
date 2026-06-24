@@ -21,6 +21,12 @@ import {
   MAX_LOCAL_SCORE_JSON_BYTES,
 } from "../src/core/score/score_limits";
 import { saveScoreToLocalStorage } from "../src/infra/score_local_storage";
+import {
+  AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH,
+  resolveAutoDefaultText,
+  resolveAutoHarmonicAbsolutePitch,
+  resolveAutoPitchInputs,
+} from "../src/app/pitch_label";
 
 /**
  * 조건이 거짓이면 테스트 실패 상태를 기록한다.
@@ -268,6 +274,35 @@ assert(loadResult.ok, "Runtime document should load for tuplet placement test.")
 
 if (loadResult.ok && tupletResult.kind === "apply") {
   const placementState = createInitialState(loadResult.document);
+  const autoHarmonicInput = resolveAutoPitchInputs(
+    placementState,
+    createDefaultInput({
+      mode: "autoSharp",
+      absolutePitch: AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH,
+    }),
+    "s1-note-60",
+  );
+  const preservedAutoHarmonicInput = resolveAutoDefaultText(
+    placementState,
+    createDefaultInput({
+      mode: "autoSharp",
+      absolutePitch: AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH,
+    }),
+    "s1-note-60",
+  );
+  const nextRowAutoHarmonicInput = resolveAutoPitchInputs(
+    placementState,
+    preservedAutoHarmonicInput,
+    "s1-note-62",
+  );
+  const autoHarmonicResult = composeEditRawText({
+    kind: "default",
+    input: autoHarmonicInput,
+  });
+  const nextRowAutoHarmonicResult = composeEditRawText({
+    kind: "default",
+    input: nextRowAutoHarmonicInput,
+  });
   const longRawTextApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
     {
       selection: {
@@ -279,10 +314,59 @@ if (loadResult.ok && tupletResult.kind === "apply") {
       rawText: "x".repeat(MAX_CELL_RAW_TEXT_LENGTH + 1),
     },
   ]);
+  const protectedGlobalDeleteResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "global-bpm",
+        rowKind: "global",
+        col: 0,
+      },
+      rawText: "",
+    },
+  ]);
+  const protectedGlobalUpdateResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    {
+      selection: {
+        trackId: "basic",
+        rowId: "global-bpm",
+        rowKind: "global",
+        col: 0,
+      },
+      rawText: "140",
+    },
+  ]);
 
+  assert(
+    autoHarmonicResult.kind === "apply" &&
+      autoHarmonicResult.rawText === "C6@p(84)",
+    "AUTO◇ should resolve selected row MIDI to display and absolutePitch two octaves higher.",
+  );
+  assert(
+    preservedAutoHarmonicInput.absolutePitch === AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH &&
+      nextRowAutoHarmonicResult.kind === "apply" &&
+      nextRowAutoHarmonicResult.rawText === "D6@p(86)",
+    "AUTO◇ state should stay automatic and recalculate when the target note row changes.",
+  );
+  assert(
+    resolveAutoHarmonicAbsolutePitch(103) === "127" &&
+      resolveAutoHarmonicAbsolutePitch(104) === null,
+    "AUTO◇ should block note rows whose two-octave target exceeds MIDI range.",
+  );
   assert(
     !longRawTextApplyResult.ok,
     "Edit apply should reject rawText longer than the cell limit.",
+  );
+  assert(
+    !protectedGlobalDeleteResult.ok,
+    "Edit apply should reject deleting global row values at column 0.",
+  );
+  assert(
+    protectedGlobalUpdateResult.ok &&
+      protectedGlobalUpdateResult.score.globalLines.cells.some((cell) =>
+        cell.rowId === "global-bpm" && cell.col === 0 && cell.rawText === "140"
+      ),
+    "Edit apply should allow changing global row values at column 0.",
   );
 
   const placementResult = resolveTupletHeadPlacementHit(
