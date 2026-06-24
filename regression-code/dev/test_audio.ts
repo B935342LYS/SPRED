@@ -837,6 +837,7 @@ if (loadResult.ok) {
       scheduledEvents.push({ event, offsetSeconds });
     },
     getCurrentTime: () => 0,
+    setMasterVolume: () => {},
     stopAll: () => {
       scheduledEvents.length = 0;
     },
@@ -977,6 +978,7 @@ if (loadResult.ok) {
       controllerScheduledEvents.push({ event, offsetSeconds });
     },
     getCurrentTime: () => fakeAudioTime,
+    setMasterVolume: () => {},
     stopAll: () => {
       controllerScheduledEvents.length = 0;
     },
