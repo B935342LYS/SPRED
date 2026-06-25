@@ -18,7 +18,10 @@ import type {
   AudioBackend,
   AudioScheduleEvent,
 } from "../src/audio/audio_types";
-import { midiToFrequency } from "../src/audio/oscillator_backend";
+import {
+  createEdgeEnvelope,
+  midiToFrequency,
+} from "../src/audio/oscillator_backend";
 import {
   createTickTimeMapper,
   numberToTimeFraction,
@@ -257,6 +260,73 @@ function createGlissSegmentEvent(
   };
 }
 
+/**
+ * tuplet slot gliss anchor가 붙은 테스트용 note event를 만든다.
+ * - 인수 : rowId : anchor note row id
+ * - 인수 : sourceCol : tuplet head column
+ * - 인수 : slotIndex : tuplet slot index
+ * - 인수 : startTick : slot 시작 tick number
+ * - 인수 : endTick : slot 끝 tick number
+ * - 인수 : midi : note MIDI pitch
+ * - 인수 : role : gliss anchor role
+ * - 반환값 : NoteEvent : 테스트용 tuplet slot note event
+ */
+function createTupletGlissAnchorNoteEvent(
+  rowId: string,
+  sourceCol: number,
+  slotIndex: number,
+  startTick: number,
+  endTick: number,
+  midi: number,
+  role: "start" | "end",
+): NoteEvent {
+  return {
+    eventKind: "note",
+    eventId: `basic:note:${rowId}:${sourceCol}:slot:${slotIndex}`,
+    trackId: "basic",
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    sourceCells: [{ rowId, col: sourceCol, slotIndex }],
+    text: String(midi),
+    displayTextAnchors: [],
+    display: {
+      rowId,
+      centOffset: 0,
+    },
+    sound: {
+      midi,
+      centOffset: 0,
+    },
+    effects: [],
+    glissRole: {
+      glissId: "a",
+      role,
+    },
+    glissAnchors: [
+      {
+        glissId: "a",
+        role,
+        source: { rowId, col: sourceCol, slotIndex },
+        time: {
+          startTick: numberToTimeFraction(startTick),
+          endTick: numberToTimeFraction(endTick),
+        },
+        display: {
+          rowId,
+          centOffset: 0,
+        },
+      },
+    ],
+    tuplet: {
+      groupId: `basic:tuplet:${rowId}:${sourceCol}`,
+      slotIndex,
+      divNum: 6,
+    },
+  };
+}
+
 const singleMapper = createTickTimeMapper([
   createConstantSegment(0, 16, 120, 4),
 ]);
@@ -308,6 +378,14 @@ assertNear(multiMapper.tickToSeconds(fractionalTick), 1.125, "fractional tick sh
 assertNear(midiToFrequency(69, 0), 440, "A4 should be 440Hz.");
 assertNear(midiToFrequency(69, 100), midiToFrequency(70, 0), "+100 cents should match the next semitone.");
 assertNear(midiToFrequency(69, -100), midiToFrequency(68, 0), "-100 cents should match the previous semitone.");
+
+const shortEnvelope = createEdgeEnvelope(10, 10.03125, 0.005, 0.03);
+
+assertNear(shortEnvelope.attackEndTime, 10.005, "Short envelope attack end mismatch.");
+assert(
+  shortEnvelope.releaseStartTime >= shortEnvelope.attackEndTime,
+  "Short envelope release should not start before attack ends.",
+);
 
 const effectNoteEvent: NoteEvent = {
   eventKind: "note",
@@ -634,6 +712,95 @@ if (singleAnchorMuteGliss?.sourceEventKind === "gliss") {
     singleAnchorMuteGliss.startSeconds,
     0,
     "Single-cell start anchor gliss should start audio at the source cell start.",
+  );
+}
+
+const tupletBoundaryGlissSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 16, 240, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          createTupletGlissAnchorNoteEvent("s1-note-69", 0, 5, 40 / 6, 48 / 6, 69, "start"),
+          createTupletGlissAnchorNoteEvent("s1-note-70", 8, 0, 48 / 6, 56 / 6, 70, "end"),
+          {
+            eventKind: "gliss",
+            eventId: "basic:gliss:a:s1-note-69:0:slot:5",
+            trackId: "basic",
+            time: {
+              startTick: numberToTimeFraction(40 / 6),
+              endTick: numberToTimeFraction(56 / 6),
+            },
+            sourceCells: [
+              { rowId: "s1-note-69", col: 0, slotIndex: 5 },
+              { rowId: "s1-note-70", col: 8, slotIndex: 0 },
+            ],
+            startDisplay: {
+              rowId: "s1-note-69",
+              centOffset: 0,
+            },
+            endDisplay: {
+              rowId: "s1-note-70",
+              centOffset: 0,
+            },
+            startSound: {
+              midi: 69,
+              centOffset: 0,
+            },
+            endSound: {
+              midi: 70,
+              centOffset: 0,
+            },
+            glissId: "a",
+            startAnchorTick: numberToTimeFraction(43 / 6),
+            endAnchorTick: numberToTimeFraction(51 / 6),
+            fromKind: "start",
+            toKind: "end",
+            startAttach: "attack",
+            endAttach: "release",
+          },
+        ],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic"],
+});
+const tupletBoundaryStartNote = tupletBoundaryGlissSchedule.events.find(
+  (event) => event.eventId === "basic:note:s1-note-69:0:slot:5",
+);
+const tupletBoundaryEndNote = tupletBoundaryGlissSchedule.events.find(
+  (event) => event.eventId === "basic:note:s1-note-70:8:slot:0",
+);
+const tupletBoundaryGliss = tupletBoundaryGlissSchedule.events.find(
+  (event) => event.sourceEventKind === "glissChain",
+);
+
+assert(
+  tupletBoundaryStartNote?.sourceEventKind === "note" &&
+    tupletBoundaryEndNote === undefined &&
+    tupletBoundaryGliss?.sourceEventKind === "glissChain",
+  "Tuplet boundary gliss fixture should create a clipped start note and one gliss chain.",
+);
+
+if (
+  tupletBoundaryStartNote?.sourceEventKind === "note" &&
+  tupletBoundaryGliss?.sourceEventKind === "glissChain"
+) {
+  assertNear(tupletBoundaryStartNote.endSeconds, tupletBoundaryGliss.startSeconds, "Start anchor note should end at gliss start.");
+  assertNear(
+    tupletBoundaryStartNote.endSeconds - tupletBoundaryStartNote.startSeconds,
+    0.03125,
+    "240BPM 8:6 boundary start anchor note should be a very short clipped note.",
+  );
+  assertNear(
+    tupletBoundaryGliss.segments[0]?.endSeconds ?? -1,
+    0.53125,
+    "240BPM 8:6 boundary ramp should end at the first-slot end anchor.",
   );
 }
 

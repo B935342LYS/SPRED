@@ -12,6 +12,7 @@ Active implementation root:
 Archived implementation roots:
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
+- `regression-code-2026-06-19/`
 
 Primary spec roots:
 - `docs/1.3-score-json-format.md`
@@ -111,6 +112,12 @@ Memo roots:
 `regression-code/` : `active`
 `0. 이세계 코드 (legacy)/` : `archive`
 `1. 개발문서/` : `archive`
+`regression-code-2026-06-19/` : `interview-reference`
+- 2026-06-19 commit snapshot restored for advisor meeting review
+- use only for explanation and code-reading practice around renderer, audio, and UI layers
+- not the active implementation target
+- explanation-only comments may be added more densely in this snapshot
+- do not backport explanation-only comments from this snapshot into active `regression-code/` unless explicitly requested
 
 ## 4. Current Implementation Baseline
 
@@ -287,6 +294,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
 - current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, and the next loop-playback connection tasks
+- after the latest deployment sync, implementation work is temporarily paused for advisor meeting preparation
+- meeting preparation uses `regression-code-2026-06-19/` as a readable historical snapshot because the latest version contains too many follow-up features to explain within the meeting time
+- the immediate code-review focus is the 2026-06-19 renderer, audio, and UI layer structure
 - current partial rebuild work has moved past note/global invalidation and canvas layer separation into partial parsed-document reuse, edited-track analyzer/render item rebuild, and drag input batching
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
 - Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
@@ -364,7 +374,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - renderer now displays `globalLines.cells` rawText as white text on global rows through `CanvasGlobalTextRenderItem`
 - audio module first pass is implemented under `regression-code/src/audio/` with schedule building, tick/seconds mapping, event queue, lookahead scheduler, oscillator backend, and playback controller
 - UI playback buttons now connect basic note events to Web Audio oscillator playback and scroll the score so the layout/score boundary acts as the playback reference line
-- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, dynamics gain automation, actual-overlap gainScale normalization, mid-event resume clipping, standalone gliss fallback bridge playback, and connected gliss chain playback through a single oscillator with segment-level frequency ramps; sampled instrument playback and full note voice-span gliss merging remain later backend extensions
+- current audio backend supports basic note playback, vibrato detune LFO, tremolo gain gating, dynamics gain automation, actual-overlap gainScale normalization, mid-event resume clipping, standalone gliss fallback bridge playback, connected gliss chain playback through a single oscillator with segment-level frequency ramps, and monotonic short-event edge envelopes for fast tuplet boundary gliss cases; sampled instrument playback and full note voice-span gliss merging remain later backend extensions
 - `PlaybackController` now tracks `stopped`, `playing`, and `paused` states and supports `playFromStart()`, `playFromSeconds()`, `pause()`, `pauseAtSeconds()`, `resume()`, `seekToSeconds()`, and `stop()`
 - seek UI is connected to score seconds and displays `mm:ss`; the former stepMs display now shows the current BPM derived from the timing timeline at the current score time
 - app playback-related modules have been moved under `regression-code/src/app/playback/` to keep playback orchestration separate from general app wiring
@@ -379,6 +389,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/2.6-track-layer-ui-spec.md`는 0개 이상 active track filter, active track 대상 edit/playback, inactive track 반투명 render, `extra -> optional -> basic` draw order, 동일 track gain 정책, stopped/paused toggle 정책, `src/track/track_control.ts` 공용 정책 모듈을 정의한다
 - track layer first pass is implemented: Track menu toggles update `activeTrackIds`, note edit batches expand to all active tracks, empty active tracks block note edit while keeping global edit available, renderer items carry active/inactive alpha, audio schedule consumes only active tracks, playing state disables track toggles, and paused track toggle preserves score time for resume
 - harmonics auto-pitch direction is recorded in `docs/implementation-memo/1.36-harmonics-auto-pitch-plan.md`: the `@p(h)` special-token experiment was discarded, and the next pass should implement `AUTO◇` as a UI preset that emits existing `@p(n)` / `@m(c)` modifiers for a single sounding partial, likely defaulting to the 4th harmonic
+- harmonics `AUTO◇ +2oct` is now implemented as an edit UI preset: it keeps the AUTO selection state, recalculates from the clicked note row, emits existing `@p(rowMidi + 24)`, and makes AUTO sharp/flat default text show the two-octave target pitch name
+- global row column 0 values are now protected at the edit-apply boundary: they may be changed but cannot be deleted, preventing local-save files that later fail required global start-cell validation
 - View menu cleanup and first view options are connected: `Refresh Lines` and ambiguous `Reload` controls were removed, `Normal`/`Reverse` toggles renderer row order for non-global rows only, `Light`/`Dark` toggles menu and edit-panel theme, `Expand right` increases `ScoreFile.globalLines.columnCount`, `Trim Right` decreases it while removing out-of-range cells, and `Clear All` resets musicData plus score cells to default metadata and an empty 1000-column score with initial global row values before rebuilding runtime artifacts
 - the layout editor draft/apply/storage MVP is connected: `Modify` opens a `Layout` dialog, selected string rows render into a draft row list and preview, common note height and gap height editing are wired, note/gap add/delete draft mutations are implemented, Apply creates a structurally shared next ScoreFile after deletion confirmation, and Local/File preset save/load are connected
 - the outer layout toolbar now shows `Default Layout` plus Local Slot 1..3; Default reapplies the score-load-time layout snapshot, filled slots can be applied directly, and empty slots fall back to Default
@@ -416,8 +428,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - Expand right now relies on the global `MAX_SCORE_COLUMN_COUNT` limit instead of a separate one-action column cap
 - renderer DPR downscaling still caps very large bitmap allocation, but long-score scroll/render no longer depends on full-score-width dynamic layer redraw; tile rendering remains a later optimization only if viewport bounded rendering proves insufficient
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
+- the deployment staging repo `regression-code-test-publish/` has been synced through commit `c3f487d Sync harmonics and global edit safeguards`
 - `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
-- latest verified commands: `npm run typecheck`, `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`, `npm run build`
+- latest verified commands: `npm run test:edit`, `npm run typecheck`, `npm run build`; previous broader verification also included `npm run test:score`, `npm run test:parse`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
 
 Deferred planned work:
 - long-score performance roadmap:
