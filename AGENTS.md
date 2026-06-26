@@ -59,11 +59,13 @@ When implementation guidance conflicts, use this priority order:
 10. `docs/2.6-track-layer-ui-spec.md`
 11. `docs/2.7-youtube-sync-ui-spec.md`
 12. `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
-13. `docs/1.5-note-cell-parser-spec.md`
-14. `docs/1.6-global-cell-parser-spec.md`
-15. `docs/1.7-analyzer-event-list-spec.md`
-16. `docs/1.3-score-json-format.md`
-17. `docs/1.0-development-spec.md`
+13. `docs/2.9-range-selection-edit-spec.md`
+14. `docs/2.10-undo-redo-edit-history-spec.md`
+15. `docs/1.5-note-cell-parser-spec.md`
+16. `docs/1.6-global-cell-parser-spec.md`
+17. `docs/1.7-analyzer-event-list-spec.md`
+18. `docs/1.3-score-json-format.md`
+19. `docs/1.0-development-spec.md`
 
 Background/reference documents:
 

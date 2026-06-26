@@ -30,6 +30,8 @@ Primary spec roots:
 - `docs/2.6-track-layer-ui-spec.md`
 - `docs/2.7-youtube-sync-ui-spec.md`
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
+- `docs/2.9-range-selection-edit-spec.md`
+- `docs/2.10-undo-redo-edit-history-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/1.0-development-spec.md`
@@ -98,6 +100,12 @@ Memo roots:
 `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md` : `spec`
 - note/global edit invalidation sets, layer redraw boundaries, partial rebuild staging
 
+`docs/2.9-range-selection-edit-spec.md` : `spec`
+- Ctrl + drag range selection, selection overlay, bulk delete, copy/paste policy
+
+`docs/2.10-undo-redo-edit-history-spec.md` : `spec`
+- edit history, undo/redo stack, Undo button and keyboard shortcut policy
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -134,11 +142,13 @@ Read in this order for implementation work:
 9. `docs/2.6-track-layer-ui-spec.md`
 10. `docs/2.7-youtube-sync-ui-spec.md`
 11. `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
-12. `docs/1.5-note-cell-parser-spec.md`
-13. `docs/1.6-global-cell-parser-spec.md`
-14. `docs/1.7-analyzer-event-list-spec.md`
-15. `docs/1.3-score-json-format.md`
-16. `docs/1.0-development-spec.md`
+12. `docs/2.9-range-selection-edit-spec.md`
+13. `docs/2.10-undo-redo-edit-history-spec.md`
+14. `docs/1.5-note-cell-parser-spec.md`
+15. `docs/1.6-global-cell-parser-spec.md`
+16. `docs/1.7-analyzer-event-list-spec.md`
+17. `docs/1.3-score-json-format.md`
+18. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -153,6 +163,8 @@ Interpretation rules:
 - active track UI, inactive track 반투명 renderer 정책, playback filtering, overlap 정책은 `2.6`을 우선한다
 - YouTube mode, iframe player sync, offset/reload 정책은 `2.7`을 우선한다
 - note/global edit invalidation, layer redraw scope, partial rebuild staging은 `2.8`을 우선한다
+- Ctrl + drag 영역 선택, selection overlay, bulk delete/copy/paste 정책은 `2.9`를 우선한다
+- undo/redo history, Undo button, keyboard shortcut 정책은 `2.10`을 우선한다
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -210,6 +222,12 @@ YouTube sync:
 Edit invalidation / partial rebuild:
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 
+Range selection / bulk edit:
+- `docs/2.9-range-selection-edit-spec.md`
+
+Undo / redo:
+- `docs/2.10-undo-redo-edit-history-spec.md`
+
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
@@ -236,6 +254,8 @@ Appendix:
 - `2.6-track-layer-ui-spec.md`
 - `2.7-youtube-sync-ui-spec.md`
 - `2.8-edit-invalidation-and-partial-rebuild-spec.md`
+- `2.9-range-selection-edit-spec.md`
+- `2.10-undo-redo-edit-history-spec.md`
 
 `reference`
 - `1.1-project-plan.md`

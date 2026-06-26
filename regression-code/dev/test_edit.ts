@@ -3,11 +3,18 @@ import { readFileSync } from "node:fs";
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { createInitialState } from "../src/app/app_runtime";
 import { applyRawTextBatchToScore } from "../src/app/app_runtime";
+import { buildCanvasScoreLayout } from "../src/renderer/canvas_coordinate";
 import {
   applyScoreCellRawTextBatch,
   getScoreTextEditInvalidationKind,
 } from "../src/app/edit/edit_apply";
 import { composeEditRawText } from "../src/app/edit/edit_core";
+import {
+  copyRangeSelectionToClipboard,
+  createDeleteEditsForRangeSelection,
+  createPasteEditsFromClipboard,
+  createScoreRangeSelection,
+} from "../src/app/edit/edit_range_selection";
 import type { DefaultNoteEditInput } from "../src/app/edit/edit_default";
 import { normalizeNumberRawInput } from "../src/app/edit/edit_number";
 import { composeTupletRawText } from "../src/app/edit/edit_tuplet";
@@ -274,6 +281,38 @@ assert(loadResult.ok, "Runtime document should load for tuplet placement test.")
 
 if (loadResult.ok && tupletResult.kind === "apply") {
   const placementState = createInitialState(loadResult.document);
+  const testLayout = buildCanvasScoreLayout(placementState.renderInput, {
+    zoom: 1,
+    devicePixelRatio: 1,
+  });
+  const noteRangeSelection = createScoreRangeSelection(
+    testLayout,
+    ["basic"],
+    {
+      rowId: "s1-note-52",
+      rowKind: "note",
+      col: 0,
+    },
+    {
+      rowId: "s1-note-54",
+      rowKind: "note",
+      col: 10,
+    },
+  );
+  const globalRangeSelection = createScoreRangeSelection(
+    testLayout,
+    ["basic"],
+    {
+      rowId: "global-bpm",
+      rowKind: "global",
+      col: 0,
+    },
+    {
+      rowId: "global-dyn",
+      rowKind: "global",
+      col: 0,
+    },
+  );
   const autoHarmonicInput = resolveAutoPitchInputs(
     placementState,
     createDefaultInput({
@@ -368,6 +407,71 @@ if (loadResult.ok && tupletResult.kind === "apply") {
       ),
     "Edit apply should allow changing global row values at column 0.",
   );
+  assert(
+    noteRangeSelection !== null &&
+      noteRangeSelection.rowIds.includes("s1-note-52") &&
+      noteRangeSelection.rowIds.includes("s1-note-53") &&
+      noteRangeSelection.rowIds.includes("s1-note-54") &&
+      !noteRangeSelection.rowIds.includes("s1-gap-52-53") &&
+      noteRangeSelection.startCol === 0 &&
+      noteRangeSelection.endColExclusive === 11,
+    "Ctrl drag note range should collect note rows only and normalize columns.",
+  );
+  assert(
+    globalRangeSelection !== null &&
+      globalRangeSelection.rowIds.length === 4 &&
+      globalRangeSelection.trackIds.length === 0,
+    "Ctrl drag global range should collect global rows without track ids.",
+  );
+
+  if (noteRangeSelection !== null && globalRangeSelection !== null) {
+    const noteDelete = createDeleteEditsForRangeSelection(
+      loadResult.document.score,
+      noteRangeSelection,
+    );
+    const globalDelete = createDeleteEditsForRangeSelection(
+      loadResult.document.score,
+      globalRangeSelection,
+    );
+    const copiedRange = copyRangeSelectionToClipboard(
+      loadResult.document.score,
+      noteRangeSelection,
+    );
+    const pasteResult = createPasteEditsFromClipboard(
+      loadResult.document.score,
+      testLayout,
+      copiedRange,
+      20,
+    );
+
+    assert(
+      noteDelete.edits.length === 11 &&
+        noteDelete.edits.every((edit) => edit.selection.trackId === "basic"),
+      "Note range delete should create delete edits for existing selected cells only.",
+    );
+    assert(
+      globalDelete.edits.length === 0 &&
+        globalDelete.protectedGlobalStartCellCount === 4,
+      "Global range delete should protect required column 0 cells.",
+    );
+    assert(
+      copiedRange.cells.length === 11 &&
+        copiedRange.width === 11 &&
+        copiedRange.trackIds.includes("basic"),
+      "Range copy should keep existing note cells and source width.",
+    );
+    assert(
+      pasteResult.edits.length === 11 &&
+        pasteResult.rangeSelection !== null &&
+        pasteResult.rangeSelection.startCol === 20 &&
+        pasteResult.rangeSelection.endColExclusive === 31 &&
+        pasteResult.edits.some((edit) =>
+          edit.selection.rowId === "s1-note-52" && edit.selection.col === 20
+        ) &&
+        !pasteResult.edits.some((edit) => edit.selection.rowId === "s1-note-60"),
+      "Range paste should preserve copied rowIds and move only by target column.",
+    );
+  }
 
   const placementResult = resolveTupletHeadPlacementHit(
     placementState,
