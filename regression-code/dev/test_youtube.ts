@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 
 import {
+  clampYoutubeOffsetMs,
+  MAX_YOUTUBE_OFFSET_MS,
+  MIN_YOUTUBE_OFFSET_MS,
+} from "../src/core/score/score_limits";
+import {
   isYoutubeBeforeVideoStart,
   scoreSecondsToRawYoutubeSeconds,
   scoreSecondsToYoutubeSeconds,
@@ -28,6 +33,10 @@ function runYoutubeTests(): void {
   assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
   assert.equal(shouldResyncYoutubeDrift(10, 22.5, 12500), false);
   assert.equal(shouldResyncYoutubeDrift(0.1, 0.25, -300), false);
+
+  assert.equal(clampYoutubeOffsetMs(MIN_YOUTUBE_OFFSET_MS - 1), MIN_YOUTUBE_OFFSET_MS);
+  assert.equal(clampYoutubeOffsetMs(MAX_YOUTUBE_OFFSET_MS + 1), MAX_YOUTUBE_OFFSET_MS);
+  assert.equal(clampYoutubeOffsetMs(123.9), 123);
 }
 
 runYoutubeTests();

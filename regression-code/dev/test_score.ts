@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import { loadScoreFile } from "../src/core/score/json_load";
 import {
+  MAX_YOUTUBE_OFFSET_MS,
   MAX_CELL_RAW_TEXT_LENGTH,
   MAX_SCORE_JSON_BYTES,
+  MIN_YOUTUBE_OFFSET_MS,
 } from "../src/core/score/score_limits";
 import { validateScoreFile } from "../src/core/score/score_validate";
 
@@ -87,6 +89,32 @@ if (oversizedJsonResult.ok) {
 } else if (oversizedJsonResult.error.code !== "json_too_large") {
   console.error("Unexpected error for oversized JSON text.");
   console.error(oversizedJsonResult.error);
+  process.exitCode = 1;
+}
+
+const tooSmallYoutubeOffset = cloneJson(fixtureValue);
+tooSmallYoutubeOffset.musicData.youtube.offsetMs = MIN_YOUTUBE_OFFSET_MS - 1;
+
+const tooSmallYoutubeOffsetResult = validateScoreFile(tooSmallYoutubeOffset);
+if (tooSmallYoutubeOffsetResult.ok) {
+  console.error("Score validation failed to reject too small YouTube offset.");
+  process.exitCode = 1;
+} else if (tooSmallYoutubeOffsetResult.error.path !== "musicData.youtube.offsetMs") {
+  console.error("Unexpected error for too small YouTube offset.");
+  console.error(tooSmallYoutubeOffsetResult.error);
+  process.exitCode = 1;
+}
+
+const tooLargeYoutubeOffset = cloneJson(fixtureValue);
+tooLargeYoutubeOffset.musicData.youtube.offsetMs = MAX_YOUTUBE_OFFSET_MS + 1;
+
+const tooLargeYoutubeOffsetResult = validateScoreFile(tooLargeYoutubeOffset);
+if (tooLargeYoutubeOffsetResult.ok) {
+  console.error("Score validation failed to reject too large YouTube offset.");
+  process.exitCode = 1;
+} else if (tooLargeYoutubeOffsetResult.error.path !== "musicData.youtube.offsetMs") {
+  console.error("Unexpected error for too large YouTube offset.");
+  console.error(tooLargeYoutubeOffsetResult.error);
   process.exitCode = 1;
 }
 
