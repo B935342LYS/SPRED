@@ -31,6 +31,18 @@ The preferred GitHub-facing implementation path is `regression-code/`.
 
 For new work, prefer the GitHub-facing structure first. Only fall back to the original local folders when legacy reference is explicitly needed.
 
+## Working and Explanation Copies
+
+- `regression-code/` is the active working implementation.
+  - Keep comments useful but not excessive.
+  - Prefer function-level JSDoc and comments before complex behavior blocks.
+  - Do not add line-by-line explanatory comments unless the logic is genuinely non-obvious.
+- `regression-code-2026-06-19/` is an advisor-meeting explanation snapshot.
+  - It may receive denser explanatory comments for human code reading.
+  - Comment additions there are for explanation and review, not active product behavior.
+  - Do not automatically backport explanation-only comments from this snapshot into `regression-code/`.
+- When editing an explanation snapshot, preserve runtime behavior unless the user explicitly asks for a functional fix.
+
 ## Document Priority
 
 When implementation guidance conflicts, use this priority order:

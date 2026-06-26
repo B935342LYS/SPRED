@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 
 import {
+  isYoutubeBeforeVideoStart,
+  scoreSecondsToRawYoutubeSeconds,
   scoreSecondsToYoutubeSeconds,
   shouldResyncYoutubeDrift,
 } from "../src/app/youtube/youtube_sync";
@@ -18,12 +20,15 @@ function runYoutubeTests(): void {
   assert.equal(scoreSecondsToYoutubeSeconds(10, 12500), 22.5);
   assert.equal(scoreSecondsToYoutubeSeconds(0.1, -300), 0);
   assert.equal(scoreSecondsToYoutubeSeconds(1, -300), 0.7);
+  assert.ok(Math.abs(scoreSecondsToRawYoutubeSeconds(0.1, -300) - -0.2) < 0.000001);
+  assert.equal(isYoutubeBeforeVideoStart(0.1, -300), true);
+  assert.equal(isYoutubeBeforeVideoStart(0.3, -300), false);
 
   assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), false);
   assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
   assert.equal(shouldResyncYoutubeDrift(10, 22.5, 12500), false);
+  assert.equal(shouldResyncYoutubeDrift(0.1, 0.25, -300), false);
 }
 
 runYoutubeTests();
 console.log("test_youtube passed");
-
