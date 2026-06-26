@@ -313,7 +313,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, and the next loop-playback connection tasks
+- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, range-selection edit UX, and the next undo / loop-playback connection tasks
 - after the latest deployment sync, implementation work is temporarily paused for advisor meeting preparation
 - meeting preparation uses `regression-code-2026-06-19/` as a readable historical snapshot because the latest version contains too many follow-up features to explain within the meeting time
 - the immediate code-review focus is the 2026-06-19 renderer, audio, and UI layer structure
@@ -433,6 +433,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.29-step7-partial-rebuild-performance.md` records partial rebuild performance profiling, score clone narrowing, parsed document reuse, renderer dirty-range fixes, and drag input batching
 - `docs/implementation-memo/1.30-step8-user-test-stabilization.md` records first user-test follow-up work around playback position preservation, input/storage safeguards, Local Save/Load confirmation, fullscreen/Fit Height/zoom/status footer layout, and publish staging updates
 - `docs/implementation-memo/1.31-step9-viewport-view-loop-ui.md` records viewport bounded rendering implementation, performance profiling/removal, View menu Speed/Text off behavior, Loop marker UI first pass, and publish staging synchronization
+- `docs/implementation-memo/1.39-range-selection-paste-preview-undo-plan.md` records Ctrl+drag range selection, bulk delete/copy/paste, paste preview overlay, and the decision to use cell patch based Undo / Redo instead of full `ScoreFile` snapshots
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
@@ -445,6 +446,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 - long-score viewport bounded rendering first pass is implemented: static row background stays fixed, dynamic grid/global marker/note marker/note layers render only the current viewport plus overscan, scroll redraw is merged through `requestAnimationFrame`, and visible item filtering uses tick-range indexes for note/global text/marker groups
 - View menu runtime options are connected: Speed scales renderer column width from `1.0x` to `4.0x` without changing timing/audio seconds, Text Scale was removed, and Text off hides note `displayText` plus mute text while keeping global row rawText visible
 - Loop UI first pass is connected as runtime view state: Loop on/off, First/Last defaults, `Select Column` pick mode, repeated boundary picking, translucent bottom loop markers, edit-mode disabling/off behavior, and score/layout/column reset behavior are implemented; playback looping remains a follow-up connection task
+- Range selection edit first pass is implemented: edit mode supports `Ctrl + left drag` range selection, one-piece selection overlay including visual gaps, Delete/Backspace bulk delete, internal Ctrl+C clipboard, Ctrl+V paste preserving original rowIds, and automatic selection clear after delete/paste
+- Paste preview is implemented as a lightweight DOM overlay: after Ctrl+C, mouse x movement over the score sets the paste column without requiring a click, preview rectangles follow the copied cell footprint, y position preserves source rowIds, and preview rectangle height matches the 21px note render height scaled by current zoom
+- `docs/2.10-undo-redo-edit-history-spec.md` now defines the next Undo / Redo implementation around `CellHistoryPatch` before/after rawText records for note/global cell edits; Details metadata edit and YouTube metadata reload are excluded from the first undo scope
 - Expand right now relies on the global `MAX_SCORE_COLUMN_COUNT` limit instead of a separate one-action column cap
 - renderer DPR downscaling still caps very large bitmap allocation, but long-score scroll/render no longer depends on full-score-width dynamic layer redraw; tile rendering remains a later optimization only if viewport bounded rendering proves insufficient
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
@@ -467,7 +471,7 @@ Deferred planned work:
 - add loop playback range selection and scheduler/controller support after YouTube sync
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
-- add undo or pending-edit grouping if direct batch edit becomes too risky for larger editing sessions
+- implement cell patch based Undo / Redo for note/global cell edits, then consider drag edit transaction grouping if batch-unit undo feels too fragmented
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
 - consider explicit local layout slot clear/delete UI after practical preset usage feedback
 - define a production build path that strips or minifies comments for GitHub Pages deployment

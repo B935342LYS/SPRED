@@ -192,6 +192,25 @@ export function bindScorePointerControls(
     syncPastePreviewOverlay(dom, nextState);
   };
 
+  const clearPasteState = (): void => {
+    const state = session.getState();
+
+    if (state.rangeClipboard === null && state.pastePreview.anchorCol === null) {
+      return;
+    }
+
+    const nextState = {
+      ...state,
+      rangeClipboard: null,
+      pastePreview: {
+        anchorCol: null,
+      },
+    };
+
+    session.setState(nextState);
+    syncPastePreviewOverlay(dom, nextState);
+  };
+
   const updatePastePreviewForPointer = (event: MouseEvent): void => {
     const state = session.getState();
     const col = getPointerColumn(event, state);
@@ -320,6 +339,7 @@ export function bindScorePointerControls(
     session.setState({
       ...state,
       rangeSelection: null,
+      rangeClipboard: null,
       pastePreview: {
         anchorCol: null,
       },
@@ -346,12 +366,14 @@ export function bindScorePointerControls(
       state.document.score,
       state.rangeSelection,
     );
+    const anchorCol = lastPointerColumn ?? state.rangeSelection.startCol;
 
     session.setState({
       ...state,
+      rangeSelection: null,
       rangeClipboard,
       pastePreview: {
-        anchorCol: lastPointerColumn ?? state.rangeSelection.startCol,
+        anchorCol,
       },
       statusMessage: {
         level: "info",
@@ -359,6 +381,7 @@ export function bindScorePointerControls(
       },
     });
     syncLeftStatus(dom, session.getState());
+    syncRangeSelectionOverlay(dom, session.getState());
     syncPastePreviewOverlay(dom, session.getState());
   };
 
@@ -394,6 +417,7 @@ export function bindScorePointerControls(
     session.setState({
       ...state,
       rangeSelection: null,
+      rangeClipboard: null,
       pastePreview: {
         anchorCol: null,
       },
@@ -450,10 +474,15 @@ export function bindScorePointerControls(
   ): void => {
     const currentState = session.getState();
 
-    if (currentState.rangeSelection !== null || currentState.pastePreview.anchorCol !== null) {
+    if (
+      currentState.rangeSelection !== null ||
+      currentState.rangeClipboard !== null ||
+      currentState.pastePreview.anchorCol !== null
+    ) {
       session.setState({
         ...currentState,
         rangeSelection: null,
+        rangeClipboard: null,
         pastePreview: {
           anchorCol: null,
         },
@@ -803,9 +832,9 @@ export function bindScorePointerControls(
     }
 
     if (event.key === "Escape") {
-      if (state.pastePreview.anchorCol !== null) {
+      if (state.rangeClipboard !== null || state.pastePreview.anchorCol !== null) {
         event.preventDefault();
-        clearPastePreview();
+        clearPasteState();
       }
 
       return;

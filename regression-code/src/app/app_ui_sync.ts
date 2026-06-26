@@ -6,6 +6,7 @@ import {
   renderCanvasScore,
   renderCanvasScorePartial,
 } from "../renderer/canvas_score_renderer";
+import { CANVAS_METRICS } from "../renderer/canvas_theme";
 import type {
   CanvasDirtyTickRange,
   CanvasMarkerItem,
@@ -223,13 +224,18 @@ export function syncPastePreviewOverlay(dom: AppDom, state: AppState): void {
     }
 
     const rect = document.createElement("div");
+    const previewHeight = Math.max(
+      CANVAS_METRICS.minNoteHeight,
+      CANVAS_METRICS.baseNoteRenderHeight * getLayoutZoom(state.layout),
+    );
+    const previewTop = row.y + row.height / 2 - previewHeight / 2;
 
     // clipboard의 원본 rowId와 hover column을 조합해 실제 붙여넣기 위치만 가볍게 표시한다.
     rect.className = "paste-preview-rect";
     rect.style.left = `${col * state.layout.columnWidth}px`;
-    rect.style.top = `${row.y}px`;
+    rect.style.top = `${previewTop}px`;
     rect.style.width = `${Math.max(1, state.layout.columnWidth)}px`;
-    rect.style.height = `${Math.max(1, row.height)}px`;
+    rect.style.height = `${Math.max(1, previewHeight)}px`;
     fragment.append(rect);
   }
 
@@ -621,6 +627,19 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
   return nextState;
+}
+
+/**
+ * renderer layout에서 현재 zoom 배율을 추정한다.
+ * - 인수 : layout : renderer가 계산한 현재 score layout
+ * - 반환값 : base note height에 곱할 zoom 배율
+ */
+function getLayoutZoom(layout: AppState["layout"]): number {
+  if (layout === null || layout.layoutLabelWidth <= 0) {
+    return 1;
+  }
+
+  return layout.layoutLabelWidth / CANVAS_METRICS.baseLayoutLabelWidth;
 }
 
 /**
