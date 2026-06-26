@@ -8,6 +8,14 @@ import {
   applyScoreCellRawTextBatch,
   getScoreTextEditInvalidationKind,
 } from "../src/app/edit/edit_apply";
+import {
+  buildCellHistoryPatches,
+  createScoreTextEditsFromHistoryPatches,
+  createUndoHistoryState,
+  popRedoHistoryEntry,
+  popUndoHistoryEntry,
+  pushUndoHistoryEntry,
+} from "../src/app/edit/edit_history";
 import { composeEditRawText } from "../src/app/edit/edit_core";
 import {
   copyRangeSelectionToClipboard,
@@ -406,6 +414,157 @@ if (loadResult.ok && tupletResult.kind === "apply") {
         cell.rowId === "global-bpm" && cell.col === 0 && cell.rawText === "140"
       ),
     "Edit apply should allow changing global row values at column 0.",
+  );
+
+  const createdCellEdit = {
+    selection: {
+      trackId: "basic" as const,
+      rowId: "s1-note-60",
+      rowKind: "note" as const,
+      col: 99,
+    },
+    rawText: "C4",
+  };
+  const createdCellApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    createdCellEdit,
+  ]);
+
+  assert(createdCellApplyResult.ok, "History setup should create a new note cell.");
+
+  if (createdCellApplyResult.ok) {
+    const createPatches = buildCellHistoryPatches(
+      loadResult.document.score,
+      createdCellApplyResult.score,
+      [createdCellEdit],
+    );
+    const undoCreateEdits = createScoreTextEditsFromHistoryPatches(createPatches, "before");
+    const redoCreateEdits = createScoreTextEditsFromHistoryPatches(createPatches, "after");
+
+    assert(
+      createPatches.length === 1 &&
+        createPatches[0]?.beforeRawText === null &&
+        createPatches[0]?.afterRawText === "C4",
+      "History patch should record newly created cells as null -> rawText.",
+    );
+    assert(
+      undoCreateEdits.length === 1 &&
+        undoCreateEdits[0]?.rawText === "" &&
+        redoCreateEdits[0]?.rawText === "C4",
+      "History patch should convert new-cell undo to delete and redo to upsert.",
+    );
+  }
+
+  const deletedCellEdit = {
+    selection: {
+      trackId: "basic" as const,
+      rowId: "s1-note-52",
+      rowKind: "note" as const,
+      col: 0,
+    },
+    rawText: "",
+  };
+  const deletedCellApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, [
+    deletedCellEdit,
+  ]);
+
+  assert(deletedCellApplyResult.ok, "History setup should delete an existing note cell.");
+
+  if (deletedCellApplyResult.ok) {
+    const deletePatches = buildCellHistoryPatches(
+      loadResult.document.score,
+      deletedCellApplyResult.score,
+      [deletedCellEdit],
+    );
+    const undoDeleteEdits = createScoreTextEditsFromHistoryPatches(deletePatches, "before");
+    const redoDeleteEdits = createScoreTextEditsFromHistoryPatches(deletePatches, "after");
+
+    assert(
+      deletePatches.length === 1 &&
+        deletePatches[0]?.beforeRawText !== null &&
+        deletePatches[0]?.afterRawText === null,
+      "History patch should record deleted cells as rawText -> null.",
+    );
+    assert(
+      undoDeleteEdits[0]?.rawText === deletePatches[0]?.beforeRawText &&
+        redoDeleteEdits[0]?.rawText === "",
+      "History patch should convert delete undo to restore and redo to delete.",
+    );
+  }
+
+  const overwriteEdits = [
+    {
+      selection: {
+        trackId: "basic" as const,
+        rowId: "s1-note-52",
+        rowKind: "note" as const,
+        col: 0,
+      },
+      rawText: "Z",
+    },
+    {
+      selection: {
+        trackId: "basic" as const,
+        rowId: "s1-note-52",
+        rowKind: "note" as const,
+        col: 0,
+      },
+      rawText: "Y",
+    },
+  ];
+  const overwriteApplyResult = applyScoreCellRawTextBatch(loadResult.document.score, overwriteEdits);
+
+  assert(overwriteApplyResult.ok, "History setup should overwrite an existing cell.");
+
+  if (overwriteApplyResult.ok) {
+    const overwritePatches = buildCellHistoryPatches(
+      loadResult.document.score,
+      overwriteApplyResult.score,
+      overwriteEdits,
+    );
+
+    assert(
+      overwritePatches.length === 1 &&
+        overwritePatches[0]?.beforeRawText !== null &&
+        overwritePatches[0]?.afterRawText === "Y",
+      "History patch should merge duplicate edit targets and keep the final after rawText.",
+    );
+  }
+
+  const firstEntry = {
+    id: "history-a",
+    label: "History A",
+    patches: createdCellApplyResult.ok
+      ? buildCellHistoryPatches(loadResult.document.score, createdCellApplyResult.score, [createdCellEdit])
+      : [],
+  };
+  const secondEntry = {
+    id: "history-b",
+    label: "History B",
+    patches: deletedCellApplyResult.ok
+      ? buildCellHistoryPatches(loadResult.document.score, deletedCellApplyResult.score, [deletedCellEdit])
+      : [],
+  };
+  const oneEntryHistory = pushUndoHistoryEntry(createUndoHistoryState(1), firstEntry);
+  const cappedHistory = pushUndoHistoryEntry(oneEntryHistory, secondEntry);
+  const undoPop = popUndoHistoryEntry(cappedHistory);
+  const redoPop = popRedoHistoryEntry(undoPop.history);
+
+  assert(
+    cappedHistory.undoStack.length === 1 &&
+      cappedHistory.undoStack[0]?.id === "history-b",
+    "Undo history should drop the oldest entry when maxEntries is exceeded.",
+  );
+  assert(
+    undoPop.entry?.id === "history-b" &&
+      undoPop.history.undoStack.length === 0 &&
+      undoPop.history.redoStack.length === 1,
+    "Undo pop should move the latest undo entry to redo stack.",
+  );
+  assert(
+    redoPop.entry?.id === "history-b" &&
+      redoPop.history.undoStack.length === 1 &&
+      redoPop.history.redoStack.length === 0,
+    "Redo pop should move the latest redo entry back to undo stack.",
   );
   assert(
     noteRangeSelection !== null &&

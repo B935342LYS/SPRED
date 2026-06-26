@@ -313,7 +313,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
-- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, range-selection edit UX, and the next undo / loop-playback connection tasks
+- current focus has moved from track/audio/YouTube stabilization to first user-test deployment follow-up, long-score viewport rendering, View/Loop UI cleanup, range-selection edit UX, completed Undo / Redo wiring, and the next loop-playback connection tasks
 - after the latest deployment sync, implementation work is temporarily paused for advisor meeting preparation
 - meeting preparation uses `regression-code-2026-06-19/` as a readable historical snapshot because the latest version contains too many follow-up features to explain within the meeting time
 - the immediate code-review focus is the 2026-06-19 renderer, audio, and UI layer structure
@@ -434,6 +434,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.30-step8-user-test-stabilization.md` records first user-test follow-up work around playback position preservation, input/storage safeguards, Local Save/Load confirmation, fullscreen/Fit Height/zoom/status footer layout, and publish staging updates
 - `docs/implementation-memo/1.31-step9-viewport-view-loop-ui.md` records viewport bounded rendering implementation, performance profiling/removal, View menu Speed/Text off behavior, Loop marker UI first pass, and publish staging synchronization
 - `docs/implementation-memo/1.39-range-selection-paste-preview-undo-plan.md` records Ctrl+drag range selection, bulk delete/copy/paste, paste preview overlay, and the decision to use cell patch based Undo / Redo instead of full `ScoreFile` snapshots
+- `docs/implementation-memo/1.40-undo-redo-history-implementation.md` records cell patch based Undo / Redo implementation, button/shortcut wiring, drag edit transaction grouping, verification, and publish staging synchronization
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
@@ -448,11 +449,11 @@ If memo content is explicitly adopted by the user for implementation order or st
 - Loop UI first pass is connected as runtime view state: Loop on/off, First/Last defaults, `Select Column` pick mode, repeated boundary picking, translucent bottom loop markers, edit-mode disabling/off behavior, and score/layout/column reset behavior are implemented; playback looping remains a follow-up connection task
 - Range selection edit first pass is implemented: edit mode supports `Ctrl + left drag` range selection, one-piece selection overlay including visual gaps, Delete/Backspace bulk delete, internal Ctrl+C clipboard, Ctrl+V paste preserving original rowIds, and automatic selection clear after delete/paste
 - Paste preview is implemented as a lightweight DOM overlay: after Ctrl+C, mouse x movement over the score sets the paste column without requiring a click, preview rectangles follow the copied cell footprint, y position preserves source rowIds, and preview rectangle height matches the 21px note render height scaled by current zoom
-- `docs/2.10-undo-redo-edit-history-spec.md` now defines the next Undo / Redo implementation around `CellHistoryPatch` before/after rawText records for note/global cell edits; Details metadata edit and YouTube metadata reload are excluded from the first undo scope
+- Undo / Redo first pass is implemented around `CellHistoryPatch` before/after rawText records for note/global cell edits: Undo/Redo buttons, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` / `Cmd+Shift+Z`, session-only 50-entry history, score-load/structure-change history reset, and drag edit transaction grouping are connected; Details metadata edit and YouTube metadata reload remain excluded from the first undo scope
 - Expand right now relies on the global `MAX_SCORE_COLUMN_COUNT` limit instead of a separate one-action column cap
 - renderer DPR downscaling still caps very large bitmap allocation, but long-score scroll/render no longer depends on full-score-width dynamic layer redraw; tile rendering remains a later optimization only if viewport bounded rendering proves insufficient
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
-- the deployment staging repo `regression-code-test-publish/` has been synced through commit `c3f487d Sync harmonics and global edit safeguards`
+- the deployment staging repo `regression-code-test-publish/` has been synced through commit `974f282 Add undo redo controls to publish build`
 - `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
 - latest verified commands: `npm run test:edit`, `npm run typecheck`, `npm run build`; previous broader verification also included `npm run test:score`, `npm run test:parse`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
 
@@ -471,7 +472,6 @@ Deferred planned work:
 - add loop playback range selection and scheduler/controller support after YouTube sync
 - evaluate Tone.js or sampled-instrument backends after the native Web Audio event path is stable
 - continue visual hit-test/edit UX tuning for tuplet containers and complex token anchors
-- implement cell patch based Undo / Redo for note/global cell edits, then consider drag edit transaction grouping if batch-unit undo feels too fragmented
 - continue moving app orchestration out of `main.ts` when stable extraction points appear
 - consider explicit local layout slot clear/delete UI after practical preset usage feedback
 - define a production build path that strips or minifies comments for GitHub Pages deployment
