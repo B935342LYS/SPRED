@@ -33,3 +33,6 @@ regression-code-test-publish/
 regression-code-test-deploy/
 regression-code-*-publish/
 regression-code-*-deploy/
+
+# Local interview/reference snapshots
+regression-code-2026-06-19/
