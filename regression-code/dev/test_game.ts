@@ -342,6 +342,120 @@ assert(perfectSample !== null, "Voiced pitch and active target should create a s
 assert(perfectSample?.label === "Perfect", "Same pitch class in another octave should be Perfect.");
 assert(perfectSample?.trackId === "basic", "C input should select the C target instead of the D target.");
 
+const scoringCorrectionState = createGamePitchCorrectionState();
+const correctedLockSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1000,
+    rawFrequencyHz: 523.25,
+    frequencyHz: 523.25,
+    midi: 72,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.1,
+  difficulty,
+  { state: scoringCorrectionState },
+);
+
+assert(correctedLockSample?.label === "Perfect", "Scoring correction should first lock to a same-class target.");
+
+const rawJumpSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1100,
+    rawFrequencyHz: 587.33,
+    frequencyHz: 587.33,
+    midi: 74,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.2,
+  difficulty,
+);
+
+assert(rawJumpSample?.label === "Miss", "Raw scoring should treat an unrelated detector jump as Miss.");
+
+const correctedShortJumpSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1100,
+    rawFrequencyHz: 587.33,
+    frequencyHz: 587.33,
+    midi: 74,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.2,
+  difficulty,
+  { state: scoringCorrectionState },
+);
+
+assert(
+  correctedShortJumpSample?.label === "Perfect",
+  "Scoring correction should hold a short unrelated detector jump at the previous stable target.",
+);
+
+const correctedExpiredJumpSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1400,
+    rawFrequencyHz: 587.33,
+    frequencyHz: 587.33,
+    midi: 74,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.5,
+  difficulty,
+  { state: scoringCorrectionState },
+);
+
+assert(
+  correctedExpiredJumpSample?.label === "Miss",
+  "Scoring correction should release an unrelated pitch after the hysteresis grace period.",
+);
+
 const missSample = judgeGameScoringSample(
   {
     capturedAtMs: 0,
