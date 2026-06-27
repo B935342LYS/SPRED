@@ -23,6 +23,8 @@ const VIB_MIN_WINDOW_SECONDS = 0.4;
 const VIB_MIN_FRAME_COUNT = 5;
 const VIB_MIN_AMPLITUDE_CENT = 10;
 const VIB_MIN_DIRECTION_CHANGES = 2;
+const VIB_MIN_RATE_HZ = 3;
+const VIB_MAX_RATE_HZ = 9.5;
 const VIB_MAX_AVERAGE_ERROR_CENT = 45;
 const VIB_IN_TUNE_ERROR_CENT = 70;
 const VIB_MIN_IN_TUNE_RATIO = 0.7;
@@ -248,18 +250,23 @@ export function judgeVibWindowBonus(
       targetCent,
     )
   );
-  const minDeviation = Math.min(...deviations);
-  const maxDeviation = Math.max(...deviations);
   const averageAbsErrorCent = deviations.reduce((sum, value) => sum + Math.abs(value), 0) / deviations.length;
   const inTuneFrameCount = deviations.filter((value) => Math.abs(value) <= VIB_IN_TUNE_ERROR_CENT).length;
   const inTuneRatio = inTuneFrameCount / deviations.length;
-  const directionChangeCount = countDirectionChanges(deviations);
-  const amplitudeCent = (maxDeviation - minDeviation) / 2;
+  const detrendedDeviations = detrendPitchDeviations(usableFrames, deviations);
+  const minDetrendedDeviation = Math.min(...detrendedDeviations);
+  const maxDetrendedDeviation = Math.max(...detrendedDeviations);
+  const directionChangeCount = countDirectionChanges(detrendedDeviations);
+  const amplitudeCent = (maxDetrendedDeviation - minDetrendedDeviation) / 2;
+  const durationSeconds = Math.max(1e-6, lastFrame.scoreSeconds - firstFrame.scoreSeconds);
+  const rateHz = (directionChangeCount / 2) / durationSeconds;
 
   if (
     averageAbsErrorCent > VIB_MAX_AVERAGE_ERROR_CENT ||
     inTuneRatio < VIB_MIN_IN_TUNE_RATIO ||
     amplitudeCent < VIB_MIN_AMPLITUDE_CENT ||
+    rateHz < VIB_MIN_RATE_HZ ||
+    rateHz > VIB_MAX_RATE_HZ ||
     directionChangeCount < VIB_MIN_DIRECTION_CHANGES
   ) {
     return null;
@@ -275,6 +282,47 @@ export function judgeVibWindowBonus(
     bonusContribution: (trackDifficulty[target.trackId] ?? 1) * VIB_BONUS_MULTIPLIER,
     displayText: "Vib!",
   };
+}
+
+/**
+ * pitch contour에서 느린 선형 drift를 제거한다.
+ * - 인수 : frames : 분석에 사용할 pitch frame 목록
+ * - 인수 : deviations : target 기준 signed cent 오차 목록
+ * - 반환값 : 선형 추세를 뺀 cent deviation 목록
+ */
+function detrendPitchDeviations(
+  frames: readonly GameEffectFrame[],
+  deviations: readonly number[],
+): number[] {
+  if (frames.length !== deviations.length || frames.length < 2) {
+    return [...deviations];
+  }
+
+  const originSeconds = frames[0]?.scoreSeconds ?? 0;
+  const timeOffsets = frames.map((entry) => entry.scoreSeconds - originSeconds);
+  const meanTime = timeOffsets.reduce((sum, value) => sum + value, 0) / timeOffsets.length;
+  const meanDeviation = deviations.reduce((sum, value) => sum + value, 0) / deviations.length;
+  let numerator = 0;
+  let denominator = 0;
+
+  // 최소제곱 직선으로 느린 pitch drift를 근사하고 residual만 vibrato 진폭/rate 판정에 사용한다.
+  for (let index = 0; index < deviations.length; index += 1) {
+    const time = timeOffsets[index] ?? 0;
+    const deviation = deviations[index] ?? 0;
+    const centeredTime = time - meanTime;
+
+    numerator += centeredTime * (deviation - meanDeviation);
+    denominator += centeredTime * centeredTime;
+  }
+
+  const slope = denominator <= 1e-9 ? 0 : numerator / denominator;
+  const intercept = meanDeviation - slope * meanTime;
+
+  return deviations.map((deviation, index) => {
+    const time = timeOffsets[index] ?? 0;
+
+    return deviation - (slope * time + intercept);
+  });
 }
 
 /**
@@ -380,30 +428,73 @@ function collectVibBonusTargetsForNote(
   mapper: TickTimeMapper,
   targets: GameEffectBonusTarget[],
 ): void {
-  for (let index = 0; index < event.effects.length; index += 1) {
+  let activeStartSeconds: number | null = null;
+  let activeEndSeconds: number | null = null;
+  let activeStartIndex = 0;
+
+  for (let index = 0; index <= event.effects.length; index += 1) {
     const effect = event.effects[index];
 
-    if (effect === undefined || !effect.vib) {
+    if (effect !== undefined && effect.vib) {
+      const startSeconds = mapper.tickToSeconds(effect.time.startTick);
+      const endSeconds = mapper.tickToSeconds(effect.time.endTick);
+
+      if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds <= startSeconds) {
+        continue;
+      }
+
+      if (activeStartSeconds === null || activeEndSeconds === null) {
+        activeStartSeconds = startSeconds;
+        activeEndSeconds = endSeconds;
+        activeStartIndex = index;
+        continue;
+      }
+
+      if (Math.abs(startSeconds - activeEndSeconds) <= 1e-6) {
+        activeEndSeconds = endSeconds;
+        continue;
+      }
+
+      pushVibBonusTarget(event, targets, activeStartIndex, activeStartSeconds, activeEndSeconds);
+      activeStartSeconds = startSeconds;
+      activeEndSeconds = endSeconds;
+      activeStartIndex = index;
       continue;
     }
 
-    const startSeconds = mapper.tickToSeconds(effect.time.startTick);
-    const endSeconds = mapper.tickToSeconds(effect.time.endTick);
-
-    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || endSeconds <= startSeconds) {
-      continue;
+    if (activeStartSeconds !== null && activeEndSeconds !== null) {
+      pushVibBonusTarget(event, targets, activeStartIndex, activeStartSeconds, activeEndSeconds);
+      activeStartSeconds = null;
+      activeEndSeconds = null;
     }
-
-    targets.push({
-      kind: "vib",
-      targetId: `${event.eventId}:vib:${index}`,
-      trackId: event.trackId,
-      startSeconds,
-      endSeconds,
-      targetMidi: event.sound.midi,
-      targetCentOffset: event.sound.centOffset,
-    });
   }
+}
+
+/**
+ * 병합된 연속 vib 구간 하나를 practice bonus target으로 추가한다.
+ * - 인수 : event : vib effect가 들어 있는 note event
+ * - 인수 : targets : 변환 결과를 추가할 target 배열
+ * - 인수 : startIndex : 병합 구간의 첫 effect segment index
+ * - 인수 : startSeconds : 병합 구간 시작 score seconds
+ * - 인수 : endSeconds : 병합 구간 끝 score seconds
+ * - 반환값 : 없음
+ */
+function pushVibBonusTarget(
+  event: NoteEvent,
+  targets: GameEffectBonusTarget[],
+  startIndex: number,
+  startSeconds: number,
+  endSeconds: number,
+): void {
+  targets.push({
+    kind: "vib",
+    targetId: `${event.eventId}:vib:${startIndex}`,
+    trackId: event.trackId,
+    startSeconds,
+    endSeconds,
+    targetMidi: event.sound.midi,
+    targetCentOffset: event.sound.centOffset,
+  });
 }
 
 /**

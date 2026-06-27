@@ -14,6 +14,8 @@ import type {
 import { buildParsedDocument } from "../src/core/parse/build_parsed_document";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import type { ScoreFile } from "../src/core/score/types";
+import { createTickTimeMapper } from "../src/audio/tick_time_mapper";
+import { collectGameEffectBonusTargets } from "../src/app/game/game_effect_judge";
 import {
   buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
@@ -261,6 +263,26 @@ function testModifierAnalysis(sourceText: string): void {
       "Head note should be included in the vibrato segment when followed immediately by '~'.",
     );
   }
+
+  const gameEffectTargets = collectGameEffectBonusTargets(
+    modifierAnalysis.analysis,
+    ["basic"],
+    createTickTimeMapper(modifierAnalysis.analysis.timingTimeline),
+  );
+  const vibTargets = gameEffectTargets.filter((target) => target.kind === "vib");
+  const headVibTarget = vibTargets.find((target) =>
+    Math.abs(target.startSeconds - createTickTimeMapper(modifierAnalysis.analysis.timingTimeline).tickToSeconds({
+      numerator: 25,
+      denominator: 1,
+    })) < 0.000001 &&
+    Math.abs(target.endSeconds - createTickTimeMapper(modifierAnalysis.analysis.timingTimeline).tickToSeconds({
+      numerator: 28,
+      denominator: 1,
+    })) < 0.000001
+  );
+
+  assert(vibTargets.length >= 2, "Game effect target collection should include analyzer vibrato segments.");
+  assert(headVibTarget !== undefined, "Consecutive analyzer vibrato segments should merge into one game target.");
 }
 
 /**
