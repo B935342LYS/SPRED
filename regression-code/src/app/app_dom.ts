@@ -186,7 +186,6 @@ export function collectAppDom(): AppDom {
     musicTitle: queryElement(".music-meta .title", HTMLElement),
     practiceModeButton: queryElement(".practice-mode-button", HTMLButtonElement),
     gamePanel: queryElement(".game-panel", HTMLElement),
-    gameExitButton: queryElement(".game-exit-button", HTMLButtonElement),
     gameStatus: queryElement(".game-status", HTMLElement),
     gameAccuracy: queryElement(".game-accuracy", HTMLElement),
     gamePerfectCount: queryElement(".game-perfect-count", HTMLElement),

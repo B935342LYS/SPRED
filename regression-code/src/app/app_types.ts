@@ -221,7 +221,6 @@ export type AppDom = {
   detailsButton: HTMLButtonElement;
   practiceModeButton: HTMLButtonElement;
   gamePanel: HTMLElement;
-  gameExitButton: HTMLButtonElement;
   gameStatus: HTMLElement;
   gameAccuracy: HTMLElement;
   gamePerfectCount: HTMLElement;

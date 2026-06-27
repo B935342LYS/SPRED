@@ -104,37 +104,56 @@
             </nav>
 
             <section class="player-group" aria-label="Playback controls">
-                <span class="status-pill playback-status">stopped</span>
-                <button type="button" class="details-button">Details</button>
-                <div class="music-meta">
-                    <span class="artist">unknown</span>
-                    <span aria-hidden="true">-</span>
-                    <strong class="title">unknown</strong>
+                <div class="player-main">
+                    <span class="status-pill playback-status">stopped</span>
+                    <button type="button" class="details-button">Details</button>
+                    <button type="button" class="practice-mode-button" aria-pressed="false">practice mode</button>
+                    <div class="music-meta">
+                        <span class="artist">unknown</span>
+                        <span aria-hidden="true">-</span>
+                        <strong class="title">unknown</strong>
+                    </div>
+                    <div class="transport-row">
+                        <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
+                        <button type="button" class="transport-button" aria-label="Stop">■</button>
+                        <label class="seek-field">
+                            <span class="seek-current-label">0</span>
+                            <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
+                            <span class="seek-duration-label">0</span>
+                        </label>
+                    </div>
+                    <div class="audio-row">
+                        <label class="compact-field">
+                            Volume
+                            <input type="range" min="0" max="100" value="70">
+                        </label>
+                        <label class="compact-field">
+                            Wave
+                            <select>
+                                <option>sine</option>
+                                <option>square</option>
+                                <option>triangle</option>
+                                <option>sawtooth</option>
+                            </select>
+                        </label>
+                        <span class="status-pill step-info">BPM: --</span>
+                    </div>
                 </div>
-                <div class="transport-row">
-                    <button type="button" class="transport-button" aria-label="Play or pause">▶</button>
-                    <button type="button" class="transport-button" aria-label="Stop">■</button>
-                    <label class="seek-field">
-                        <span class="seek-current-label">0</span>
-                        <input class="seek-input" type="range" min="0" max="0" value="0" step="1">
-                        <span class="seek-duration-label">0</span>
-                    </label>
-                </div>
-                <div class="audio-row">
-                    <label class="compact-field">
-                        Volume
-                        <input type="range" min="0" max="100" value="70">
-                    </label>
-                    <label class="compact-field">
-                        Wave
-                        <select>
-                            <option>sine</option>
-                            <option>square</option>
-                            <option>triangle</option>
-                            <option>sawtooth</option>
-                        </select>
-                    </label>
-                    <span class="status-pill step-info">BPM: --</span>
+                <div class="game-panel" data-state="off" aria-live="polite">
+                    <div class="game-panel-head">
+                        <span class="status-pill game-status">off</span>
+                    </div>
+                    <div class="game-score-grid game-count-grid" aria-label="Practice mode judge counts">
+                        <span>Perfect <strong class="game-perfect-count">0</strong></span>
+                        <span>Ok <strong class="game-ok-count">0</strong></span>
+                        <span>Bad <strong class="game-bad-count">0</strong></span>
+                        <span>Miss <strong class="game-miss-count">0</strong></span>
+                        <span>Combo <strong class="game-combo">0</strong></span>
+                    </div>
+                    <div class="game-score-grid game-total-grid" aria-label="Practice mode totals">
+                        <span>Accuracy <strong class="game-accuracy">0%</strong></span>
+                        <span>Score <strong class="game-score">0</strong></span>
+                    </div>
                 </div>
             </section>
 

@@ -18,6 +18,7 @@ export type GameScoreSummary = {
 export type GameModeState =
   | { kind: "off" }
   | { kind: "preparing"; message: string }
+  | { kind: "countdown"; count: number; summary: GameScoreSummary }
   | { kind: "ready"; summary: GameScoreSummary }
   | { kind: "playing"; summary: GameScoreSummary }
   | { kind: "paused"; summary: GameScoreSummary }
@@ -54,6 +55,7 @@ export function isGameModeOpen(state: GameModeState): boolean {
  */
 export function isGameModeLocked(state: GameModeState): boolean {
   return state.kind === "preparing" ||
+    state.kind === "countdown" ||
     state.kind === "ready" ||
     state.kind === "playing" ||
     state.kind === "paused" ||
@@ -68,6 +70,7 @@ export function isGameModeLocked(state: GameModeState): boolean {
 export function getGameScoreSummary(state: GameModeState): GameScoreSummary {
   if (
     state.kind === "ready" ||
+    state.kind === "countdown" ||
     state.kind === "playing" ||
     state.kind === "paused" ||
     state.kind === "finished"
