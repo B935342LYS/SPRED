@@ -902,6 +902,151 @@ if (longAnchorExtensionChain?.sourceEventKind === "glissChain") {
   assert(tremolo !== undefined, "Absorbed end long note should preserve tremolo on the chain.");
 }
 
+const sharedExtensionStartNote = createGlissAnchorNoteEvent("s1-note-67", 0, 67, "start");
+const sharedExtensionBridgeNote: NoteEvent = {
+  eventKind: "note",
+  eventId: "basic:note:s1-note-66:2",
+  trackId: "basic",
+  time: {
+    startTick: numberToTimeFraction(2),
+    endTick: numberToTimeFraction(4),
+  },
+  sourceCells: [
+    { rowId: "s1-note-66", col: 2 },
+    { rowId: "s1-note-66", col: 3 },
+  ],
+  text: "66",
+  displayTextAnchors: [],
+  display: {
+    rowId: "s1-note-66",
+    centOffset: 0,
+  },
+  sound: {
+    midi: 66,
+    centOffset: 0,
+  },
+  effects: [],
+  glissRole: null,
+  glissAnchors: [
+    {
+      glissId: "a",
+      role: "end",
+      source: { rowId: "s1-note-66", col: 2 },
+      time: {
+        startTick: numberToTimeFraction(2),
+        endTick: numberToTimeFraction(3),
+      },
+      display: {
+        rowId: "s1-note-66",
+        centOffset: 0,
+      },
+    },
+    {
+      glissId: "b",
+      role: "start",
+      source: { rowId: "s1-note-66", col: 3 },
+      time: {
+        startTick: numberToTimeFraction(3),
+        endTick: numberToTimeFraction(4),
+      },
+      display: {
+        rowId: "s1-note-66",
+        centOffset: 0,
+      },
+    },
+  ],
+  tuplet: null,
+};
+const sharedExtensionEndNote = {
+  ...createGlissAnchorNoteEvent("s1-note-69", 5, 69, "end"),
+  glissRole: {
+    glissId: "b",
+    role: "end" as const,
+  },
+  glissAnchors: [
+    {
+      glissId: "b",
+      role: "end" as const,
+      source: { rowId: "s1-note-69", col: 5 },
+      time: {
+        startTick: numberToTimeFraction(5),
+        endTick: numberToTimeFraction(6),
+      },
+      display: {
+        rowId: "s1-note-69",
+        centOffset: 0,
+      },
+    },
+  ],
+};
+const sharedExtensionSecondGliss: GlissEvent = {
+  ...createGlissSegmentEvent("s1-note-66", 3, 66, "start", "s1-note-69", 5, 69, "end", 3.5, 5.5),
+  eventId: "basic:gliss:b:s1-note-66:3",
+  glissId: "b",
+};
+const sharedExtensionSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 8, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [
+          sharedExtensionStartNote,
+          sharedExtensionBridgeNote,
+          sharedExtensionEndNote,
+          createGlissSegmentEvent("s1-note-67", 0, 67, "start", "s1-note-66", 2, 66, "end", 0.5, 2.5),
+          sharedExtensionSecondGliss,
+        ],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic"],
+});
+const sharedExtensionChains = sharedExtensionSchedule.events.filter(
+  (event) => event.sourceEventKind === "glissChain",
+);
+const sharedExtensionGlisses = sharedExtensionSchedule.events.filter(
+  (event) => event.sourceEventKind === "gliss",
+);
+const sharedExtensionBridgeSchedule = sharedExtensionSchedule.events.find(
+  (event) => event.eventId === sharedExtensionBridgeNote.eventId,
+);
+
+assert(
+  sharedExtensionChains.length === 1,
+  "Shared long note between independent gliss segments should be promoted to one continuous chain.",
+);
+assert(
+  sharedExtensionGlisses.length === 0,
+  "Independent gliss segments around a shared long note should not remain as separate fallback gliss events.",
+);
+assert(
+  sharedExtensionBridgeSchedule === undefined,
+  "Shared long note should be absorbed into the continuous gliss chain.",
+);
+
+const sharedExtensionChain = sharedExtensionChains[0];
+
+if (sharedExtensionChain?.sourceEventKind === "glissChain") {
+  const [, bridgeSegment] = sharedExtensionChain.segments;
+
+  assert(sharedExtensionChain.segments.length === 3, "Shared extension chain should contain gliss, hold bridge, gliss segments.");
+  assertNear(bridgeSegment?.startSeconds ?? -1, 0.3125, "Bridge segment should start at the first gliss end anchor.");
+  assertNear(bridgeSegment?.endSeconds ?? -1, 0.4375, "Bridge segment should end at the second gliss start anchor.");
+  assert(bridgeSegment?.startMidi === 66 && bridgeSegment.endMidi === 66, "Bridge segment should keep the shared hold pitch.");
+  const gainScaleAutomations = sharedExtensionChain.automation.filter(
+    (automation) => automation.kind === "gainScale",
+  );
+  assert(
+    gainScaleAutomations.every((automation) => automation.startValue === 1 && automation.endValue === 1),
+    "Shared extension chain should not be gain-reduced by duplicate overlap.",
+  );
+}
+
 const overlapNoteEvent: NoteEvent = {
   ...effectNoteEvent,
   eventId: "basic:note:s1-note-60:8",

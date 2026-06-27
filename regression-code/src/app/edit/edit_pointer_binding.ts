@@ -102,15 +102,6 @@ export function bindScorePointerControls(
     session.endScoreEditHistoryTransaction();
   };
 
-  const cancelDragHistoryTransaction = (): void => {
-    if (!isDragHistoryTransactionOpen) {
-      return;
-    }
-
-    isDragHistoryTransactionOpen = false;
-    session.cancelScoreEditHistoryTransaction();
-  };
-
   const getSelectionForHit = (hit: ScoreHit): ScoreSelection => ({
     ...getSelectionForStateHit(session.getState(), hit),
   });

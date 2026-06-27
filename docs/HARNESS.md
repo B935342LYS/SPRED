@@ -34,6 +34,7 @@ Primary spec roots:
 - `docs/2.10-undo-redo-edit-history-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
+- `docs/3.2-karaoke-game-mode-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -111,6 +112,9 @@ Memo roots:
 
 `docs/3.1-extension-roadmap.md` : `extension-plan`
 - MVP 이후 확장 후보와 우선순위 정리
+
+`docs/3.2-karaoke-game-mode-spec.md` : `extension-plan`
+- 노래방 모드와 게임 모드를 같은 기능으로 보고, 마이크 pitch detection, 판정, 점수, UI 상태를 구체화한 세부 초안
 
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
@@ -231,6 +235,7 @@ Undo / redo:
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
+- `docs/3.2-karaoke-game-mode-spec.md`
 
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
@@ -268,6 +273,7 @@ Appendix:
 `extension-plan`
 - `3.0-extendplan-game-mode.md`
 - `3.1-extension-roadmap.md`
+- `3.2-karaoke-game-mode-spec.md`
 
 `archive`
 - legacy `0.x` text documents
@@ -435,6 +441,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/implementation-memo/1.31-step9-viewport-view-loop-ui.md` records viewport bounded rendering implementation, performance profiling/removal, View menu Speed/Text off behavior, Loop marker UI first pass, and publish staging synchronization
 - `docs/implementation-memo/1.39-range-selection-paste-preview-undo-plan.md` records Ctrl+drag range selection, bulk delete/copy/paste, paste preview overlay, and the decision to use cell patch based Undo / Redo instead of full `ScoreFile` snapshots
 - `docs/implementation-memo/1.40-undo-redo-history-implementation.md` records cell patch based Undo / Redo implementation, button/shortcut wiring, drag edit transaction grouping, verification, and publish staging synchronization
+- `docs/implementation-memo/1.41-performance-profiler-instrumentation.md` records the runtime profiler, `?perf=1` / `window.spredPerf` usage, broad app/runtime/renderer/playback/audio scheduler measurement points, and the next bottleneck narrowing workflow
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
@@ -450,16 +457,20 @@ If memo content is explicitly adopted by the user for implementation order or st
 - Range selection edit first pass is implemented: edit mode supports `Ctrl + left drag` range selection, one-piece selection overlay including visual gaps, Delete/Backspace bulk delete, internal Ctrl+C clipboard, Ctrl+V paste preserving original rowIds, and automatic selection clear after delete/paste
 - Paste preview is implemented as a lightweight DOM overlay: after Ctrl+C, mouse x movement over the score sets the paste column without requiring a click, preview rectangles follow the copied cell footprint, y position preserves source rowIds, and preview rectangle height matches the 21px note render height scaled by current zoom
 - Undo / Redo first pass is implemented around `CellHistoryPatch` before/after rawText records for note/global cell edits: Undo/Redo buttons, `Ctrl+Z`, `Ctrl+Y`, `Ctrl+Shift+Z` / `Cmd+Shift+Z`, session-only 50-entry history, score-load/structure-change history reset, and drag edit transaction grouping are connected; Details metadata edit and YouTube metadata reload remain excluded from the first undo scope
+- Runtime performance profiler instrumentation is connected for broad bottleneck exploration: `?perf=1` or `window.spredPerf.enable()` turns on console timing groups for app render, score text edit orchestration, runtime artifact rebuild, partial render patching, playback reset, playback toggle/RAF/lookahead, audio schedule building, renderer layout, visible filtering, canvas resize, and draw phases
+- Performance stabilization is sufficient for the next feature stage: desktop playback is smooth, Chrome 4x/6x CPU-throttled testing identified and reduced seek UI overhead, RAF-based playback follow scroll was kept for visual smoothness, and a 2019 low-power i5-10210U / 8GB RAM laptop can play scores normally with only minor frame drops
 - Expand right now relies on the global `MAX_SCORE_COLUMN_COUNT` limit instead of a separate one-action column cap
 - renderer DPR downscaling still caps very large bitmap allocation, but long-score scroll/render no longer depends on full-score-width dynamic layer redraw; tile rendering remains a later optimization only if viewport bounded rendering proves insufficient
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
-- the deployment staging repo `regression-code-test-publish/` has been synced through commit `974f282 Add undo redo controls to publish build`
+- the deployment staging repo `regression-code-test-publish/` has been synced through commit `5aa5907 Add performance profiler and playback scroll tuning`
 - `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
 - latest verified commands: `npm run test:edit`, `npm run typecheck`, `npm run build`; previous broader verification also included `npm run test:score`, `npm run test:parse`, `npm run test:track`, `npm run test:view`, `npm run test:analyze`, `npm run test:audio`, `npm run test:layout`, `npm run test:youtube`, and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
 
 Deferred planned work:
 - long-score performance roadmap:
   - first viewport bounded rendering target is implemented and should be rechecked on lower-end laptops with real 9000+ column scores
+  - use the runtime profiler to compare initial/full render, single edit, drag edit, range paste/delete, and scroll redraw before choosing the next optimization target
+  - current desktop and 2019 low-power i5 laptop checks are sufficient to move forward; additional optimization should be driven by concrete future regression or user-test evidence
   - if remaining lag appears, next candidates are tile/chunk rendering for dynamic layers, time-budget based scroll redraw throttling, and further note marker visibility indexing
   - after render scope is bounded, remaining edit latency can be reduced with runtime index partial update, analyzer range partial, or dirty-column rebuild around changed cells
 - first partial rebuild staging target is implemented for ordinary rawText edits; remaining work is runtime index/audio partial update and any additional viewport/tile optimization proven necessary by testing
