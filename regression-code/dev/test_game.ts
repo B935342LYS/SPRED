@@ -13,8 +13,11 @@ import {
 } from "../src/app/game/game_judge";
 import {
   collectGameEffectBonusTargets,
+  type GameEffectFrame,
   getGlissIntervalIndexAtSeconds,
   judgeGlissIntervalBonus,
+  judgeVibWindowBonus,
+  shouldLockFailedGlissBonusTarget,
 } from "../src/app/game/game_effect_judge";
 import {
   DEFAULT_GAME_SYNC_OFFSET_MS,
@@ -893,8 +896,26 @@ const glissTarget = glissTargets[0];
 
 assert(glissTargets.length === 1, "Effect target collection should include only active track gliss events.");
 assert(glissTarget !== undefined, "Gliss target should be collected.");
+assert(glissTarget?.kind === "gliss", "Collected gliss effect should create a gliss bonus target.");
 
-if (glissTarget !== undefined) {
+if (glissTarget !== undefined && glissTarget.kind === "gliss") {
+  const createGlissFrame = (
+    scoreSeconds: number,
+    isVoiced: boolean,
+  ): GameEffectFrame => ({
+    scoreSeconds,
+    frame: {
+      capturedAtMs: scoreSeconds * 1000,
+      rawFrequencyHz: isVoiced ? 440 : null,
+      frequencyHz: isVoiced ? 440 : null,
+      midi: isVoiced ? 61 : null,
+      centOffset: isVoiced ? 0 : null,
+      clarity: isVoiced ? 1 : 0,
+      rms: isVoiced ? 0.1 : 0,
+      isVoiced,
+      rejectReason: isVoiced ? null : "low rms",
+    },
+  });
   const glissIntervalIndex = getGlissIntervalIndexAtSeconds(glissTarget, 0.26);
   const glissBonus = glissIntervalIndex === null
     ? null
@@ -914,6 +935,10 @@ if (glissTarget !== undefined) {
     0.26,
     glissIntervalIndex,
     difficulty,
+    [
+      createGlissFrame(0.251, true),
+      createGlissFrame(0.26, true),
+    ],
   );
 
   assert(glissIntervalIndex === 1, "Gliss interval index should advance by the fixed interval.");
@@ -955,6 +980,79 @@ if (glissTarget !== undefined) {
 
   assert(failedGlissBonus === null, "Unvoiced frame should not create Gliss interval bonus.");
 
+  const wrongPitchGlissBonus = judgeGlissIntervalBonus(
+    glissTarget,
+    {
+      capturedAtMs: 260,
+      rawFrequencyHz: 329.63,
+      frequencyHz: 329.63,
+      midi: 64,
+      centOffset: 0,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+    0.26,
+    1,
+    difficulty,
+    [
+      createGlissFrame(0.251, true),
+      createGlissFrame(0.26, true),
+    ],
+  );
+
+  assert(wrongPitchGlissBonus === null, "Wrong pitch inside a gliss interval should not create Gliss bonus.");
+
+  const interruptedGlissBonus = judgeGlissIntervalBonus(
+    glissTarget,
+    {
+      capturedAtMs: 330,
+      rawFrequencyHz: 440,
+      frequencyHz: 440,
+      midi: 61,
+      centOffset: 0,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+    0.33,
+    1,
+    difficulty,
+    [
+      createGlissFrame(0.251, true),
+      createGlissFrame(0.29, false),
+      createGlissFrame(0.33, true),
+    ],
+  );
+
+  assert(interruptedGlissBonus === null, "Interrupted gliss interval should not create Gliss bonus.");
+  assert(
+    shouldLockFailedGlissBonusTarget(
+      glissTarget,
+      {
+        capturedAtMs: 330,
+        rawFrequencyHz: 440,
+        frequencyHz: 440,
+        midi: 61,
+        centOffset: 0,
+        clarity: 1,
+        rms: 0.1,
+        isVoiced: true,
+        rejectReason: null,
+      },
+      0.33,
+      1,
+      [
+        createGlissFrame(0.251, true),
+        createGlissFrame(0.29, false),
+        createGlissFrame(0.33, true),
+      ],
+    ),
+    "Interrupted gliss should lock the whole gliss target from later bonus success.",
+  );
+
   const octaveShiftedGlissBonus = judgeGlissIntervalBonus(
     glissTarget,
     {
@@ -971,6 +1069,10 @@ if (glissTarget !== undefined) {
     0.26,
     1,
     difficulty,
+    [
+      createGlissFrame(0.251, true),
+      createGlissFrame(0.26, true),
+    ],
   );
 
   assert(
@@ -979,6 +1081,142 @@ if (glissTarget !== undefined) {
       octaveShiftedGlissBonus.targetMidi <= 62,
     "Octave-shifted gliss input should still display the bonus near the score target note.",
   );
+}
+
+const vibNote = createTestNoteEvent("basic-vib-c4", "basic", 0, 8, 60);
+vibNote.effects = [{
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(8),
+  },
+  vib: true,
+  trem: null,
+}];
+
+const optionalVibNote = createTestNoteEvent("optional-vib-d4", "optional", 0, 8, 62);
+optionalVibNote.effects = [{
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(8),
+  },
+  vib: true,
+  trem: null,
+}];
+
+const vibAnalysis: AnalysisResult = {
+  timingTimeline: analysis.timingTimeline,
+  dynamicsTimeline: [],
+  trackResults: [
+    {
+      trackId: "basic",
+      events: [vibNote],
+    },
+    {
+      trackId: "optional",
+      events: [optionalVibNote],
+    },
+    {
+      trackId: "extra",
+      events: [],
+    },
+  ],
+  analysisIssues: [],
+};
+const vibTargets = collectGameEffectBonusTargets(
+  vibAnalysis,
+  ["basic"],
+  createTickTimeMapper(vibAnalysis.timingTimeline),
+);
+const vibTarget = vibTargets[0];
+
+assert(vibTargets.length === 1, "Effect target collection should include only active track vib segments.");
+assert(vibTarget?.kind === "vib", "Collected vibrato effect should create a vib bonus target.");
+
+if (vibTarget !== undefined && vibTarget.kind === "vib") {
+  const createVibFrame = (scoreSeconds: number, centOffset: number): GameEffectFrame => ({
+    scoreSeconds,
+    frame: {
+      capturedAtMs: scoreSeconds * 1000,
+      rawFrequencyHz: 261.63,
+      frequencyHz: 261.63,
+      midi: 60,
+      centOffset,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+  });
+  const vibFrames = [
+    createVibFrame(0.1, -35),
+    createVibFrame(0.2, 32),
+    createVibFrame(0.3, -30),
+    createVibFrame(0.4, 35),
+    createVibFrame(0.5, -32),
+    createVibFrame(0.6, 30),
+  ];
+  const vibBonus = judgeVibWindowBonus(
+    vibTarget,
+    vibFrames,
+    0.6,
+    difficulty,
+  );
+  const flatFrames = [
+    createVibFrame(0.1, 4),
+    createVibFrame(0.2, 5),
+    createVibFrame(0.3, 4),
+    createVibFrame(0.4, 5),
+    createVibFrame(0.5, 4),
+    createVibFrame(0.6, 5),
+  ];
+  const flatBonus = judgeVibWindowBonus(
+    vibTarget,
+    flatFrames,
+    0.6,
+    difficulty,
+  );
+  const subtleVibFrames = [
+    createVibFrame(0.1, -11),
+    createVibFrame(0.2, 11),
+    createVibFrame(0.3, -10),
+    createVibFrame(0.4, 10),
+    createVibFrame(0.5, -11),
+    createVibFrame(0.6, 11),
+  ];
+  const subtleVibBonus = judgeVibWindowBonus(
+    vibTarget,
+    subtleVibFrames,
+    0.6,
+    difficulty,
+  );
+  const wrongCenterVibFrames = [
+    createVibFrame(0.1, 190),
+    createVibFrame(0.2, 215),
+    createVibFrame(0.3, 190),
+    createVibFrame(0.4, 215),
+    createVibFrame(0.5, 190),
+    createVibFrame(0.6, 215),
+  ];
+  const wrongCenterVibBonus = judgeVibWindowBonus(
+    vibTarget,
+    wrongCenterVibFrames,
+    0.6,
+    difficulty,
+  );
+
+  assert(vibBonus !== null, "Alternating target-near pitch should create Vib bonus.");
+  assert(vibBonus?.displayText === "Vib!", "Vib bonus should use the Vib! display text.");
+  assertClose(vibBonus?.bonusContribution ?? -1, 0.5, 1e-9, "Vib segment bonus should add effect bonus score.");
+  assert(subtleVibBonus !== null, "Alternating pitch around +/-10 cent should create Vib bonus.");
+  assert(wrongCenterVibBonus === null, "Vib should require the average pitch to stay near the target.");
+  assert(flatBonus === null, "Flat target-near pitch should not create Vib bonus.");
+
+  const summaryAfterVib = vibBonus === null
+    ? emptySummary
+    : applyGameEffectBonus(emptySummary, vibBonus);
+
+  assert(summaryAfterVib.vibBonusCount === 1, "Vib bonus should increment vib count.");
+  assert(summaryAfterVib.glissBonusCount === 0, "Vib bonus should not increment gliss count.");
 }
 
 console.log("Game mode pitch math test completed.");
