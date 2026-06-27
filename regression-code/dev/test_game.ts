@@ -505,6 +505,17 @@ const lateSample = judgeGameScoringSample(
     consumedOnsetIds: new Set(),
   },
 );
+const timingBadSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1035),
+  timingTarget,
+  1.18,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(5, 1.18)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+  },
+);
 const timingMissSample = judgeGameScoringSample(
   createPerfectTimingFrame(1040),
   timingTarget,
@@ -520,10 +531,13 @@ const timingMissSample = judgeGameScoringSample(
 assert(onTimeSample?.label === "Perfect", "On-time pitch should keep the pitch judge label.");
 assert(onTimeSample?.timing.kind === "none", "Timing under 80 ms should not show early or late text.");
 assert(onTimeSample?.timingOnsetId === 1, "On-time timing should consume the matched onset.");
-assert(earlySample?.label === "Perfect", "Early timing under 250 ms should keep the pitch judge label.");
+assert(earlySample?.label === "Perfect", "Early timing under 150 ms should keep the pitch judge label.");
 assert(earlySample?.timing.kind === "early", "Timing before the target should show early.");
-assert(lateSample?.label === "Perfect", "Late timing under 250 ms should keep the pitch judge label.");
+assert(lateSample?.label === "Perfect", "Late timing under 150 ms should keep the pitch judge label.");
 assert(lateSample?.timing.kind === "late", "Timing after the target should show late.");
+assert(timingBadSample?.label === "Bad", "Timing 150-249 ms away should downgrade the final label to Bad.");
+assert(timingBadSample?.timing.kind === "bad", "Timing bad should keep direction data for the overlay.");
+assertClose(timingBadSample?.pitchAccuracy ?? -1, 1 / 3, 1e-9, "Timing Bad should force one-third accuracy.");
 assert(timingMissSample?.label === "Miss", "Timing 250 ms or more away should downgrade the final label to Miss.");
 assertClose(timingMissSample?.pitchAccuracy ?? -1, 0, 1e-9, "Timing Miss should force 0% accuracy.");
 assertClose(timingMissSample?.scoreContribution ?? -1, 0, 1e-9, "Timing Miss should force zero score.");
@@ -738,7 +752,7 @@ const okSample = judgeGameScoringSample(
 );
 
 assert(okSample?.label === "Ok", "A 60 cent pitch error should create an Ok sample.");
-assertClose(okSample?.scoreContribution ?? -1, 0.6, 1e-9, "Ok should contribute 60% accuracy.");
+assertClose(okSample?.scoreContribution ?? -1, 2 / 3, 1e-9, "Ok should contribute two-thirds accuracy.");
 
 const silentSample = judgeGameScoringSample(
   {
@@ -765,6 +779,9 @@ const summaryAfterPerfect = perfectSample === null
 const summaryAfterMiss = missSample === null
   ? summaryAfterPerfect
   : applyGameScoringSample(summaryAfterPerfect, missSample);
+const summaryAfterTimingBad = timingBadSample === null
+  ? emptySummary
+  : applyGameScoringSample(emptySummary, timingBadSample);
 
 assert(summaryAfterPerfect.perfectCount === 1, "Perfect sample should increment Perfect count.");
 assert(summaryAfterPerfect.bestCombo === 1, "Perfect sample should increment combo.");
@@ -775,6 +792,13 @@ assertClose(
   50,
   1e-9,
   "Miss sample should count as 0% in the total average accuracy.",
+);
+assert(summaryAfterTimingBad.timingBadCount === 1, "Timing Bad should increment the timing bad count.");
+assertClose(
+  summaryAfterTimingBad.timingAccuracyPercent,
+  100 / 3,
+  1e-9,
+  "Timing Bad should count as one-third timing accuracy.",
 );
 
 console.log("Game mode pitch math test completed.");

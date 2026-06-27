@@ -824,6 +824,9 @@ function testTupletGlissAnalysis(sourceText: string): void {
     { rowId: "s1-note-60", col: 58, rawText: "/3(C@g(u,S)@n(60)|D@g(u,M)@n(62)|E@g(u,E)@n(64))" },
     { rowId: "s1-note-60", col: 59, rawText: "/&" },
     { rowId: "s1-note-60", col: 60, rawText: "/&" },
+    { rowId: "s1-note-60", col: 62, rawText: "/3(C@n(60)|-@g(v,S)@n(60)|E@g(v,E)@n(64))" },
+    { rowId: "s1-note-60", col: 63, rawText: "/&" },
+    { rowId: "s1-note-60", col: 64, rawText: "/&" },
   );
 
   const glissAnalysis = analyzeFixtureScore(score);
@@ -834,7 +837,7 @@ function testTupletGlissAnalysis(sourceText: string): void {
     return;
   }
 
-  assert(glissAnalysis.glissEvents.length === 4, "Tuplet S-M-E fixtures should create four gliss segments.");
+  assert(glissAnalysis.glissEvents.length === 5, "Tuplet S-M-E fixtures should create five gliss segments.");
 
   const markerItems = buildCanvasMarkerItems({
     timingTimeline: [],
@@ -863,11 +866,15 @@ function testTupletGlissAnalysis(sourceText: string): void {
   });
   const glissMarkers = markerItems.filter((item) => item.kind === "gliss");
   const tupletGlissNoteItems = noteItems.filter((item) => item.displayShape === "anchorSquare");
+  const heldStartBaseItem = noteItems.find((item) =>
+    item.sourceEventId === "basic:note:s1-note-60:62:slot:0" &&
+    item.displayShape === "rect"
+  );
 
-  assert(glissMarkers.length === 4, "Tuplet gliss events should convert to four gliss marker items.");
+  assert(glissMarkers.length === 5, "Tuplet gliss events should convert to five gliss marker items.");
   assert(
-    tupletGlissNoteItems.length === 2,
-    "Long tuplet gliss start/mid slot notes should convert to two anchor-square note items.",
+    tupletGlissNoteItems.length === 3,
+    "Long tuplet gliss start/mid slot notes should convert to three anchor-square note items.",
   );
   assert(
     tupletGlissNoteItems[0]?.sourceEventId === "basic:note:s1-note-60:58:slot:0",
@@ -878,11 +885,13 @@ function testTupletGlissAnalysis(sourceText: string): void {
   const secondMarker = glissMarkers[1];
   const thirdMarker = glissMarkers[2];
   const fourthMarker = glissMarkers[3];
+  const fifthMarker = glissMarkers[4];
 
   assert(firstMarker !== undefined, "Missing first tuplet gliss marker.");
   assert(secondMarker !== undefined, "Missing second tuplet gliss marker.");
   assert(thirdMarker !== undefined, "Missing third tuplet gliss marker.");
   assert(fourthMarker !== undefined, "Missing fourth tuplet gliss marker.");
+  assert(fifthMarker !== undefined, "Missing fifth tuplet gliss marker.");
 
   if (firstMarker !== undefined && firstMarker.kind === "gliss") {
     assertApproximately(firstMarker.startTick, 56 + 1 / 6, "Short tuplet gliss should start at slot 0 center.");
@@ -910,6 +919,13 @@ function testTupletGlissAnalysis(sourceText: string): void {
     assertApproximately(fourthMarker.endTick, 60.5, "Long tuplet gliss should end at shifted slot 2 anchor.");
     assert(fourthMarker.startRowId === "s1-note-62", "Fourth tuplet gliss start row mismatch.");
     assert(fourthMarker.endRowId === "s1-note-64", "Fourth tuplet gliss end row mismatch.");
+  }
+
+  if (fifthMarker !== undefined && fifthMarker.kind === "gliss") {
+    assertApproximately(fifthMarker.startTick, 63.5, "Held tuplet gliss start should use the held slot anchor.");
+    assertApproximately(fifthMarker.endTick, 64.5, "Held tuplet gliss end should use the end slot anchor.");
+    assert(fifthMarker.startRowId === "s1-note-60", "Fifth tuplet gliss start row mismatch.");
+    assert(fifthMarker.endRowId === "s1-note-64", "Fifth tuplet gliss end row mismatch.");
   }
 
   assert(
@@ -951,6 +967,21 @@ function testTupletGlissAnalysis(sourceText: string): void {
       item.displayShape === "rect"
     ),
     "Long tuplet gliss end note should keep the normal rectangle shape.",
+  );
+  assert(
+    heldStartBaseItem !== undefined &&
+      heldStartBaseItem.startTick === 62 &&
+      heldStartBaseItem.endTick === 63,
+    "Held tuplet gliss base note rectangle should stop before the anchor square.",
+  );
+  assert(
+    tupletGlissNoteItems.some((item) =>
+      item.rowId === "s1-note-60" &&
+      item.startTick === 63 &&
+      item.endTick === 64 &&
+      item.displayShape === "anchorSquare"
+    ),
+    "Held tuplet gliss start slot should add an anchor-square item at the held slot.",
   );
 }
 
