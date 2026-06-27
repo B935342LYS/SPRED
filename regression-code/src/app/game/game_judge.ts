@@ -11,6 +11,7 @@ import type { TrackId } from "../../core/score/types";
 import type { TickTimeMapper } from "../../audio/audio_types";
 import type {
   GameJudgeTarget,
+  GameEffectBonusResult,
   GamePitchFrame,
   GameScoreSummary,
   GameScoringSampleResult,
@@ -384,9 +385,33 @@ export function applyGameScoringSample(
     timingLateCount,
     timingBadCount,
     timingMissCount,
+    glissBonusCount: summary.glissBonusCount,
+    vibBonusCount: summary.vibBonusCount,
+    tremBonusCount: summary.tremBonusCount,
+    effectBonusScore: summary.effectBonusScore,
     currentCombo,
     bestCombo: Math.max(summary.bestCombo, currentCombo),
     score: summary.score + sample.scoreContribution,
+  };
+}
+
+/**
+ * effect bonus 성공 결과를 점수 집계에 더한다.
+ * - 인수 : summary : 이전까지의 점수 집계
+ * - 인수 : bonus : 성공한 effect bonus 결과
+ * - 반환값 : bonus가 반영된 새 점수 집계
+ */
+export function applyGameEffectBonus(
+  summary: GameScoreSummary,
+  bonus: GameEffectBonusResult,
+): GameScoreSummary {
+  return {
+    ...summary,
+    glissBonusCount: summary.glissBonusCount + (bonus.kind === "gliss" ? 1 : 0),
+    vibBonusCount: summary.vibBonusCount + (bonus.kind === "vib" ? 1 : 0),
+    tremBonusCount: summary.tremBonusCount + (bonus.kind === "trem" ? 1 : 0),
+    effectBonusScore: summary.effectBonusScore + bonus.bonusContribution,
+    score: summary.score + bonus.bonusContribution,
   };
 }
 

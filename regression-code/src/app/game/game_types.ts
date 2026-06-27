@@ -49,6 +49,10 @@ export type GameScoreSummary = {
   timingLateCount: number;
   timingBadCount: number;
   timingMissCount: number;
+  glissBonusCount: number;
+  vibBonusCount: number;
+  tremBonusCount: number;
+  effectBonusScore: number;
   currentCombo: number;
   bestCombo: number;
   score: number;
@@ -109,6 +113,18 @@ export type GameScoringSampleResult = {
   timingJudgedEventId: string | null;
 };
 
+/** practice effect bonus 판정 결과. 실패 판정은 만들지 않고 성공 시에만 생성한다. */
+export type GameEffectBonusResult = {
+  kind: "gliss" | "vib" | "trem";
+  targetId: string;
+  trackId: TrackId;
+  scoreSeconds: number;
+  targetMidi: number;
+  targetCentOffset: number;
+  bonusContribution: number;
+  displayText: "Gliss!" | "Vib!" | "Trem!";
+};
+
 /** score JSON에 저장하지 않는 게임 모드 세션 상태. */
 export type GameModeState =
   | { kind: "off" }
@@ -134,6 +150,10 @@ export function createEmptyGameScoreSummary(): GameScoreSummary {
     timingLateCount: 0,
     timingBadCount: 0,
     timingMissCount: 0,
+    glissBonusCount: 0,
+    vibBonusCount: 0,
+    tremBonusCount: 0,
+    effectBonusScore: 0,
     currentCombo: 0,
     bestCombo: 0,
     score: 0,

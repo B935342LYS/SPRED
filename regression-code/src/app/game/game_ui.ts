@@ -65,6 +65,9 @@ export function syncGameModeUi(dom: AppDom, state: AppState): void {
   dom.gameOkCount.textContent = String(summary.okCount);
   dom.gameBadCount.textContent = String(summary.badCount);
   dom.gameMissCount.textContent = String(summary.missCount);
+  dom.gameGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.gameVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.gameTremBonusCount.textContent = String(summary.tremBonusCount);
   dom.gameCombo.textContent = String(summary.bestCombo);
   dom.gameScore.textContent = String(Math.round(summary.score));
   dom.gameSyncValue.textContent = formatGameSyncOffsetMs(state.gameSyncOffsetMs);
@@ -166,6 +169,10 @@ export function openPracticeResultDialog(dom: AppDom, summary: GameScoreSummary)
   dom.resultTimingLateCount.textContent = String(summary.timingLateCount);
   dom.resultTimingBadCount.textContent = String(summary.timingBadCount);
   dom.resultTimingMissCount.textContent = String(summary.timingMissCount);
+  dom.resultGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.resultVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
+  dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
 
   if (!dom.practiceResultDialog.open) {
@@ -199,6 +206,10 @@ export function openPracticeResultDialogForState(dom: AppDom, state: AppState): 
   dom.resultTimingLateCount.textContent = String(summary.timingLateCount);
   dom.resultTimingBadCount.textContent = String(summary.timingBadCount);
   dom.resultTimingMissCount.textContent = String(summary.timingMissCount);
+  dom.resultGlissBonusCount.textContent = String(summary.glissBonusCount);
+  dom.resultVibBonusCount.textContent = String(summary.vibBonusCount);
+  dom.resultTremBonusCount.textContent = String(summary.tremBonusCount);
+  dom.resultEffectBonusScore.textContent = `+${Math.round(summary.effectBonusScore)}`;
   dom.resultBestCombo.textContent = String(summary.bestCombo);
 
   if (!dom.practiceResultDialog.open) {

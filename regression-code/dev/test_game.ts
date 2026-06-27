@@ -1,8 +1,9 @@
 import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
-import type { AnalysisResult, NoteEvent } from "../src/core/analyze/types";
+import type { AnalysisResult, GlissEvent, NoteEvent } from "../src/core/analyze/types";
 import type { GameTimingOnsetCandidate } from "../src/app/game/game_types";
 import { createTickTimeMapper, numberToTimeFraction } from "../src/audio/tick_time_mapper";
 import {
+  applyGameEffectBonus,
   applyGameSyncOffsetSeconds,
   applyGameScoringSample,
   collectGameJudgeTargetsAtSeconds,
@@ -10,6 +11,11 @@ import {
   judgeGameScoringSample,
   normalizeGameTrackDifficulty,
 } from "../src/app/game/game_judge";
+import {
+  collectGameEffectBonusTargets,
+  getGlissIntervalIndexAtSeconds,
+  judgeGlissIntervalBonus,
+} from "../src/app/game/game_effect_judge";
 import {
   DEFAULT_GAME_SYNC_OFFSET_MS,
   createEmptyGameScoreSummary,
@@ -132,6 +138,60 @@ function createTestNoteEvent(
     },
     effects: [],
     glissAnchors: [],
+  };
+}
+
+/**
+ * 테스트용 gliss event를 만든다.
+ * - 인수 : eventId : event 식별자
+ * - 인수 : startTick : 시작 anchor tick
+ * - 인수 : endTick : 종료 anchor tick
+ * - 인수 : startMidi : 시작 목표 MIDI
+ * - 인수 : endMidi : 종료 목표 MIDI
+ * - 반환값 : 최소 필드만 채운 GlissEvent
+ */
+function createTestGlissEvent(
+  eventId: string,
+  startTick: number,
+  endTick: number,
+  startMidi: number,
+  endMidi: number,
+): GlissEvent {
+  return {
+    eventKind: "gliss",
+    eventId,
+    trackId: "basic",
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    sourceCells: [
+      { rowId: `row-${startMidi}`, col: startTick },
+      { rowId: `row-${endMidi}`, col: endTick },
+    ],
+    startDisplay: {
+      rowId: `row-${startMidi}`,
+      centOffset: 0,
+    },
+    endDisplay: {
+      rowId: `row-${endMidi}`,
+      centOffset: 0,
+    },
+    startSound: {
+      midi: startMidi,
+      centOffset: 0,
+    },
+    endSound: {
+      midi: endMidi,
+      centOffset: 0,
+    },
+    glissId: "g",
+    startAnchorTick: numberToTimeFraction(startTick),
+    endAnchorTick: numberToTimeFraction(endTick),
+    fromKind: "start",
+    toKind: "end",
+    startAttach: "attack",
+    endAttach: "release",
   };
 }
 
@@ -800,5 +860,125 @@ assertClose(
   1e-9,
   "Timing Bad should count as one-third timing accuracy.",
 );
+
+const glissAnalysis: AnalysisResult = {
+  timingTimeline: analysis.timingTimeline,
+  dynamicsTimeline: [],
+  trackResults: [
+    {
+      trackId: "basic",
+      events: [
+        createTestGlissEvent("basic-gliss-c-d", 0, 4, 60, 62),
+      ],
+    },
+    {
+      trackId: "optional",
+      events: [
+        createTestGlissEvent("optional-gliss-e-f", 0, 4, 64, 65),
+      ],
+    },
+    {
+      trackId: "extra",
+      events: [],
+    },
+  ],
+  analysisIssues: [],
+};
+const glissTargets = collectGameEffectBonusTargets(
+  glissAnalysis,
+  ["basic"],
+  createTickTimeMapper(glissAnalysis.timingTimeline),
+);
+const glissTarget = glissTargets[0];
+
+assert(glissTargets.length === 1, "Effect target collection should include only active track gliss events.");
+assert(glissTarget !== undefined, "Gliss target should be collected.");
+
+if (glissTarget !== undefined) {
+  const glissIntervalIndex = getGlissIntervalIndexAtSeconds(glissTarget, 0.26);
+  const glissBonus = glissIntervalIndex === null
+    ? null
+    : judgeGlissIntervalBonus(
+    glissTarget,
+    {
+      capturedAtMs: 260,
+      rawFrequencyHz: 440,
+      frequencyHz: 440,
+      midi: 61,
+      centOffset: 0,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+    0.26,
+    glissIntervalIndex,
+    difficulty,
+  );
+
+  assert(glissIntervalIndex === 1, "Gliss interval index should advance by the fixed interval.");
+  assert(glissBonus !== null, "Voiced pitch inside a gliss interval should create Gliss bonus.");
+  assert(glissBonus?.displayText === "Gliss!", "Gliss bonus should use the Gliss! display text.");
+  assert(
+    glissBonus !== null &&
+      glissBonus.targetMidi >= 60 &&
+      glissBonus.targetMidi <= 62,
+    "Gliss bonus overlay should use the target gliss pitch instead of the detected input octave.",
+  );
+
+  const summaryAfterGliss = glissBonus === null
+    ? emptySummary
+    : applyGameEffectBonus(emptySummary, glissBonus);
+
+  assert(summaryAfterGliss.glissBonusCount === 1, "Gliss bonus should increment gliss count.");
+  assert(summaryAfterGliss.vibBonusCount === 0, "Gliss bonus should not increment vib count.");
+  assertClose(summaryAfterGliss.effectBonusScore, 0.25, 1e-9, "Gliss interval bonus should add effect bonus score.");
+  assertClose(summaryAfterGliss.score, 0.25, 1e-9, "Gliss interval bonus should add to total score.");
+
+  const failedGlissBonus = judgeGlissIntervalBonus(
+    glissTarget,
+    {
+      capturedAtMs: 260,
+      rawFrequencyHz: null,
+      frequencyHz: null,
+      midi: null,
+      centOffset: null,
+      clarity: 0,
+      rms: 0,
+      isVoiced: false,
+      rejectReason: "low rms",
+    },
+    0.26,
+    1,
+    difficulty,
+  );
+
+  assert(failedGlissBonus === null, "Unvoiced frame should not create Gliss interval bonus.");
+
+  const octaveShiftedGlissBonus = judgeGlissIntervalBonus(
+    glissTarget,
+    {
+      capturedAtMs: 260,
+      rawFrequencyHz: 880,
+      frequencyHz: 880,
+      midi: 73,
+      centOffset: 0,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+    0.26,
+    1,
+    difficulty,
+  );
+
+  assert(
+    octaveShiftedGlissBonus !== null &&
+      octaveShiftedGlissBonus.targetMidi >= 60 &&
+      octaveShiftedGlissBonus.targetMidi <= 62,
+    "Octave-shifted gliss input should still display the bonus near the score target note.",
+  );
+}
 
 console.log("Game mode pitch math test completed.");

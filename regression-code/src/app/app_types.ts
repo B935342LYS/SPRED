@@ -251,6 +251,10 @@ export type AppDom = {
   resultTimingLateCount: HTMLElement;
   resultTimingBadCount: HTMLElement;
   resultTimingMissCount: HTMLElement;
+  resultGlissBonusCount: HTMLElement;
+  resultVibBonusCount: HTMLElement;
+  resultTremBonusCount: HTMLElement;
+  resultEffectBonusScore: HTMLElement;
   resultBestCombo: HTMLElement;
   gameMicState: HTMLElement;
   gameRawFrequency: HTMLElement;
@@ -263,6 +267,9 @@ export type AppDom = {
   gameOkCount: HTMLElement;
   gameBadCount: HTMLElement;
   gameMissCount: HTMLElement;
+  gameGlissBonusCount: HTMLElement;
+  gameVibBonusCount: HTMLElement;
+  gameTremBonusCount: HTMLElement;
   gameCombo: HTMLElement;
   gameScore: HTMLElement;
   detailsDialog: HTMLDialogElement;
