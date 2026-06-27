@@ -1571,6 +1571,34 @@ select:disabled {
   color: var(--text);
 }
 
+.practice-result-grid .result-judge-perfect,
+.practice-result-grid .result-judge-perfect strong {
+  color: #188b3c;
+}
+
+.practice-result-grid .result-judge-ok,
+.practice-result-grid .result-judge-ok strong,
+.practice-result-grid .result-judge-early,
+.practice-result-grid .result-judge-early strong {
+  color: #1479b8;
+}
+
+.practice-result-grid .result-judge-bad,
+.practice-result-grid .result-judge-bad strong,
+.practice-result-grid .result-judge-timing-bad,
+.practice-result-grid .result-judge-timing-bad strong {
+  color: #b46913;
+}
+
+.practice-result-grid .result-judge-miss,
+.practice-result-grid .result-judge-miss strong,
+.practice-result-grid .result-judge-late,
+.practice-result-grid .result-judge-late strong,
+.practice-result-grid .result-judge-timing-miss,
+.practice-result-grid .result-judge-timing-miss strong {
+  color: #c83333;
+}
+
 .practice-sync-form {
   display: grid;
   gap: 14px;

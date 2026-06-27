@@ -240,7 +240,6 @@ export type AppDom = {
   practiceResultDialog: HTMLDialogElement;
   resultTitle: HTMLElement;
   resultArtist: HTMLElement;
-  resultTracks: HTMLElement;
   resultAccuracy: HTMLElement;
   resultTimingAccuracy: HTMLElement;
   resultScore: HTMLElement;
@@ -248,8 +247,8 @@ export type AppDom = {
   resultOkCount: HTMLElement;
   resultBadCount: HTMLElement;
   resultMissCount: HTMLElement;
-  resultTimingOnTimeCount: HTMLElement;
-  resultTimingEarlyLateCount: HTMLElement;
+  resultTimingEarlyCount: HTMLElement;
+  resultTimingLateCount: HTMLElement;
   resultTimingBadCount: HTMLElement;
   resultTimingMissCount: HTMLElement;
   resultBestCombo: HTMLElement;

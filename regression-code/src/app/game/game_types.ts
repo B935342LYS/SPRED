@@ -45,7 +45,8 @@ export type GameScoreSummary = {
   badCount: number;
   missCount: number;
   timingOnTimeCount: number;
-  timingEarlyLateCount: number;
+  timingEarlyCount: number;
+  timingLateCount: number;
   timingBadCount: number;
   timingMissCount: number;
   currentCombo: number;
@@ -129,7 +130,8 @@ export function createEmptyGameScoreSummary(): GameScoreSummary {
     badCount: 0,
     missCount: 0,
     timingOnTimeCount: 0,
-    timingEarlyLateCount: 0,
+    timingEarlyCount: 0,
+    timingLateCount: 0,
     timingBadCount: 0,
     timingMissCount: 0,
     currentCombo: 0,
