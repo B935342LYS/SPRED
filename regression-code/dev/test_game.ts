@@ -2,6 +2,7 @@ import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
 import type { AnalysisResult, NoteEvent } from "../src/core/analyze/types";
 import { createTickTimeMapper, numberToTimeFraction } from "../src/audio/tick_time_mapper";
 import {
+  applyGameSyncOffsetSeconds,
   applyGameScoringSample,
   collectGameJudgeTargetsAtSeconds,
   hasRemainingGameJudgeTarget,
@@ -9,9 +10,16 @@ import {
   normalizeGameTrackDifficulty,
 } from "../src/app/game/game_judge";
 import {
+  DEFAULT_GAME_SYNC_OFFSET_MS,
   createEmptyGameScoreSummary,
+  formatGameSyncOffsetMs,
   isGameModeTrackChangeLocked,
+  normalizeGameSyncOffsetMs,
 } from "../src/app/game/game_types";
+import {
+  loadGameSyncOffsetMsFromLocalStorage,
+  saveGameSyncOffsetMsToLocalStorage,
+} from "../src/infra/game_preferences";
 import {
   calculateRms,
   createGamePitchCorrectionState,
@@ -59,6 +67,34 @@ function requireValue<T>(value: T | null, message: string): T {
   }
 
   return value;
+}
+
+/**
+ * Node 테스트 환경에서 game preference storage가 사용할 localStorage mock을 설치한다.
+ * - 인수 : 없음
+ * - 반환값 : mock storage map
+ */
+function installLocalStorageMock(): Map<string, string> {
+  const storage = new Map<string, string>();
+
+  globalThis.localStorage = {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      storage.set(key, value);
+    },
+    removeItem: (key: string) => {
+      storage.delete(key);
+    },
+    clear: () => {
+      storage.clear();
+    },
+    key: (index: number) => Array.from(storage.keys())[index] ?? null,
+    get length() {
+      return storage.size;
+    },
+  } as Storage;
+
+  return storage;
 }
 
 /**
@@ -116,6 +152,71 @@ assert(a4SharpQuarter.midi === 69 || a4SharpQuarter.midi === 70, "A4 + 50 cent s
 const rms = calculateRms(new Float32Array([1, -1, 1, -1]));
 
 assertClose(rms, 1, 1e-9, "Full-scale alternating samples should have RMS 1.");
+
+assert(
+  DEFAULT_GAME_SYNC_OFFSET_MS === 90,
+  "Default practice Sync should start at +90 ms.",
+);
+assert(
+  normalizeGameSyncOffsetMs(96) === 100,
+  "Sync offset should snap to 10 ms steps.",
+);
+assert(
+  normalizeGameSyncOffsetMs(500) === 200,
+  "Sync offset should clamp to +200 ms.",
+);
+assert(
+  normalizeGameSyncOffsetMs(-500) === -200,
+  "Sync offset should clamp to -200 ms.",
+);
+assert(
+  formatGameSyncOffsetMs(90) === "+90 ms",
+  "Sync offset formatter should include a plus sign for positive values.",
+);
+assertClose(
+  applyGameSyncOffsetSeconds(1.5, 90),
+  1.41,
+  1e-9,
+  "Positive Sync should compare against an earlier score time.",
+);
+assertClose(
+  applyGameSyncOffsetSeconds(1.5, -40),
+  1.54,
+  1e-9,
+  "Negative Sync should compare against a later score time.",
+);
+assertClose(
+  applyGameSyncOffsetSeconds(0.03, 90),
+  0,
+  1e-9,
+  "Sync-adjusted score time should not go below zero.",
+);
+
+const preferenceStorage = installLocalStorageMock();
+
+assert(
+  loadGameSyncOffsetMsFromLocalStorage() === DEFAULT_GAME_SYNC_OFFSET_MS,
+  "Missing Sync preference should load the default value.",
+);
+assert(
+  saveGameSyncOffsetMsToLocalStorage(96) === 100 &&
+    loadGameSyncOffsetMsFromLocalStorage() === 100,
+  "Sync preference should save and load a normalized value.",
+);
+
+preferenceStorage.set("regression-code:game-sync-offset-ms", "999");
+
+assert(
+  loadGameSyncOffsetMsFromLocalStorage() === 200,
+  "Out-of-range stored Sync preference should be clamped on load.",
+);
+
+preferenceStorage.set("regression-code:game-sync-offset-ms", "not-a-number");
+
+assert(
+  loadGameSyncOffsetMsFromLocalStorage() === DEFAULT_GAME_SYNC_OFFSET_MS,
+  "Invalid stored Sync preference should fall back to the default value.",
+);
 
 const layout: CanvasScoreLayout = {
   rows: [
