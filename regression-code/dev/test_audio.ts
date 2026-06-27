@@ -1099,9 +1099,54 @@ assert(
 );
 assert(
   overlapScaleAutomations.every((automation) =>
+    automation.startValue === 1 && automation.endValue === 1,
+  ),
+  "Different-pitch simultaneous events should keep full gain.",
+);
+
+const duplicatePitchOptionalNoteEvent: NoteEvent = {
+  ...overlapOptionalNoteEvent,
+  eventId: "optional:note:s1-note-60:8",
+  sourceCells: [{ rowId: "s1-note-60", col: 8 }],
+  sound: {
+    midi: 60,
+    centOffset: 0,
+  },
+};
+const duplicatePitchSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 4, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [overlapNoteEvent],
+      },
+      {
+        trackId: "optional",
+        events: [duplicatePitchOptionalNoteEvent],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic", "optional"],
+});
+const duplicatePitchScaleAutomations = duplicatePitchSchedule.events.flatMap((event) =>
+  event.automation.filter((automation) => automation.kind === "gainScale"),
+);
+
+assert(duplicatePitchSchedule.events.length === 2, "Duplicate-pitch schedule should include both active track notes.");
+assert(
+  duplicatePitchScaleAutomations.length === 2,
+  "Each duplicate-pitch event should receive gainScale automation.",
+);
+assert(
+  duplicatePitchScaleAutomations.every((automation) =>
     automation.startValue === 0.5 && automation.endValue === 0.5,
   ),
-  "Two simultaneous events should each scale to half gain.",
+  "Same-pitch simultaneous events should each scale to half gain.",
 );
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
