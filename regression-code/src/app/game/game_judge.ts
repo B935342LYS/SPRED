@@ -23,6 +23,7 @@ import {
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
+const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
 const DEFAULT_TRACK_DIFFICULTY: Record<TrackId, number> = {
   basic: 1,
   optional: 1.2,
@@ -88,7 +89,7 @@ export function collectGameJudgeTargetsAtSeconds(
       const startSeconds = mapper.tickToSeconds(event.time.startTick);
       const endSeconds = mapper.tickToSeconds(event.time.endTick);
 
-      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds) {
+      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS) {
         continue;
       }
 
