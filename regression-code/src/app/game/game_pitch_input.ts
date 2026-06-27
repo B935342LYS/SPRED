@@ -11,7 +11,7 @@ import {
   frequencyToMidiPitch,
 } from "./game_pitch_math";
 
-const PITCH_ANALYZER_FFT_SIZE = 2048;
+const PITCH_ANALYZER_FFT_SIZE = 4096;
 const MIN_CLARITY = 0.75;
 const MIN_RMS = 0.01;
 
@@ -58,6 +58,7 @@ export function createGamePitchInputRuntime(
 
     analyser.getFloatTimeDomainData(samples);
 
+    const capturedAtMs = performance.now();
     const rms = calculateRms(samples);
     const [frequencyHz, clarity] = detector.findPitch(samples, audioContext.sampleRate);
     const range = createFrequencyRangeFromLayout(getLayout());
@@ -77,7 +78,7 @@ export function createGamePitchInputRuntime(
 
     // Pitchy가 반환한 clarity와 앱의 RMS/range 필터를 조합해 판정 가능한 frame만 voiced로 표시한다.
     onFrame({
-      capturedAtMs: performance.now(),
+      capturedAtMs,
       rawFrequencyHz: Number.isFinite(frequencyHz) && frequencyHz > 0 ? frequencyHz : null,
       frequencyHz: isVoiced ? frequencyHz : null,
       midi: isVoiced ? midiPitch.midi : null,
@@ -122,7 +123,7 @@ function resolvePitchRejectReason(input: {
   isFrequencyInRange: boolean;
 }): GamePitchFrame["rejectReason"] {
   if (input.midiPitch === null) {
-    return "invalid frequency";
+    return input.rms >= MIN_RMS ? "unclear pitch" : "invalid frequency";
   }
 
   if (input.clarity < MIN_CLARITY) {

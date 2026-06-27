@@ -1104,6 +1104,58 @@ assert(
   "Different-pitch simultaneous events should keep full gain.",
 );
 
+const overlapExtraNoteEvent: NoteEvent = {
+  ...overlapNoteEvent,
+  eventId: "extra:note:s1-note-67:8",
+  trackId: "extra",
+  sourceCells: [{ rowId: "s1-note-67", col: 8 }],
+  sound: {
+    midi: 67,
+    centOffset: 0,
+  },
+};
+const threePitchChordSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 4, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [overlapNoteEvent],
+      },
+      {
+        trackId: "optional",
+        events: [overlapOptionalNoteEvent],
+      },
+      {
+        trackId: "extra",
+        events: [overlapExtraNoteEvent],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic", "optional", "extra"],
+});
+const threePitchChordScaleAutomations = threePitchChordSchedule.events.flatMap((event) =>
+  event.automation.filter((automation) => automation.kind === "gainScale"),
+);
+const threePitchChordGainScale = Math.sqrt(2 / 3);
+
+assert(threePitchChordSchedule.events.length === 3, "Three-pitch chord schedule should include all active notes.");
+assert(
+  threePitchChordScaleAutomations.length === 3,
+  "Each event in a three-pitch chord should receive gainScale automation.",
+);
+assert(
+  threePitchChordScaleAutomations.every((automation) =>
+    Math.abs(automation.startValue - threePitchChordGainScale) <= 1e-9 &&
+    Math.abs(automation.endValue - threePitchChordGainScale) <= 1e-9
+  ),
+  "Three different pitches should use power-based chord gain instead of full gain.",
+);
+
 const duplicatePitchOptionalNoteEvent: NoteEvent = {
   ...overlapOptionalNoteEvent,
   eventId: "optional:note:s1-note-60:8",
@@ -1147,6 +1199,66 @@ assert(
     automation.startValue === 0.5 && automation.endValue === 0.5,
   ),
   "Same-pitch simultaneous events should each scale to half gain.",
+);
+
+const duplicatePlusChordSchedule = buildAudioSchedule({
+  analysis: {
+    timingTimeline: [
+      createConstantSegment(0, 4, 120, 4),
+    ],
+    dynamicsTimeline: [],
+    trackResults: [
+      {
+        trackId: "basic",
+        events: [overlapNoteEvent],
+      },
+      {
+        trackId: "optional",
+        events: [duplicatePitchOptionalNoteEvent, overlapOptionalNoteEvent],
+      },
+      {
+        trackId: "extra",
+        events: [overlapExtraNoteEvent],
+      },
+    ],
+    analysisIssues: [],
+  },
+  activeTrackIds: ["basic", "optional", "extra"],
+});
+const duplicatePlusChordBasicScale = duplicatePlusChordSchedule.events
+  .find((event) => event.eventId === overlapNoteEvent.eventId)
+  ?.automation.find((automation) => automation.kind === "gainScale");
+const duplicatePlusChordOptionalDuplicateScale = duplicatePlusChordSchedule.events
+  .find((event) => event.eventId === duplicatePitchOptionalNoteEvent.eventId)
+  ?.automation.find((automation) => automation.kind === "gainScale");
+const duplicatePlusChordOptionalDifferentScale = duplicatePlusChordSchedule.events
+  .find((event) => event.eventId === overlapOptionalNoteEvent.eventId)
+  ?.automation.find((automation) => automation.kind === "gainScale");
+
+assert(
+  duplicatePlusChordSchedule.events.length === 4,
+  "Duplicate plus chord schedule should include duplicate pitch and different pitches.",
+);
+assert(
+  duplicatePlusChordBasicScale?.kind === "gainScale" &&
+    duplicatePlusChordOptionalDuplicateScale?.kind === "gainScale" &&
+    duplicatePlusChordOptionalDifferentScale?.kind === "gainScale",
+  "Duplicate plus chord schedule should add gainScale to overlapping notes.",
+);
+assertNear(
+  duplicatePlusChordBasicScale?.startValue ?? -1,
+  threePitchChordGainScale / 2,
+  "Duplicate C note should combine same-pitch and three-group chord gain.",
+);
+assertNear(
+  duplicatePlusChordOptionalDuplicateScale?.startValue ?? -1,
+  threePitchChordGainScale / 2,
+  "Second duplicate C note should combine same-pitch and three-group chord gain.",
+);
+assertNear(
+  duplicatePlusChordOptionalDifferentScale?.startValue ?? -1,
+  threePitchChordGainScale,
+  "Different pitch in duplicate plus chord should receive only chord gain.",
 );
 
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
