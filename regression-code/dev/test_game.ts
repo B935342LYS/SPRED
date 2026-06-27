@@ -22,11 +22,8 @@ import {
 } from "../src/infra/game_preferences";
 import {
   calculateRms,
-  createGamePitchCorrectionState,
   createFrequencyRangeFromLayout,
   frequencyToMidiPitch,
-  resolveClosestPitchClassCandidateMidi,
-  resolvePitchClassCandidateMidiWithHysteresis,
 } from "../src/app/game/game_pitch_math";
 
 /**
@@ -240,168 +237,6 @@ const range = createFrequencyRangeFromLayout(layout);
 assert(range.minFrequencyHz < 261.63, "Frequency range should allow one octave below the lowest note row.");
 assert(range.maxFrequencyHz > 523.25, "Frequency range should allow one octave above the highest note row.");
 
-const foldedC5ToC4 = resolveClosestPitchClassCandidateMidi(72, 0, [
-  { midi: 60, centOffset: 0 },
-]);
-
-assertClose(foldedC5ToC4, 60, 1e-9, "Pitch class candidate should fold C5 input near a C4 target.");
-
-const foldedC5SharpToC4 = resolveClosestPitchClassCandidateMidi(72, 40, [
-  { midi: 60, centOffset: 0 },
-  { midi: 62, centOffset: 0 },
-]);
-
-assertClose(
-  foldedC5SharpToC4,
-  60.4,
-  1e-9,
-  "Pitch class candidate should choose the nearest active target pitch class.",
-);
-
-const unrelatedD5AgainstC4 = resolveClosestPitchClassCandidateMidi(74, 0, [
-  { midi: 60, centOffset: 0 },
-]);
-
-assertClose(
-  unrelatedD5AgainstC4,
-  74,
-  1e-9,
-  "Pitch class candidate should not fold unrelated detected notes to the active target.",
-);
-
-const semitoneBoundaryAgainstC4 = resolveClosestPitchClassCandidateMidi(61, 0, [
-  { midi: 60, centOffset: 0 },
-]);
-
-assertClose(
-  semitoneBoundaryAgainstC4,
-  61,
-  1e-9,
-  "Pitch class candidate should not fold a semitone jump as an octave match.",
-);
-
-const correctionState = createGamePitchCorrectionState();
-const hysteresisFoldedC5ToC4 = resolvePitchClassCandidateMidiWithHysteresis(
-  72,
-  0,
-  [{ midi: 60, centOffset: 0 }],
-  1000,
-  correctionState,
-);
-
-assertClose(
-  hysteresisFoldedC5ToC4,
-  60,
-  1e-9,
-  "Pitch hysteresis should fold an octave-related input to the active target octave.",
-);
-
-const hysteresisGraceFold = resolvePitchClassCandidateMidiWithHysteresis(
-  84,
-  0,
-  [],
-  1100,
-  correctionState,
-);
-
-assertClose(
-  hysteresisGraceFold,
-  60,
-  1e-9,
-  "Pitch hysteresis should keep the previous target octave during a short target gap.",
-);
-
-const hysteresisUnrelatedInput = resolvePitchClassCandidateMidiWithHysteresis(
-  74,
-  0,
-  [],
-  1120,
-  correctionState,
-);
-
-assertClose(
-  hysteresisUnrelatedInput,
-  74,
-  1e-9,
-  "Pitch hysteresis should let an unrelated pitch jump pass through without time-based hold.",
-);
-
-const hysteresisExpiredGap = resolvePitchClassCandidateMidiWithHysteresis(
-  84,
-  0,
-  [],
-  1600,
-  correctionState,
-);
-
-assertClose(
-  hysteresisExpiredGap,
-  84,
-  1e-9,
-  "Pitch hysteresis should release the target lock after the grace period.",
-);
-
-const e4GlitchCorrectionState = createGamePitchCorrectionState();
-const stableE4 = resolvePitchClassCandidateMidiWithHysteresis(
-  64,
-  0,
-  [{ midi: 64, centOffset: 0 }],
-  2000,
-  e4GlitchCorrectionState,
-);
-
-assertClose(
-  stableE4,
-  64,
-  1e-9,
-  "Pitch hysteresis should lock a stable E4 target.",
-);
-
-const e4ToB5ThirdHarmonic = resolvePitchClassCandidateMidiWithHysteresis(
-  83,
-  0,
-  [{ midi: 64, centOffset: 0 }],
-  2300,
-  e4GlitchCorrectionState,
-);
-
-assertClose(
-  e4ToB5ThirdHarmonic,
-  64,
-  0.05,
-  "Pitch harmonic correction should fold a detected B5 third harmonic near an E4 target.",
-);
-
-const e4ToCSharp6UnmatchedHigh = resolvePitchClassCandidateMidiWithHysteresis(
-  85,
-  0,
-  [{ midi: 64, centOffset: 0 }],
-  2450,
-  e4GlitchCorrectionState,
-);
-
-assertClose(
-  e4ToCSharp6UnmatchedHigh,
-  85,
-  1e-9,
-  "Pitch harmonic correction should not delay a high pitch that does not match a target harmonic.",
-);
-
-const fastHighTarget = resolvePitchClassCandidateMidiWithHysteresis(
-  85,
-  0,
-  [{ midi: 85, centOffset: 0 }],
-  2460,
-  e4GlitchCorrectionState,
-);
-
-assertClose(
-  fastHighTarget,
-  85,
-  1e-9,
-  "Pitch harmonic correction should follow a real fast high target without time-based hold.",
-);
-
 const emptySummary = createEmptyGameScoreSummary();
 
 assert(
@@ -582,7 +417,6 @@ for (const octaveOffset of [-24, -12, 0, 12, 24]) {
   );
 }
 
-const firstFrameWrongOctaveCorrectionState = createGamePitchCorrectionState();
 const firstFrameWrongOctaveSample = judgeGameScoringSample(
   {
     capturedAtMs: 1000,
@@ -605,41 +439,12 @@ const firstFrameWrongOctaveSample = judgeGameScoringSample(
   }],
   0.1,
   difficulty,
-  { state: firstFrameWrongOctaveCorrectionState },
 );
 
 assert(
   firstFrameWrongOctaveSample?.label === "Perfect",
-  "First corrected scoring frame should accept a two-octave C input for a C target.",
+  "Pitch-class scoring should accept a two-octave C input for a C target without changing the raw pitch.",
 );
-
-const scoringCorrectionState = createGamePitchCorrectionState();
-const correctedLockSample = judgeGameScoringSample(
-  {
-    capturedAtMs: 1000,
-    rawFrequencyHz: 523.25,
-    frequencyHz: 523.25,
-    midi: 72,
-    centOffset: 0,
-    clarity: 1,
-    rms: 0.1,
-    isVoiced: true,
-    rejectReason: null,
-  },
-  [{
-    eventId: "basic-c4",
-    trackId: "basic",
-    startSeconds: 0,
-    endSeconds: 1,
-    targetMidi: 60,
-    targetCentOffset: 0,
-  }],
-  0.1,
-  difficulty,
-  { state: scoringCorrectionState },
-);
-
-assert(correctedLockSample?.label === "Perfect", "Scoring correction should first lock to a same-class target.");
 
 const rawJumpSample = judgeGameScoringSample(
   {
@@ -712,7 +517,7 @@ assert(
   "Late release should become a Miss after the previous note grace window expires.",
 );
 
-const correctedShortJumpSample = judgeGameScoringSample(
+const rawShortJumpSample = judgeGameScoringSample(
   {
     capturedAtMs: 1100,
     rawFrequencyHz: 587.33,
@@ -734,16 +539,14 @@ const correctedShortJumpSample = judgeGameScoringSample(
   }],
   0.2,
   difficulty,
-  { state: scoringCorrectionState },
 );
 
 assert(
-  correctedShortJumpSample?.label === "Miss",
-  "Scoring correction should let an unrelated detector jump pass through without time-based hold.",
+  rawShortJumpSample?.label === "Miss",
+  "Raw scoring should keep an unrelated detector jump as Miss without time-based hold.",
 );
 
-const harmonicCorrectionState = createGamePitchCorrectionState();
-const harmonicCorrectedSample = judgeGameScoringSample(
+const harmonicRawSample = judgeGameScoringSample(
   {
     capturedAtMs: 1200,
     rawFrequencyHz: 987.77,
@@ -765,15 +568,14 @@ const harmonicCorrectedSample = judgeGameScoringSample(
   }],
   0.3,
   difficulty,
-  { state: harmonicCorrectionState },
 );
 
 assert(
-  harmonicCorrectedSample?.label === "Perfect",
-  "Scoring correction should fold a detected third harmonic near the active target.",
+  harmonicRawSample?.label === "Miss",
+  "Raw scoring should not fold a detected third harmonic near the active target.",
 );
 
-const correctedExpiredJumpSample = judgeGameScoringSample(
+const rawExpiredJumpSample = judgeGameScoringSample(
   {
     capturedAtMs: 1600,
     rawFrequencyHz: 587.33,
@@ -795,12 +597,11 @@ const correctedExpiredJumpSample = judgeGameScoringSample(
   }],
   0.7,
   difficulty,
-  { state: scoringCorrectionState },
 );
 
 assert(
-  correctedExpiredJumpSample?.label === "Miss",
-  "Scoring correction should release an unrelated pitch after the hysteresis grace period.",
+  rawExpiredJumpSample?.label === "Miss",
+  "Raw scoring should keep an unrelated pitch as Miss without hysteresis grace.",
 );
 
 const missSample = judgeGameScoringSample(
