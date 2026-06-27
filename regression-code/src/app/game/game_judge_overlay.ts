@@ -11,8 +11,10 @@ import type { GameScoringSampleResult } from "./game_types";
 
 const JUDGE_OVERLAY_DURATION_MS = 500;
 const JUDGE_OVERLAY_X_OFFSET = 34;
-const JUDGE_OVERLAY_COMBO_HEIGHT = 38;
-const JUDGE_OVERLAY_LABEL_HEIGHT = 26;
+const JUDGE_OVERLAY_Y_OFFSET = 6;
+const JUDGE_OVERLAY_COMBO_LINE_HEIGHT = 18;
+const JUDGE_OVERLAY_LABEL_LINE_HEIGHT = 26;
+const JUDGE_OVERLAY_TIMING_LINE_HEIGHT = 14;
 const JUDGE_OVERLAY_MIN_Y = 4;
 
 let hideJudgeOverlayTimer: number | null = null;
@@ -46,11 +48,14 @@ export function showGameJudgeOverlay(
 
   const label = document.createElement("div");
   const showCombo = sample.label === "Perfect" || sample.label === "Ok";
-  const labelHeight = showCombo ? JUDGE_OVERLAY_COMBO_HEIGHT : JUDGE_OVERLAY_LABEL_HEIGHT;
+  const showTiming = sample.timing.kind === "early" || sample.timing.kind === "late";
+  const labelHeight = JUDGE_OVERLAY_LABEL_LINE_HEIGHT +
+    (showCombo ? JUDGE_OVERLAY_COMBO_LINE_HEIGHT : 0) +
+    (showTiming ? JUDGE_OVERLAY_TIMING_LINE_HEIGHT : 0);
 
   label.className = `game-judge-text game-judge-text-${sample.label.toLowerCase()}`;
   label.style.left = `${dom.scoreArea.scrollLeft + JUDGE_OVERLAY_X_OFFSET}px`;
-  label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - labelHeight)}px`;
+  label.style.top = `${Math.max(JUDGE_OVERLAY_MIN_Y, targetY - labelHeight - JUDGE_OVERLAY_Y_OFFSET)}px`;
 
   if (showCombo) {
     const comboLine = document.createElement("div");
@@ -65,6 +70,15 @@ export function showGameJudgeOverlay(
   resultLine.className = "game-judge-label";
   resultLine.textContent = sample.label;
   label.append(resultLine);
+
+  if (showTiming) {
+    const timingLine = document.createElement("div");
+
+    timingLine.className = `game-judge-timing game-judge-timing-${sample.timing.kind}`;
+    timingLine.textContent = sample.timing.kind;
+    label.append(timingLine);
+  }
+
   dom.gameJudgeOverlay.append(label);
   scheduleJudgeOverlayHide(dom);
 }

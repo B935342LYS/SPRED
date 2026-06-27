@@ -1,5 +1,6 @@
 import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
 import type { AnalysisResult, NoteEvent } from "../src/core/analyze/types";
+import type { GameTimingOnsetCandidate } from "../src/app/game/game_types";
 import { createTickTimeMapper, numberToTimeFraction } from "../src/audio/tick_time_mapper";
 import {
   applyGameSyncOffsetSeconds,
@@ -445,6 +446,87 @@ assert(
   firstFrameWrongOctaveSample?.label === "Perfect",
   "Pitch-class scoring should accept a two-octave C input for a C target without changing the raw pitch.",
 );
+
+const timingTarget = [{
+  eventId: "basic-c4",
+  trackId: "basic" as const,
+  startSeconds: 1,
+  endSeconds: 2,
+  targetMidi: 60,
+  targetCentOffset: 0,
+}];
+const createTimingOnset = (id: number, scoreSeconds: number): GameTimingOnsetCandidate => ({
+  id,
+  scoreSeconds,
+  midi: 60,
+  centOffset: 0,
+});
+const createPerfectTimingFrame = (capturedAtMs: number) => ({
+  capturedAtMs,
+  rawFrequencyHz: 261.63,
+  frequencyHz: 261.63,
+  midi: 60,
+  centOffset: 0,
+  clarity: 1,
+  rms: 0.1,
+  isVoiced: true,
+  rejectReason: null,
+});
+const onTimeSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1010),
+  timingTarget,
+  1.01,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(1, 1.03)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+  },
+);
+const earlySample = judgeGameScoringSample(
+  createPerfectTimingFrame(1020),
+  timingTarget,
+  1.02,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(2, 0.88)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+  },
+);
+const lateSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1030),
+  timingTarget,
+  1.13,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(3, 1.13)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+  },
+);
+const timingMissSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1040),
+  timingTarget,
+  1.3,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(4, 1.3)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+  },
+);
+
+assert(onTimeSample?.label === "Perfect", "On-time pitch should keep the pitch judge label.");
+assert(onTimeSample?.timing.kind === "none", "Timing under 80 ms should not show early or late text.");
+assert(onTimeSample?.timingOnsetId === 1, "On-time timing should consume the matched onset.");
+assert(earlySample?.label === "Perfect", "Early timing under 250 ms should keep the pitch judge label.");
+assert(earlySample?.timing.kind === "early", "Timing before the target should show early.");
+assert(lateSample?.label === "Perfect", "Late timing under 250 ms should keep the pitch judge label.");
+assert(lateSample?.timing.kind === "late", "Timing after the target should show late.");
+assert(timingMissSample?.label === "Miss", "Timing 250 ms or more away should downgrade the final label to Miss.");
+assertClose(timingMissSample?.pitchAccuracy ?? -1, 0, 1e-9, "Timing Miss should force 0% accuracy.");
+assertClose(timingMissSample?.scoreContribution ?? -1, 0, 1e-9, "Timing Miss should force zero score.");
 
 const rawJumpSample = judgeGameScoringSample(
   {
