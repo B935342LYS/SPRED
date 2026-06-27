@@ -183,6 +183,17 @@ const glissHoldStartPresetResult = composeEditRawText({
   }),
 });
 
+const glissHoldStartUnresolvedAutoPitchResult = composeEditRawText({
+  kind: "default",
+  input: createDefaultInput({
+    gliss: {
+      kind: "holdStart",
+      id: "d",
+    },
+    absolutePitch: AUTO_HARMONIC_2OCTAVE_ABSOLUTE_PITCH,
+  }),
+});
+
 const deleteResult = composeEditRawText({
   kind: "default",
   input: createDefaultInput(),
@@ -264,8 +275,12 @@ assert(
 );
 assert(
   glissHoldStartPresetResult.kind === "apply" &&
-    glissHoldStartPresetResult.rawText === "-@g(c,S)",
-  "Gliss hold-start preset should ignore Default/Long values and compose -@g(id,S).",
+    glissHoldStartPresetResult.rawText === "-@g(c,S)@p(60)@m(12.5)",
+  "Gliss hold-start preset should ignore Default/Long/Trem values and keep pitch modifiers.",
+);
+assert(
+  glissHoldStartUnresolvedAutoPitchResult.kind === "blocked",
+  "Gliss hold-start preset should still block unresolved automatic pitch modifiers.",
 );
 assert(deleteResult.kind === "delete", "Empty CUSTOM input without modifiers should delete.");
 assert(blockedResult.kind === "blocked", "Vibrato hold and tremolo should be blocked.");
