@@ -572,7 +572,7 @@ const harmonicRawSample = judgeGameScoringSample(
 
 assert(
   harmonicRawSample?.label === "Miss",
-  "Raw scoring should not fold a detected third harmonic near the active target.",
+  "Raw scoring should treat an overtone-like high pitch as Miss without target-based adjustment.",
 );
 
 const rawExpiredJumpSample = judgeGameScoringSample(
@@ -601,7 +601,7 @@ const rawExpiredJumpSample = judgeGameScoringSample(
 
 assert(
   rawExpiredJumpSample?.label === "Miss",
-  "Raw scoring should keep an unrelated pitch as Miss without hysteresis grace.",
+  "Raw scoring should keep an unrelated pitch as Miss without retained pitch state.",
 );
 
 const missSample = judgeGameScoringSample(
@@ -688,5 +688,11 @@ assert(summaryAfterPerfect.perfectCount === 1, "Perfect sample should increment 
 assert(summaryAfterPerfect.bestCombo === 1, "Perfect sample should increment combo.");
 assert(summaryAfterMiss.missCount === 1, "Miss sample should increment Miss count.");
 assert(summaryAfterMiss.currentCombo === 0, "Miss sample should reset current combo.");
+assertClose(
+  summaryAfterMiss.accuracyPercent,
+  50,
+  1e-9,
+  "Miss sample should count as 0% in the total average accuracy.",
+);
 
 console.log("Game mode pitch math test completed.");

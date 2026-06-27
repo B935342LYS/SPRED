@@ -232,14 +232,12 @@ export function applyGameScoringSample(
   const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
     ? summary.currentCombo + 1
     : 0;
-  const hitSampleCount = perfectCount + okCount + badCount;
+  const scoredSampleCount = perfectCount + okCount + badCount + missCount;
   const previousAccuracySum = getAccuracySum(summary);
-  const nextAccuracySum = sample.label === "Miss"
-    ? previousAccuracySum
-    : previousAccuracySum + sample.pitchAccuracy;
+  const nextAccuracySum = previousAccuracySum + sample.pitchAccuracy;
 
   return {
-    accuracyPercent: hitSampleCount === 0 ? 0 : (nextAccuracySum / hitSampleCount) * 100,
+    accuracyPercent: scoredSampleCount === 0 ? 0 : (nextAccuracySum / scoredSampleCount) * 100,
     perfectCount,
     okCount,
     badCount,
@@ -313,16 +311,19 @@ function getPitchAccuracy(label: GameScoringSampleResult["label"]): number {
 }
 
 /**
- * summary에 누적된 hit sample accuracy 합계를 복원한다.
+ * summary에 누적된 scoring sample accuracy 합계를 복원한다.
  * - 인수 : summary : 현재 점수 집계
- * - 반환값 : hit sample accuracy 합계
+ * - 반환값 : Miss를 0% 샘플로 포함한 accuracy 합계
  */
 function getAccuracySum(summary: GameScoreSummary): number {
-  const hitSampleCount = summary.perfectCount + summary.okCount + summary.badCount;
+  const scoredSampleCount = summary.perfectCount +
+    summary.okCount +
+    summary.badCount +
+    summary.missCount;
 
-  return hitSampleCount === 0
+  return scoredSampleCount === 0
     ? 0
-    : (summary.accuracyPercent / 100) * hitSampleCount;
+    : (summary.accuracyPercent / 100) * scoredSampleCount;
 }
 
 /**
