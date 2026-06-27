@@ -189,6 +189,9 @@ export function bindPlaybackControls(
           kind: "countdown",
           count,
           summary,
+          pitchFrame: currentState.gameMode.kind === "ready" || currentState.gameMode.kind === "countdown"
+            ? currentState.gameMode.pitchFrame
+            : null,
         },
         statusMessage: {
           level: "info",
@@ -212,6 +215,7 @@ export function bindPlaybackControls(
       gameMode: {
         kind: "playing",
         summary,
+        pitchFrame: currentState.gameMode.pitchFrame,
       },
       statusMessage: {
         level: "info",
@@ -374,6 +378,7 @@ export function bindPlaybackControls(
             gameMode: {
               kind: "paused",
               summary: state.gameMode.summary,
+              pitchFrame: state.gameMode.pitchFrame,
             },
             statusMessage: {
               level: "info",
@@ -419,6 +424,7 @@ export function bindPlaybackControls(
           gameMode: {
             kind: "playing",
             summary: state.gameMode.summary,
+            pitchFrame: state.gameMode.pitchFrame,
           },
         });
       }
@@ -507,6 +513,7 @@ export function bindPlaybackControls(
         gameMode: {
           kind: "ready",
           summary: createEmptyGameScoreSummary(),
+          pitchFrame: null,
         },
         statusMessage: {
           level: "info",

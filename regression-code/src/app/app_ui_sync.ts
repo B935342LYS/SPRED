@@ -20,7 +20,11 @@ import type {
   UiStatusMessage,
 } from "./app_types";
 import { composeEditRawText } from "./edit/edit_core";
-import { isGameModeLocked } from "./game/game_types";
+import { syncGamePitchOverlay } from "./game/game_pitch_overlay";
+import {
+  isGameModeLocked,
+  isGameModeTrackChangeLocked,
+} from "./game/game_types";
 import { syncGameModeUi } from "./game/game_ui";
 import { resolveAutoPitchInputs } from "./pitch_label";
 import { isTrackId } from "../track/track_control";
@@ -322,6 +326,7 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.detailsButton.disabled = isBusy || isGameLocked;
   dom.seekInput.disabled = isBusy || isGameLocked;
   syncGameModeUi(dom, state);
+  syncGamePitchOverlay(dom, state);
   syncTrackToggleButtons(dom, state);
   syncViewOptionControls(dom, state);
   syncCurrentRawTextPreview(dom, state);
@@ -457,7 +462,7 @@ export function syncTrackToggleButtons(
   const activeSet = new Set(state.activeTrackIds);
   const isDisabled = state.busy.kind !== "idle" ||
     disabledByPlayback ||
-    isGameModeLocked(state.gameMode);
+    isGameModeTrackChangeLocked(state.gameMode);
 
   // 고정 track 버튼을 순회하며 app runtime의 activeTrackIds를 aria/class 상태에 반영한다.
   for (const button of dom.trackToggleButtons) {
@@ -636,6 +641,7 @@ export function renderApp(dom: AppDom, state: AppState): AppState {
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }
 
@@ -698,6 +704,7 @@ export function renderAppPartial(
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }
 
@@ -728,5 +735,6 @@ export function renderDynamicViewportLayers(dom: AppDom, state: AppState): AppSt
 
   syncRangeSelectionOverlay(dom, nextState);
   syncPastePreviewOverlay(dom, nextState);
+  syncGamePitchOverlay(dom, nextState);
   return nextState;
 }

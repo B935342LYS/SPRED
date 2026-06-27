@@ -14,15 +14,26 @@ export type GameScoreSummary = {
   score: number;
 };
 
+/** 마이크 입력에서 추정한 단일 pitch frame. */
+export type GamePitchFrame = {
+  capturedAtMs: number;
+  frequencyHz: number | null;
+  midi: number | null;
+  centOffset: number | null;
+  clarity: number;
+  rms: number;
+  isVoiced: boolean;
+};
+
 /** score JSON에 저장하지 않는 게임 모드 세션 상태. */
 export type GameModeState =
   | { kind: "off" }
   | { kind: "preparing"; message: string }
-  | { kind: "countdown"; count: number; summary: GameScoreSummary }
-  | { kind: "ready"; summary: GameScoreSummary }
-  | { kind: "playing"; summary: GameScoreSummary }
-  | { kind: "paused"; summary: GameScoreSummary }
-  | { kind: "finished"; summary: GameScoreSummary }
+  | { kind: "countdown"; count: number; summary: GameScoreSummary; pitchFrame: GamePitchFrame | null }
+  | { kind: "ready"; summary: GameScoreSummary; pitchFrame: GamePitchFrame | null }
+  | { kind: "playing"; summary: GameScoreSummary; pitchFrame: GamePitchFrame | null }
+  | { kind: "paused"; summary: GameScoreSummary; pitchFrame: GamePitchFrame | null }
+  | { kind: "finished"; summary: GameScoreSummary; pitchFrame: GamePitchFrame | null }
   | { kind: "error"; message: string };
 
 /** 새 게임 모드 세션에서 사용할 빈 점수 집계를 만든다. */
@@ -57,6 +68,19 @@ export function isGameModeLocked(state: GameModeState): boolean {
   return state.kind === "preparing" ||
     state.kind === "countdown" ||
     state.kind === "ready" ||
+    state.kind === "playing" ||
+    state.kind === "paused" ||
+    state.kind === "finished";
+}
+
+/**
+ * 게임 모드가 active track 변경을 막아야 하는 상태인지 확인한다.
+ * - 인수 : state : 현재 게임 모드 상태
+ * - 반환값 : practice ready/off/error 외 상태이면 true
+ */
+export function isGameModeTrackChangeLocked(state: GameModeState): boolean {
+  return state.kind === "preparing" ||
+    state.kind === "countdown" ||
     state.kind === "playing" ||
     state.kind === "paused" ||
     state.kind === "finished";

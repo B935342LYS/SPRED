@@ -7,7 +7,9 @@ import type {
   AppState,
 } from "../app_types";
 import { syncLeftStatus, syncUiControls } from "../app_ui_sync";
-import { createEmptyGameScoreSummary } from "./game_types";
+import { syncGamePitchOverlay } from "./game_pitch_overlay";
+import { createGamePitchInputRuntime, type GamePitchInputRuntime } from "./game_pitch_input";
+import { createEmptyGameScoreSummary, type GamePitchFrame } from "./game_types";
 
 /** 게임 모드 binding이 app 상태를 읽고 갱신하기 위한 session 입력. */
 export type GameBindingSession = {
@@ -52,12 +54,38 @@ export function bindGameModeControls(
   session: GameBindingSession,
 ): void {
   let microphoneStream: MediaStream | null = null;
+  let pitchInputRuntime: GamePitchInputRuntime | null = null;
   let requestId = 0;
+
+  const updatePitchFrame = (frame: GamePitchFrame): void => {
+    const state = session.getState();
+
+    if (
+      state.gameMode.kind !== "ready" &&
+      state.gameMode.kind !== "countdown" &&
+      state.gameMode.kind !== "playing" &&
+      state.gameMode.kind !== "paused" &&
+      state.gameMode.kind !== "finished"
+    ) {
+      return;
+    }
+
+    session.setState({
+      ...state,
+      gameMode: {
+        ...state.gameMode,
+        pitchFrame: frame,
+      },
+    });
+    syncGamePitchOverlay(dom, session.getState());
+  };
 
   const exitPracticeMode = (): void => {
     const state = session.getState();
 
     requestId += 1;
+    pitchInputRuntime?.dispose();
+    pitchInputRuntime = null;
     stopMicrophoneStream(microphoneStream);
     microphoneStream = null;
     session.setState({
@@ -71,6 +99,10 @@ export function bindGameModeControls(
     syncLeftStatus(dom, session.getState());
     syncUiControls(dom, session.getState());
   };
+
+  dom.gameRulesButton.addEventListener("click", () => {
+    dom.practiceRulesDialog.showModal();
+  });
 
   dom.practiceModeButton.addEventListener("click", () => {
     const state = session.getState();
@@ -140,6 +172,12 @@ export function bindGameModeControls(
         }
 
         microphoneStream = stream;
+        pitchInputRuntime?.dispose();
+        pitchInputRuntime = createGamePitchInputRuntime(
+          stream,
+          () => session.getState().layout,
+          updatePitchFrame,
+        );
         const currentState = session.getState();
 
         session.setState({
@@ -147,6 +185,7 @@ export function bindGameModeControls(
           gameMode: {
             kind: "ready",
             summary: createEmptyGameScoreSummary(),
+            pitchFrame: null,
           },
           statusMessage: {
             level: "info",
@@ -166,6 +205,8 @@ export function bindGameModeControls(
           : "Microphone permission was not granted.";
 
         stopMicrophoneStream(microphoneStream);
+        pitchInputRuntime?.dispose();
+        pitchInputRuntime = null;
         microphoneStream = null;
         session.setState({
           ...currentState,

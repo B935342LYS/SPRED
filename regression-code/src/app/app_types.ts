@@ -171,6 +171,7 @@ export type AppDom = {
   scoreViewer: HTMLElement;
   scoreArea: HTMLElement;
   scoreStage: HTMLElement;
+  gamePitchOverlay: HTMLElement;
   selectionOverlay: HTMLElement;
   pastePreviewOverlay: HTMLElement;
   layoutStage: HTMLElement;
@@ -220,6 +221,8 @@ export type AppDom = {
   layoutModifyButton: HTMLButtonElement;
   detailsButton: HTMLButtonElement;
   practiceModeButton: HTMLButtonElement;
+  gameRulesButton: HTMLButtonElement;
+  practiceRulesDialog: HTMLDialogElement;
   gamePanel: HTMLElement;
   gameStatus: HTMLElement;
   gameAccuracy: HTMLElement;
