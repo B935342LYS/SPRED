@@ -17,6 +17,7 @@ export type GamePitchClassTarget = {
 export type GamePitchCorrectionState = {
   lockedTargetCent: number | null;
   lastMatchedAtMs: number | null;
+  lastDisplayMidi: number | null;
 };
 
 /**
@@ -28,6 +29,7 @@ export function createGamePitchCorrectionState(): GamePitchCorrectionState {
   return {
     lockedTargetCent: null,
     lastMatchedAtMs: null,
+    lastDisplayMidi: null,
   };
 }
 
@@ -143,6 +145,7 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
   if (!Number.isFinite(inputCent)) {
     state.lockedTargetCent = null;
     state.lastMatchedAtMs = null;
+    state.lastDisplayMidi = null;
     return midi + centOffset / 100;
   }
 
@@ -150,11 +153,13 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
 
   if (bestTargetCent !== null) {
     const lockedTargetCent = chooseLockedTargetCent(inputCent, bestTargetCent, state);
+    const displayMidi = foldInputCentToTargetOctave(inputCent, lockedTargetCent);
 
     state.lockedTargetCent = lockedTargetCent;
     state.lastMatchedAtMs = capturedAtMs;
+    state.lastDisplayMidi = displayMidi;
 
-    return foldInputCentToTargetOctave(inputCent, lockedTargetCent);
+    return displayMidi;
   }
 
   if (
@@ -166,7 +171,16 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
 
     // target 후보가 한두 frame 비어도 같은 pitch class 입력이면 직전 target 옥타브 기준을 유지한다.
     if (lockedErrorCent < OCTAVE_CANDIDATE_MAX_ERROR_CENT) {
-      return foldInputCentToTargetOctave(inputCent, state.lockedTargetCent);
+      const displayMidi = foldInputCentToTargetOctave(inputCent, state.lockedTargetCent);
+
+      state.lastDisplayMidi = displayMidi;
+
+      return displayMidi;
+    }
+
+    // detector가 한두 frame 다른 계이름으로 튀면 dot을 원 입력으로 보내지 않고 직전 안정 위치에 묶는다.
+    if (state.lastDisplayMidi !== null) {
+      return state.lastDisplayMidi;
     }
   }
 
@@ -176,6 +190,7 @@ export function resolvePitchClassCandidateMidiWithHysteresis(
   ) {
     state.lockedTargetCent = null;
     state.lastMatchedAtMs = null;
+    state.lastDisplayMidi = null;
   }
 
   return midi + centOffset / 100;

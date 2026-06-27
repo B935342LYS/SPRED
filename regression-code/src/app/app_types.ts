@@ -223,6 +223,18 @@ export type AppDom = {
   practiceModeButton: HTMLButtonElement;
   gameRulesButton: HTMLButtonElement;
   practiceRulesDialog: HTMLDialogElement;
+  practiceResultDialog: HTMLDialogElement;
+  resultAccuracy: HTMLElement;
+  resultScore: HTMLElement;
+  resultPerfectCount: HTMLElement;
+  resultOkCount: HTMLElement;
+  resultBadCount: HTMLElement;
+  resultMissCount: HTMLElement;
+  resultBestCombo: HTMLElement;
+  gameMicState: HTMLElement;
+  gameRawFrequency: HTMLElement;
+  gameClarity: HTMLElement;
+  gameRms: HTMLElement;
   gamePanel: HTMLElement;
   gameStatus: HTMLElement;
   gameAccuracy: HTMLElement;

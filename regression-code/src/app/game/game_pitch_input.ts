@@ -68,16 +68,24 @@ export function createGamePitchInputRuntime(
       clarity >= MIN_CLARITY &&
       rms >= MIN_RMS &&
       isFrequencyInRange;
+    const rejectReason = resolvePitchRejectReason({
+      midiPitch,
+      clarity,
+      rms,
+      isFrequencyInRange,
+    });
 
     // Pitchy가 반환한 clarity와 앱의 RMS/range 필터를 조합해 판정 가능한 frame만 voiced로 표시한다.
     onFrame({
       capturedAtMs: performance.now(),
+      rawFrequencyHz: Number.isFinite(frequencyHz) && frequencyHz > 0 ? frequencyHz : null,
       frequencyHz: isVoiced ? frequencyHz : null,
       midi: isVoiced ? midiPitch.midi : null,
       centOffset: isVoiced ? midiPitch.centOffset : null,
       clarity,
       rms,
       isVoiced,
+      rejectReason: isVoiced ? null : rejectReason,
     });
 
     rafId = requestAnimationFrame(analyzeFrame);
@@ -100,4 +108,34 @@ export function createGamePitchInputRuntime(
       void audioContext.close();
     },
   };
+}
+
+/**
+ * pitch frame이 voiced로 채택되지 않은 첫 번째 이유를 고른다.
+ * - 인수 : input : pitch detector 결과와 앱 필터 결과
+ * - 반환값 : voiced 탈락 이유. 탈락하지 않았으면 null
+ */
+function resolvePitchRejectReason(input: {
+  midiPitch: { midi: number; centOffset: number } | null;
+  clarity: number;
+  rms: number;
+  isFrequencyInRange: boolean;
+}): GamePitchFrame["rejectReason"] {
+  if (input.midiPitch === null) {
+    return "invalid frequency";
+  }
+
+  if (input.clarity < MIN_CLARITY) {
+    return "low clarity";
+  }
+
+  if (input.rms < MIN_RMS) {
+    return "low rms";
+  }
+
+  if (!input.isFrequencyInRange) {
+    return "out of range";
+  }
+
+  return null;
 }

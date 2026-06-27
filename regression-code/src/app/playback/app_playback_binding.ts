@@ -17,12 +17,21 @@ import {
   type GameScoreSummary,
 } from "../game/game_types";
 import {
+  applyGameScoringSample,
+  collectGameJudgeTargetsAtSeconds,
+  hasRemainingGameJudgeTarget,
+  judgeGameScoringSample,
+  normalizeGameTrackDifficulty,
+} from "../game/game_judge";
+import { openPracticeResultDialog, syncGameModeUi } from "../game/game_ui";
+import {
   scrollLeftToScoreSeconds,
   scrollToScoreSeconds,
   syncPlaybackStatus,
   syncPlaybackUi,
   syncSeekUi,
 } from "./app_playback_ui";
+import { createTickTimeMapper } from "../../audio/tick_time_mapper";
 import {
   beginPerfSession,
   endPerfSession,
@@ -61,7 +70,92 @@ export function bindPlaybackControls(
   let scrollSeekRafId: number | null = null;
   let suppressScrollSeek = false;
   let lastPlaybackScoreSeconds: number | null = null;
+  let lastGameScoringSeconds: number | null = null;
   let countdownAudioContext: AudioContext | null = null;
+
+  /**
+   * practice mode의 최신 pitch frame을 현재 score time에 맞춰 점수로 누적한다.
+   * - 인수 : scoreSeconds : playback controller가 보고한 현재 score time
+   * - 반환값 : 없음
+   */
+  const updatePracticeScoring = (scoreSeconds: number): void => {
+    const state = session.getState();
+
+    if (state.gameMode.kind !== "playing") {
+      return;
+    }
+
+    if (
+      lastGameScoringSeconds !== null &&
+      scoreSeconds - lastGameScoringSeconds < 0.1
+    ) {
+      return;
+    }
+
+    lastGameScoringSeconds = scoreSeconds;
+
+    try {
+      const mapper = createTickTimeMapper(state.analysis.timingTimeline);
+      const hasRemainingTarget = hasRemainingGameJudgeTarget(
+        state.analysis,
+        state.activeTrackIds,
+        mapper,
+        scoreSeconds,
+      );
+
+      if (!hasRemainingTarget) {
+        const nextState = {
+          ...state,
+          gameMode: {
+            kind: "finished" as const,
+            summary: state.gameMode.summary,
+            pitchFrame: state.gameMode.pitchFrame,
+          },
+          statusMessage: {
+            level: "info" as const,
+            text: "Practice finished.",
+          },
+        };
+
+        session.setState(nextState);
+        syncGameModeUi(dom, nextState);
+        syncLeftStatus(dom, nextState);
+        openPracticeResultDialog(dom, nextState.gameMode.summary);
+        return;
+      }
+
+      const targets = collectGameJudgeTargetsAtSeconds(
+        state.analysis,
+        state.activeTrackIds,
+        mapper,
+        scoreSeconds,
+      );
+      const sample = judgeGameScoringSample(
+        state.gameMode.pitchFrame,
+        targets,
+        scoreSeconds,
+        normalizeGameTrackDifficulty(state.document.score.musicData.scoreDifficulty),
+      );
+
+      if (sample === null) {
+        return;
+      }
+
+      const nextState = {
+        ...state,
+        gameMode: {
+          kind: "playing" as const,
+          summary: applyGameScoringSample(state.gameMode.summary, sample),
+          pitchFrame: state.gameMode.pitchFrame,
+        },
+      };
+
+      session.setState(nextState);
+      syncGameModeUi(dom, nextState);
+    } catch {
+      return;
+    }
+  };
 
   const stopPlaybackAnimation = (): void => {
     if (playbackRafId !== null) {
@@ -69,6 +163,7 @@ export function bindPlaybackControls(
       playbackRafId = null;
     }
     lastPlaybackScoreSeconds = null;
+    lastGameScoringSeconds = null;
   };
 
   const scrollScoreAreaToSeconds = (
@@ -210,6 +305,7 @@ export function bindPlaybackControls(
       return;
     }
 
+    lastGameScoringSeconds = null;
     session.setState({
       ...currentState,
       gameMode: {
@@ -325,6 +421,9 @@ export function bindPlaybackControls(
       }
 
       lastPlaybackScoreSeconds = currentScoreSeconds;
+      measurePerf("playbackRaf.updatePracticeScoring", () =>
+        updatePracticeScoring(currentScoreSeconds)
+      );
 
       // score canvas의 왼쪽 edge를 재생 기준선으로 두고 RAF마다 부드럽게 따라가도록 한다.
       measurePerf("playbackRaf.scrollScoreAreaToSeconds", () =>
@@ -401,6 +500,7 @@ export function bindPlaybackControls(
       }
 
       if (state.gameMode.kind === "ready") {
+        lastGameScoringSeconds = null;
         void startPracticeCountdown(state.gameMode.summary);
         return;
       }
@@ -505,6 +605,7 @@ export function bindPlaybackControls(
     const playbackRuntime = session.getPlaybackRuntime();
 
     stopPlaybackAnimation();
+    lastGameScoringSeconds = null;
     playbackRuntime.controller.stop();
     session.youtubeControl?.stop();
     if (isGameModeLocked(state.gameMode)) {

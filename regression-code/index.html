@@ -107,7 +107,7 @@
                 <div class="player-main">
                     <span class="status-pill playback-status">stopped</span>
                     <button type="button" class="details-button">Details</button>
-                    <button type="button" class="practice-mode-button" aria-pressed="false">practice mode</button>
+                    <button type="button" class="practice-mode-button" aria-pressed="false">practice mode (beta)</button>
                     <div class="music-meta">
                         <span class="artist">unknown</span>
                         <span aria-hidden="true">-</span>
@@ -145,6 +145,12 @@
                         <span class="status-pill game-status">off</span>
                     </div>
                     <p class="game-notice">Pitch judging is a practice aid and may not be exact. Use a microphone and headphones in a quiet place.</p>
+                    <div class="game-diagnostic-line" aria-label="Microphone input diagnostics">
+                        <span>Mic <strong class="game-mic-state">--</strong></span>
+                        <span>Hz <strong class="game-raw-frequency">--</strong></span>
+                        <span>Clarity <strong class="game-clarity">--</strong></span>
+                        <span>RMS <strong class="game-rms">--</strong></span>
+                    </div>
                     <div class="game-score-grid game-count-grid" aria-label="Practice mode judge counts">
                         <span>Perfect <strong class="game-perfect-count">0</strong></span>
                         <span>Ok <strong class="game-ok-count">0</strong></span>
@@ -476,7 +482,7 @@
                         <tr>
                             <td>Ok</td>
                             <td>50-99 cent</td>
-                            <td>80%</td>
+                            <td>60%</td>
                             <td>Added</td>
                         </tr>
                         <tr>
@@ -521,6 +527,25 @@
                     </tbody>
                 </table>
             </section>
+        </form>
+    </dialog>
+
+    <!-- Practice Result Dialog -->
+    <dialog id="practice-result" class="practice-result-dialog">
+        <form method="dialog" class="practice-result-form">
+            <div class="dialog-title-row">
+                <h2>Practice Result</h2>
+                <button type="submit" class="practice-result-close-button" aria-label="Close">Close</button>
+            </div>
+            <div class="practice-result-grid">
+                <span>Accuracy <strong class="result-accuracy">0%</strong></span>
+                <span>Score <strong class="result-score">0</strong></span>
+                <span>Perfect <strong class="result-perfect-count">0</strong></span>
+                <span>Ok <strong class="result-ok-count">0</strong></span>
+                <span>Bad <strong class="result-bad-count">0</strong></span>
+                <span>Miss <strong class="result-miss-count">0</strong></span>
+                <span>Best Combo <strong class="result-best-combo">0</strong></span>
+            </div>
         </form>
     </dialog>
 

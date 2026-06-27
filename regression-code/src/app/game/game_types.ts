@@ -2,6 +2,8 @@
  * 게임 모드 런타임 상태와 UI 표시용 집계 타입을 정의한다.
  */
 
+import type { TrackId } from "../../core/score/types";
+
 /** 게임 모드 화면에 표시할 scoring sample 집계값. */
 export type GameScoreSummary = {
   accuracyPercent: number;
@@ -17,12 +19,35 @@ export type GameScoreSummary = {
 /** 마이크 입력에서 추정한 단일 pitch frame. */
 export type GamePitchFrame = {
   capturedAtMs: number;
+  rawFrequencyHz: number | null;
   frequencyHz: number | null;
   midi: number | null;
   centOffset: number | null;
   clarity: number;
   rms: number;
   isVoiced: boolean;
+  rejectReason: "invalid frequency" | "low clarity" | "low rms" | "out of range" | null;
+};
+
+/** 게임 모드에서 현재 score time과 비교할 note 판정 대상. */
+export type GameJudgeTarget = {
+  eventId: string;
+  trackId: TrackId;
+  startSeconds: number;
+  endSeconds: number;
+  targetMidi: number;
+  targetCentOffset: number;
+};
+
+/** scoring interval 하나에서 생성된 판정 결과. */
+export type GameScoringSampleResult = {
+  targetEventId: string;
+  trackId: TrackId;
+  scoreSeconds: number;
+  pitchAccuracy: number;
+  label: "Perfect" | "Ok" | "Bad" | "Miss";
+  status: "hit" | "miss";
+  scoreContribution: number;
 };
 
 /** score JSON에 저장하지 않는 게임 모드 세션 상태. */

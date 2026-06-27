@@ -1,4 +1,13 @@
 import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
+import type { AnalysisResult, NoteEvent } from "../src/core/analyze/types";
+import { createTickTimeMapper, numberToTimeFraction } from "../src/audio/tick_time_mapper";
+import {
+  applyGameScoringSample,
+  collectGameJudgeTargetsAtSeconds,
+  hasRemainingGameJudgeTarget,
+  judgeGameScoringSample,
+  normalizeGameTrackDifficulty,
+} from "../src/app/game/game_judge";
 import {
   createEmptyGameScoreSummary,
   isGameModeTrackChangeLocked,
@@ -50,6 +59,46 @@ function requireValue<T>(value: T | null, message: string): T {
   }
 
   return value;
+}
+
+/**
+ * 테스트용 note event를 만든다.
+ * - 인수 : eventId : event 식별자
+ * - 인수 : trackId : 소속 track
+ * - 인수 : startTick : 시작 tick
+ * - 인수 : endTick : 종료 tick
+ * - 인수 : midi : 발음 MIDI note
+ * - 반환값 : 최소 필드만 채운 NoteEvent
+ */
+function createTestNoteEvent(
+  eventId: string,
+  trackId: "basic" | "optional" | "extra",
+  startTick: number,
+  endTick: number,
+  midi: number,
+): NoteEvent {
+  return {
+    eventKind: "note",
+    eventId,
+    trackId,
+    time: {
+      startTick: numberToTimeFraction(startTick),
+      endTick: numberToTimeFraction(endTick),
+    },
+    sourceCells: [{ rowId: `row-${midi}`, col: startTick }],
+    text: "",
+    displayTextAnchors: [],
+    display: {
+      rowId: `row-${midi}`,
+      centOffset: 0,
+    },
+    sound: {
+      midi,
+      centOffset: 0,
+    },
+    effects: [],
+    glissAnchors: [],
+  };
 }
 
 const a4 = requireValue(frequencyToMidiPitch(440), "A4 should produce a MIDI pitch.");
@@ -171,9 +220,9 @@ const hysteresisUnrelatedInput = resolvePitchClassCandidateMidiWithHysteresis(
 
 assertClose(
   hysteresisUnrelatedInput,
-  74,
+  60,
   1e-9,
-  "Pitch hysteresis should not fold unrelated pitch classes to the locked target.",
+  "Pitch hysteresis should hold the previous display pitch during a short unrelated detector jump.",
 );
 
 const hysteresisExpiredGap = resolvePitchClassCandidateMidiWithHysteresis(
@@ -209,5 +258,173 @@ assert(
   isGameModeTrackChangeLocked({ kind: "paused", summary: emptySummary, pitchFrame: null }),
   "Track change should be locked while practice playback is paused.",
 );
+
+const analysis: AnalysisResult = {
+  timingTimeline: [{
+    time: {
+      startTick: numberToTimeFraction(0),
+      endTick: numberToTimeFraction(8),
+    },
+    startBpm: 120,
+    endBpm: 120,
+    bpmCurve: "instant",
+    beatsPerBar: 4,
+    stepsPerBeat: 4,
+    sourceCells: [],
+  }],
+  dynamicsTimeline: [],
+  trackResults: [
+    {
+      trackId: "basic",
+      events: [
+        createTestNoteEvent("basic-c4", "basic", 0, 4, 60),
+      ],
+    },
+    {
+      trackId: "optional",
+      events: [
+        createTestNoteEvent("optional-d4", "optional", 0, 4, 62),
+      ],
+    },
+    {
+      trackId: "extra",
+      events: [],
+    },
+  ],
+  analysisIssues: [],
+};
+const mapper = createTickTimeMapper(analysis.timingTimeline);
+const targetsAtStart = collectGameJudgeTargetsAtSeconds(
+  analysis,
+  ["basic", "optional"],
+  mapper,
+  0.1,
+);
+
+assert(targetsAtStart.length === 2, "Judge target lookup should include active track note events.");
+assert(
+  hasRemainingGameJudgeTarget(analysis, ["basic"], mapper, 0.1),
+  "Practice finish check should detect remaining active note targets.",
+);
+assert(
+  !hasRemainingGameJudgeTarget(analysis, ["basic"], mapper, 2),
+  "Practice finish check should stop after all active note targets end.",
+);
+
+const difficulty = normalizeGameTrackDifficulty({
+  basic: 0,
+  optional: 2,
+  extra: Number.NaN,
+});
+
+assertClose(difficulty.basic, 1, 1e-9, "Basic difficulty should fall back when score difficulty is 0.");
+assertClose(difficulty.optional, 2, 1e-9, "Optional difficulty should use a positive score difficulty.");
+assertClose(difficulty.extra, 1.5, 1e-9, "Extra difficulty should fall back when score difficulty is invalid.");
+
+const perfectSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 523.25,
+    frequencyHz: 523.25,
+    midi: 72,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  targetsAtStart,
+  0.1,
+  difficulty,
+);
+
+assert(perfectSample !== null, "Voiced pitch and active target should create a scoring sample.");
+assert(perfectSample?.label === "Perfect", "Same pitch class in another octave should be Perfect.");
+assert(perfectSample?.trackId === "basic", "C input should select the C target instead of the D target.");
+
+const missSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 369.99,
+    frequencyHz: 369.99,
+    midi: 66,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.1,
+  difficulty,
+);
+
+assert(missSample?.label === "Miss", "A far voiced pitch should create a Miss sample.");
+assertClose(missSample?.scoreContribution ?? -1, 0, 1e-9, "Miss should not reduce or add score.");
+
+const okSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 537.13,
+    frequencyHz: 537.13,
+    midi: 72,
+    centOffset: 60,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+  }],
+  0.1,
+  difficulty,
+);
+
+assert(okSample?.label === "Ok", "A 60 cent pitch error should create an Ok sample.");
+assertClose(okSample?.scoreContribution ?? -1, 0.6, 1e-9, "Ok should contribute 60% accuracy.");
+
+const silentSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: null,
+    frequencyHz: null,
+    midi: null,
+    centOffset: null,
+    clarity: 0,
+    rms: 0,
+    isVoiced: false,
+    rejectReason: "invalid frequency",
+  },
+  targetsAtStart,
+  0.1,
+  difficulty,
+);
+
+assert(silentSample === null, "Silence should not create a Miss sample.");
+
+const summaryAfterPerfect = perfectSample === null
+  ? emptySummary
+  : applyGameScoringSample(emptySummary, perfectSample);
+const summaryAfterMiss = missSample === null
+  ? summaryAfterPerfect
+  : applyGameScoringSample(summaryAfterPerfect, missSample);
+
+assert(summaryAfterPerfect.perfectCount === 1, "Perfect sample should increment Perfect count.");
+assert(summaryAfterPerfect.bestCombo === 1, "Perfect sample should increment combo.");
+assert(summaryAfterMiss.missCount === 1, "Miss sample should increment Miss count.");
+assert(summaryAfterMiss.currentCombo === 0, "Miss sample should reset current combo.");
 
 console.log("Game mode pitch math test completed.");

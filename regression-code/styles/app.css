@@ -516,15 +516,16 @@ select:disabled {
   right: 8px;
   bottom: 6px;
   min-height: 24px;
-  max-width: 104px;
-  padding: 0 8px;
+  width: 146px;
+  min-width: 146px;
+  padding: 0 6px;
   overflow: hidden;
   border-color: #3f6f59;
   background: #eff8f2;
   color: #1f5b3c;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -599,6 +600,26 @@ select:disabled {
   color: #50665a;
   font-size: 10px;
   line-height: 1.25;
+}
+
+.game-diagnostic-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: #50665a;
+  font-size: 10px;
+}
+
+.game-diagnostic-line span {
+  padding: 2px 5px;
+  border: 1px solid #d7e7dc;
+  border-radius: 999px;
+  background: #ffffff;
+  white-space: nowrap;
+}
+
+.game-diagnostic-line strong {
+  color: var(--text);
 }
 
 .game-score-grid {
@@ -1302,6 +1323,49 @@ select:disabled {
 
 .practice-rules-dialog::backdrop {
   background: rgb(23 32 38 / 52%);
+}
+
+.practice-result-dialog {
+  width: min(520px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.practice-result-dialog::backdrop {
+  background: rgb(23 32 38 / 52%);
+}
+
+.practice-result-form {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-result-form h2 {
+  margin: 0;
+}
+
+.practice-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.practice-result-grid span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafafa;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.practice-result-grid strong {
+  color: var(--text);
 }
 
 .practice-rules-form {
