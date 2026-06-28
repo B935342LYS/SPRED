@@ -1189,6 +1189,23 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
     0.6,
     difficulty,
   );
+  const shortTwoTickVibTarget = {
+    ...vibTarget,
+    targetId: "basic-vib-c4-short-two-tick",
+    startSeconds: 0,
+    endSeconds: 0.1875,
+  };
+  const shortTwoTickVibFrames = [
+    createVibFrame(0.02, -14),
+    createVibFrame(0.08, 13),
+    createVibFrame(0.15, -12),
+  ];
+  const shortTwoTickVibBonus = judgeVibWindowBonus(
+    shortTwoTickVibTarget,
+    shortTwoTickVibFrames,
+    0.16,
+    difficulty,
+  );
   const shortSubtleVibFrames = [
     createVibFrame(0.1, -10),
     createVibFrame(0.25, 10),
@@ -1220,6 +1237,7 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
   assert(vibBonus?.displayText === "Vib!", "Vib bonus should use the Vib! display text.");
   assertClose(vibBonus?.bonusContribution ?? -1, 0.5, 1e-9, "Vib segment bonus should add effect bonus score.");
   assert(subtleVibBonus !== null, "Alternating pitch around +/-10 cent should create Vib bonus.");
+  assert(shortTwoTickVibBonus !== null, "Short 160 BPM two-tick vib should use the short-target threshold.");
   assert(shortSubtleVibBonus !== null, "Short alternating pitch around +/-10 cent should create Vib bonus.");
   assert(wrongCenterVibBonus === null, "Vib should require the average pitch to stay near the target.");
   assert(flatBonus === null, "Flat target-near pitch should not create Vib bonus.");
