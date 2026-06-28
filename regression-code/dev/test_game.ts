@@ -1189,6 +1189,18 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
     0.6,
     difficulty,
   );
+  const shortSubtleVibFrames = [
+    createVibFrame(0.1, -10),
+    createVibFrame(0.25, 10),
+    createVibFrame(0.4, -10),
+    createVibFrame(0.55, 10),
+  ];
+  const shortSubtleVibBonus = judgeVibWindowBonus(
+    vibTarget,
+    shortSubtleVibFrames,
+    0.55,
+    difficulty,
+  );
   const wrongCenterVibFrames = [
     createVibFrame(0.1, 190),
     createVibFrame(0.2, 215),
@@ -1208,6 +1220,7 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
   assert(vibBonus?.displayText === "Vib!", "Vib bonus should use the Vib! display text.");
   assertClose(vibBonus?.bonusContribution ?? -1, 0.5, 1e-9, "Vib segment bonus should add effect bonus score.");
   assert(subtleVibBonus !== null, "Alternating pitch around +/-10 cent should create Vib bonus.");
+  assert(shortSubtleVibBonus !== null, "Short alternating pitch around +/-10 cent should create Vib bonus.");
   assert(wrongCenterVibBonus === null, "Vib should require the average pitch to stay near the target.");
   assert(flatBonus === null, "Flat target-near pitch should not create Vib bonus.");
 
