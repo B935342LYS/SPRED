@@ -9,6 +9,7 @@ import {
   isYoutubeBeforeVideoStart,
   scoreSecondsToRawYoutubeSeconds,
   scoreSecondsToYoutubeSeconds,
+  secondsUntilYoutubeStart,
   shouldResyncYoutubeDrift,
 } from "../src/app/youtube/youtube_sync";
 import { parseYoutubeVideoId } from "../src/app/youtube/youtube_url";
@@ -28,6 +29,8 @@ function runYoutubeTests(): void {
   assert.ok(Math.abs(scoreSecondsToRawYoutubeSeconds(0.1, -300) - -0.2) < 0.000001);
   assert.equal(isYoutubeBeforeVideoStart(0.1, -300), true);
   assert.equal(isYoutubeBeforeVideoStart(0.3, -300), false);
+  assert.ok(Math.abs(secondsUntilYoutubeStart(0.1, -300) - 0.2) < 0.000001);
+  assert.equal(secondsUntilYoutubeStart(0.3, -300), 0);
 
   assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), false);
   assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
