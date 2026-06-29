@@ -470,6 +470,7 @@ for (const octaveOffset of [-24, -12, 0, 12, 24]) {
       endSeconds: 1,
       targetMidi: 60,
       targetCentOffset: 0,
+      attackRequired: true,
     }],
     0.1,
     difficulty,
@@ -500,6 +501,7 @@ const firstFrameWrongOctaveSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.1,
   difficulty,
@@ -517,6 +519,7 @@ const timingTarget = [{
   endSeconds: 2,
   targetMidi: 60,
   targetCentOffset: 0,
+  attackRequired: true,
 }];
 const createTimingOnset = (id: number, scoreSeconds: number): GameTimingOnsetCandidate => ({
   id,
@@ -544,6 +547,7 @@ const onTimeSample = judgeGameScoringSample(
     onsetCandidates: [createTimingOnset(1, 1.03)],
     judgedEventIds: new Set(),
     consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
   },
 );
 const earlySample = judgeGameScoringSample(
@@ -555,6 +559,7 @@ const earlySample = judgeGameScoringSample(
     onsetCandidates: [createTimingOnset(2, 0.88)],
     judgedEventIds: new Set(),
     consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
   },
 );
 const lateSample = judgeGameScoringSample(
@@ -566,6 +571,7 @@ const lateSample = judgeGameScoringSample(
     onsetCandidates: [createTimingOnset(3, 1.13)],
     judgedEventIds: new Set(),
     consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
   },
 );
 const timingBadSample = judgeGameScoringSample(
@@ -577,6 +583,7 @@ const timingBadSample = judgeGameScoringSample(
     onsetCandidates: [createTimingOnset(5, 1.18)],
     judgedEventIds: new Set(),
     consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
   },
 );
 const timingMissSample = judgeGameScoringSample(
@@ -588,6 +595,7 @@ const timingMissSample = judgeGameScoringSample(
     onsetCandidates: [createTimingOnset(4, 1.3)],
     judgedEventIds: new Set(),
     consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
   },
 );
 
@@ -604,6 +612,78 @@ assertClose(timingBadSample?.pitchAccuracy ?? -1, 1 / 3, 1e-9, "Timing Bad shoul
 assert(timingMissSample?.label === "Miss", "Timing 250 ms or more away should downgrade the final label to Miss.");
 assertClose(timingMissSample?.pitchAccuracy ?? -1, 0, 1e-9, "Timing Miss should force 0% accuracy.");
 assertClose(timingMissSample?.scoreContribution ?? -1, 0, 1e-9, "Timing Miss should force zero score.");
+
+const missingAttackSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1200),
+  timingTarget,
+  1.2,
+  difficulty,
+  {
+    onsetCandidates: [],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+);
+
+assert(
+  missingAttackSample?.label === "Perfect",
+  "Missing attack should keep the pitch feedback label.",
+);
+assert(
+  missingAttackSample?.scoreEligible === false,
+  "Attack-required note without onset should block score eligibility.",
+);
+assert(
+  missingAttackSample?.scoreBlockedReason === "attackRequired",
+  "Missing attack should report the attackRequired block reason.",
+);
+assertClose(
+  missingAttackSample?.scoreContribution ?? -1,
+  0,
+  1e-9,
+  "Attack-required note without onset should not add score.",
+);
+
+const attackSatisfiedSustainSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1300),
+  timingTarget,
+  1.3,
+  difficulty,
+  {
+    onsetCandidates: [],
+    judgedEventIds: new Set(["basic-c4"]),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(["basic-c4"]),
+  },
+);
+
+assert(
+  attackSatisfiedSustainSample?.scoreEligible === true,
+  "A note that already received attack credit should keep scoring during sustain.",
+);
+
+const glissEndLegatoSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1400),
+  [{
+    ...timingTarget[0],
+    eventId: "basic-gliss-end-c4",
+    attackRequired: false,
+  }],
+  1.4,
+  difficulty,
+  {
+    onsetCandidates: [],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+);
+
+assert(
+  glissEndLegatoSample?.scoreEligible === true,
+  "Legato gliss destination targets should not be blocked only because no onset was detected.",
+);
 
 const rawJumpSample = judgeGameScoringSample(
   {
@@ -624,6 +704,7 @@ const rawJumpSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.2,
   difficulty,
@@ -695,6 +776,7 @@ const rawShortJumpSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.2,
   difficulty,
@@ -724,6 +806,7 @@ const harmonicRawSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 64,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.3,
   difficulty,
@@ -753,6 +836,7 @@ const rawExpiredJumpSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.7,
   difficulty,
@@ -782,6 +866,7 @@ const missSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.1,
   difficulty,
@@ -809,6 +894,7 @@ const okSample = judgeGameScoringSample(
     endSeconds: 1,
     targetMidi: 60,
     targetCentOffset: 0,
+    attackRequired: true,
   }],
   0.1,
   difficulty,
@@ -845,6 +931,9 @@ const summaryAfterMiss = missSample === null
 const summaryAfterTimingBad = timingBadSample === null
   ? emptySummary
   : applyGameScoringSample(emptySummary, timingBadSample);
+const summaryAfterMissingAttack = missingAttackSample === null
+  ? emptySummary
+  : applyGameScoringSample(emptySummary, missingAttackSample);
 
 assert(summaryAfterPerfect.perfectCount === 1, "Perfect sample should increment Perfect count.");
 assert(summaryAfterPerfect.bestCombo === 1, "Perfect sample should increment combo.");
@@ -862,6 +951,20 @@ assertClose(
   100 / 3,
   1e-9,
   "Timing Bad should count as one-third timing accuracy.",
+);
+assert(
+  summaryAfterMissingAttack.perfectCount === 0,
+  "Score-ineligible Perfect samples should not count as visible pitch feedback samples.",
+);
+assertClose(
+  summaryAfterMissingAttack.score,
+  0,
+  1e-9,
+  "Score-ineligible Perfect samples should not add score.",
+);
+assert(
+  summaryAfterMissingAttack.currentCombo === 0,
+  "Score-ineligible Perfect samples should not increase combo.",
 );
 
 const glissAnalysis: AnalysisResult = {
@@ -1080,6 +1183,46 @@ if (glissTarget !== undefined && glissTarget.kind === "gliss") {
       octaveShiftedGlissBonus.targetMidi >= 60 &&
       octaveShiftedGlissBonus.targetMidi <= 62,
     "Octave-shifted gliss input should still display the bonus near the score target note.",
+  );
+
+  const shortGlissTarget = {
+    ...glissTarget,
+    targetId: "basic-short-gliss-c-d",
+    startSeconds: 0,
+    endSeconds: 0.25,
+  };
+  const lateShortGlissIndex = getGlissIntervalIndexAtSeconds(shortGlissTarget, 0.36);
+  const lateShortGlissBonus = lateShortGlissIndex === null
+    ? null
+    : judgeGlissIntervalBonus(
+      shortGlissTarget,
+      {
+        capturedAtMs: 360,
+        rawFrequencyHz: 293.66,
+        frequencyHz: 293.66,
+        midi: 62,
+        centOffset: 0,
+        clarity: 1,
+        rms: 0.1,
+        isVoiced: true,
+        rejectReason: null,
+      },
+      0.36,
+      lateShortGlissIndex,
+      difficulty,
+      [
+        createGlissFrame(0.25, true),
+        createGlissFrame(0.36, true),
+      ],
+    );
+
+  assert(
+    lateShortGlissIndex === 0,
+    "Short gliss grace should clamp late scoring to the final gliss interval.",
+  );
+  assert(
+    lateShortGlissBonus !== null,
+    "Short gliss should accept a voiced frame inside the post-gliss grace window.",
   );
 }
 

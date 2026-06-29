@@ -38,6 +38,7 @@ export type GameTimingJudgeOptions = {
   onsetCandidates: readonly GameTimingOnsetCandidate[];
   judgedEventIds: ReadonlySet<string>;
   consumedOnsetIds: ReadonlySet<number>;
+  attackSatisfiedEventIds: ReadonlySet<string>;
 };
 
 /**
@@ -105,6 +106,7 @@ export function collectGameJudgeTargetsAtSeconds(
         endSeconds,
         targetMidi: event.sound.midi,
         targetCentOffset: event.sound.centOffset,
+        attackRequired: isAttackRequiredNoteEvent(event),
       });
     }
   }
@@ -204,7 +206,8 @@ export function judgeGameScoringSample(
   const label = applyTimingDowngrade(pitchLabel, timingMatch.result);
   const pitchAccuracy = getPitchAccuracy(label);
   const difficulty = trackDifficulty[selectedTarget.trackId];
-  const scoreContribution = label === "Miss" ? 0 : difficulty * pitchAccuracy;
+  const scoreEligible = isScoreEligibleForAttack(selectedTarget, label, timingMatch.onsetId, timing);
+  const scoreContribution = label === "Miss" || !scoreEligible ? 0 : difficulty * pitchAccuracy;
 
   return {
     targetEventId: selectedTarget.eventId,
@@ -215,6 +218,8 @@ export function judgeGameScoringSample(
     pitchAccuracy,
     label,
     status: label === "Miss" ? "miss" : "hit",
+    scoreEligible,
+    scoreBlockedReason: scoreEligible ? null : "attackRequired",
     scoreContribution,
     timing: timingMatch.result,
     timingOnsetId: timingMatch.onsetId,
@@ -349,6 +354,10 @@ export function applyGameScoringSample(
   summary: GameScoreSummary,
   sample: GameScoringSampleResult,
 ): GameScoreSummary {
+  if (!sample.scoreEligible) {
+    return summary;
+  }
+
   const perfectCount = summary.perfectCount + (sample.label === "Perfect" ? 1 : 0);
   const okCount = summary.okCount + (sample.label === "Ok" ? 1 : 0);
   const badCount = summary.badCount + (sample.label === "Bad" ? 1 : 0);
@@ -359,7 +368,7 @@ export function applyGameScoringSample(
   const timingLateCount = summary.timingLateCount + (sample.timing.kind === "late" ? 1 : 0);
   const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
   const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
-  const currentCombo = sample.label === "Perfect" || sample.label === "Ok"
+  const currentCombo = sample.scoreEligible && (sample.label === "Perfect" || sample.label === "Ok")
     ? summary.currentCombo + 1
     : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
@@ -422,6 +431,36 @@ export function applyGameEffectBonus(
  */
 function isNoteEvent(event: AnalyzedEvent): event is NoteEvent {
   return event.eventKind === "note";
+}
+
+/**
+ * note event가 새 attack 확인을 요구하는지 판단한다.
+ * - 인수 : event : 판정 target으로 변환할 note event
+ * - 반환값 : gliss 종료 anchor처럼 legato 문맥이면 false, 일반 note이면 true
+ */
+function isAttackRequiredNoteEvent(event: NoteEvent): boolean {
+  return event.glissRole?.role !== "end";
+}
+
+/**
+ * attack credit 기준으로 scoring sample이 점수와 combo를 받을 수 있는지 판단한다.
+ * - 인수 : target : pitch 판정에서 선택된 note target
+ * - 인수 : label : pitch/timing을 반영한 최종 label
+ * - 인수 : timingOnsetId : 이번 sample에 배정된 onset id
+ * - 인수 : timing : timing/attack 판정 런타임 상태
+ * - 반환값 : 점수와 combo 지급 가능 여부
+ */
+function isScoreEligibleForAttack(
+  target: GameJudgeTarget,
+  label: GameScoringSampleResult["label"],
+  timingOnsetId: number | null,
+  timing: GameTimingJudgeOptions | undefined,
+): boolean {
+  if (label === "Miss" || timing === undefined || !target.attackRequired) {
+    return true;
+  }
+
+  return timingOnsetId !== null || timing.attackSatisfiedEventIds.has(target.eventId);
 }
 
 /**

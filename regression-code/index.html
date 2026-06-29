@@ -547,21 +547,32 @@
             <section class="practice-rules-section" aria-label="Timing judge ranges">
                 <h3>Timing Judge</h3>
                 <table class="practice-rules-table">
+                    <thead>
+                        <tr>
+                            <th>Timing offset</th>
+                            <th>Accuracy</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         <tr>
-                            <th scope="row">&lt; 80 ms</th>
+                            <td>&lt; 80 ms</td>
+                            <td>100%</td>
                             <td>No timing text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
-                            <th scope="row">80-149 ms</th>
+                            <td>80-149 ms</td>
+                            <td>66.7%</td>
                             <td>Shows small early or late text. Pitch judge stays unchanged.</td>
                         </tr>
                         <tr>
-                            <th scope="row">150-249 ms</th>
+                            <td>150-249 ms</td>
+                            <td>33.3%</td>
                             <td>Shows small early or late text. Final judge is downgraded to Bad.</td>
                         </tr>
                         <tr>
-                            <th scope="row">250 ms or more</th>
+                            <td>250 ms or more</td>
+                            <td>0%</td>
                             <td>Final judge becomes Miss even if the pitch is correct.</td>
                         </tr>
                     </tbody>
@@ -573,7 +584,7 @@
                     <tbody>
                         <tr>
                             <th scope="row">Score per a note</th>
-                            <td>track difficulty x pitch accuracy</td>
+                            <td>track difficulty x pitch accuracy, only when the note is score eligible</td>
                         </tr>
                         <tr>
                             <th scope="row">Total score</th>
@@ -585,11 +596,19 @@
                         </tr>
                         <tr>
                             <th scope="row">Combo</th>
-                            <td>Perfect or Ok continues the combo. Bad or Miss resets it.</td>
+                            <td>Only score-eligible Perfect or Ok continues the combo. Bad or Miss resets it.</td>
                         </tr>
                         <tr>
                             <th scope="row">No input</th>
-                            <td>Silence or unclear pitch does not create a Miss sample.</td>
+                            <td>Silence or unclear pitch does not create a Miss sample and adds no score.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Attack credit</th>
+                            <td>Repeated notes need a fresh attack to score. Holding the same pitch without attack does not show a judge, add score, or continue combo.</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Effect bonus</th>
+                            <td>Gliss, Vib, and Trem are success bonuses. Missing an effect bonus does not create a penalty.</td>
                         </tr>
                     </tbody>
                 </table>
