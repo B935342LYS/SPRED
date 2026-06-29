@@ -225,12 +225,12 @@ assert(
   "Sync offset should snap to 10 ms steps.",
 );
 assert(
-  normalizeGameSyncOffsetMs(500) === 200,
-  "Sync offset should clamp to +200 ms.",
+  normalizeGameSyncOffsetMs(500) === 500,
+  "Sync offset should allow +500 ms.",
 );
 assert(
-  normalizeGameSyncOffsetMs(-500) === -200,
-  "Sync offset should clamp to -200 ms.",
+  normalizeGameSyncOffsetMs(-500) === -500,
+  "Sync offset should allow -500 ms.",
 );
 assert(
   formatGameSyncOffsetMs(90) === "+90 ms",
@@ -270,7 +270,7 @@ assert(
 preferenceStorage.set("regression-code:game-sync-offset-ms", "999");
 
 assert(
-  loadGameSyncOffsetMsFromLocalStorage() === 200,
+  loadGameSyncOffsetMsFromLocalStorage() === 500,
   "Out-of-range stored Sync preference should be clamped on load.",
 );
 
@@ -1625,6 +1625,121 @@ const tremTargets = collectGameEffectBonusTargets(
   ["basic"],
   createTickTimeMapper(tremAnalysis.timingTimeline),
 );
+const rapidOnlyTremAnalysis: AnalysisResult = {
+  ...tremAnalysis,
+  trackResults: [
+    {
+      trackId: "basic",
+      events: rapidRepeatNotes,
+    },
+    {
+      trackId: "optional",
+      events: [],
+    },
+    {
+      trackId: "extra",
+      events: [],
+    },
+  ],
+};
+const rapidOnlyTremMapper = createTickTimeMapper(rapidOnlyTremAnalysis.timingTimeline);
+const rapidRepeatJudgeTargets = collectGameJudgeTargetsAtSeconds(
+  rapidOnlyTremAnalysis,
+  ["basic"],
+  rapidOnlyTremMapper,
+  rapidOnlyTremMapper.tickToSeconds(numberToTimeFraction(1)),
+);
+const rapidRepeatScoringSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 261.63,
+    frequencyHz: 261.63,
+    midi: 60,
+    centOffset: 80,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  rapidRepeatJudgeTargets,
+  rapidOnlyTremMapper.tickToSeconds(numberToTimeFraction(1)),
+  difficulty,
+  undefined,
+  "standard",
+);
+const explicitTremMapper = createTickTimeMapper(tremAnalysis.timingTimeline);
+const explicitTremJudgeTargets = collectGameJudgeTargetsAtSeconds(
+  tremAnalysis,
+  ["basic"],
+  explicitTremMapper,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(2)),
+);
+const explicitTremFirstHitTargets = collectGameJudgeTargetsAtSeconds(
+  tremAnalysis,
+  ["basic"],
+  explicitTremMapper,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(0.5)),
+);
+const explicitTremLastHitTargets = collectGameJudgeTargetsAtSeconds(
+  tremAnalysis,
+  ["basic"],
+  explicitTremMapper,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(3.5)),
+);
+const explicitTremScoringSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 261.63,
+    frequencyHz: 261.63,
+    midi: 60,
+    centOffset: 80,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  explicitTremJudgeTargets,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(2)),
+  difficulty,
+  undefined,
+  "standard",
+);
+const explicitTremFirstHitSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 261.63,
+    frequencyHz: 261.63,
+    midi: 60,
+    centOffset: 80,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  explicitTremFirstHitTargets,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(0.5)),
+  difficulty,
+  undefined,
+  "standard",
+);
+const explicitTremLastHitSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 261.63,
+    frequencyHz: 261.63,
+    midi: 60,
+    centOffset: 80,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  explicitTremLastHitTargets,
+  explicitTremMapper.tickToSeconds(numberToTimeFraction(3.5)),
+  difficulty,
+  undefined,
+  "standard",
+);
 const explicitTremTarget = tremTargets.find((target) =>
   target.kind === "trem" && target.source === "explicit"
 );
@@ -1638,6 +1753,99 @@ assert(
   tremTargets.filter((target) => target.kind === "trem" && target.source === "rapidRepeat").length === 1,
   "Two-note repeats and mixed-pitch 1tick runs should not create rapid repeat trem targets.",
 );
+assert(
+  rapidRepeatJudgeTargets.some((target) => target.rapidRepeatTrem === true),
+  "Rapid repeat trem note targets should be marked for relaxed scoring.",
+);
+assert(
+  explicitTremJudgeTargets.some((target) => target.tremRelaxed === true),
+  "2~4 division explicit trem note targets should be marked for relaxed scoring.",
+);
+assert(
+  explicitTremFirstHitSample !== null &&
+    explicitTremLastHitSample !== null &&
+    explicitTremFirstHitSample.targetEventId.startsWith("basic-explicit-trem-c4:trem-relaxed:") &&
+    explicitTremLastHitSample.targetEventId.startsWith("basic-explicit-trem-c4:trem-relaxed:") &&
+    explicitTremFirstHitSample.targetEventId !== explicitTremLastHitSample.targetEventId,
+  "Explicit trem divisions should split one note event into separate relaxed hit ids.",
+);
+assert(
+  rapidRepeatScoringSample?.label === "Perfect",
+  "Rapid repeat trem scoring should treat recognized pitch hits as Perfect.",
+);
+assert(
+  explicitTremScoringSample?.label === "Perfect",
+  "2~4 division explicit trem scoring should treat recognized pitch hits as Perfect.",
+);
+assert(
+  rapidRepeatScoringSample?.scoreEligible === true,
+  "Rapid repeat trem scoring should not require separate attack credit.",
+);
+assert(
+  explicitTremScoringSample?.scoreEligible === true,
+  "2~4 division explicit trem scoring should not require separate attack credit.",
+);
+
+if (rapidRepeatScoringSample !== null && explicitTremScoringSample !== null) {
+  const rapidRepeatTremSummary = applyGameScoringSample(
+    createEmptyGameScoreSummary(),
+    rapidRepeatScoringSample,
+    "standard",
+  );
+  const explicitTremSummary = applyGameScoringSample(
+    createEmptyGameScoreSummary(),
+    explicitTremScoringSample,
+    "standard",
+  );
+  const explicitTremMultiHitSummary = explicitTremFirstHitSample !== null && explicitTremLastHitSample !== null
+    ? applyGameScoringSample(
+      applyGameScoringSample(createEmptyGameScoreSummary(), explicitTremFirstHitSample, "standard"),
+      explicitTremLastHitSample,
+      "standard",
+    )
+    : null;
+
+  assertClose(
+    rapidRepeatTremSummary.accuracyPercent,
+    100,
+    1e-9,
+    "Rapid repeat trem Perfect should count as 100% pitch accuracy.",
+  );
+  assertClose(
+    rapidRepeatTremSummary.timingAccuracyPercent,
+    100,
+    1e-9,
+    "Rapid repeat trem Perfect should count as 100% timing accuracy.",
+  );
+  assertClose(
+    explicitTremSummary.accuracyPercent,
+    100,
+    1e-9,
+    "2~4 division explicit trem Perfect should count as 100% pitch accuracy.",
+  );
+  assertClose(
+    explicitTremSummary.timingAccuracyPercent,
+    100,
+    1e-9,
+    "2~4 division explicit trem Perfect should count as 100% timing accuracy.",
+  );
+  assert(
+    explicitTremMultiHitSummary?.perfectCount === 2,
+    "Explicit trem relaxed hit ids should allow multiple Perfect samples inside one note event.",
+  );
+  assertClose(
+    explicitTremMultiHitSummary?.accuracyPercent ?? 0,
+    100,
+    1e-9,
+    "Multiple explicit trem relaxed hits should keep 100% pitch accuracy.",
+  );
+  assertClose(
+    explicitTremMultiHitSummary?.timingAccuracyPercent ?? 0,
+    100,
+    1e-9,
+    "Multiple explicit trem relaxed hits should keep 100% timing accuracy.",
+  );
+}
 
 if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem") {
   const tremRuntime: GameTremRuntimeState = {
@@ -1645,6 +1853,7 @@ if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem"
     lastAcceptedScoreSeconds: null,
     streakCount: 0,
     rewardedOnsetIds: new Set<number>(),
+    rewardedSyntheticHitIds: new Set<string>(),
   };
   const firstTremAttack = judgeTremAttackBonus(
     rapidRepeatTremTarget,
@@ -1679,6 +1888,7 @@ if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem"
     lastAcceptedScoreSeconds: null,
     streakCount: 0,
     rewardedOnsetIds: new Set<number>(),
+    rewardedSyntheticHitIds: new Set<string>(),
   };
   const longTremTarget = {
     ...rapidRepeatTremTarget,
@@ -1711,6 +1921,74 @@ if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem"
   assert(duplicateTremAttack === null, "Same trem onset should not be rewarded twice.");
   assert(delayedFirstAttack === null, "First delayed trem attack should not create bonus.");
   assert(delayedSecondAttack === null, "Long gap should reset trem streak instead of creating bonus.");
+}
+
+if (explicitTremTarget !== undefined && explicitTremTarget.kind === "trem") {
+  const syntheticRuntime: GameTremRuntimeState = {
+    acceptedOnsetIds: new Set<number>(),
+    lastAcceptedScoreSeconds: null,
+    streakCount: 0,
+    rewardedOnsetIds: new Set<number>(),
+    rewardedSyntheticHitIds: new Set<string>(),
+  };
+  const firstSyntheticTremHit = judgeTremAttackBonus(
+    explicitTremTarget,
+    [],
+    syntheticRuntime,
+    explicitTremTarget.startSeconds + 0.01,
+    difficulty,
+    {
+      capturedAtMs: 0,
+      rawFrequencyHz: 261.63,
+      frequencyHz: 261.63,
+      midi: 60,
+      centOffset: 80,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+  );
+  const duplicateSyntheticTremHit = judgeTremAttackBonus(
+    explicitTremTarget,
+    [],
+    syntheticRuntime,
+    explicitTremTarget.startSeconds + 0.02,
+    difficulty,
+    {
+      capturedAtMs: 16,
+      rawFrequencyHz: 261.63,
+      frequencyHz: 261.63,
+      midi: 60,
+      centOffset: 80,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+  );
+  const secondSyntheticTremHit = judgeTremAttackBonus(
+    explicitTremTarget,
+    [],
+    syntheticRuntime,
+    explicitTremTarget.endSeconds - 0.01,
+    difficulty,
+    {
+      capturedAtMs: 320,
+      rawFrequencyHz: 261.63,
+      frequencyHz: 261.63,
+      midi: 60,
+      centOffset: 80,
+      clarity: 1,
+      rms: 0.1,
+      isVoiced: true,
+      rejectReason: null,
+    },
+  );
+
+  assert(firstSyntheticTremHit !== null, "Explicit trem should create Trem bonus from a pitch hit without onset.");
+  assert(duplicateSyntheticTremHit === null, "Explicit trem synthetic hit should not reward the same division twice.");
+  assert(secondSyntheticTremHit !== null, "Explicit trem should reward another division hit inside one note event.");
 }
 
 console.log("Game mode pitch math test completed.");

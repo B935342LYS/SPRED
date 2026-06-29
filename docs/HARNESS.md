@@ -35,6 +35,7 @@ Primary spec roots:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/3.2-karaoke-game-mode-spec.md`
+- `docs/3.3-third-extension-candidate-spec.md`
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -115,6 +116,9 @@ Memo roots:
 
 `docs/3.2-karaoke-game-mode-spec.md` : `extension-plan`
 - 노래방 모드와 게임 모드를 같은 기능으로 보고, 마이크 pitch detection, 판정, 점수, UI 상태를 구체화한 세부 초안
+
+`docs/3.3-third-extension-candidate-spec.md` : `extension-plan`
+- 노래방 / practice mode 안정화 이후 검토할 3차 확장 후보, 선행 조건, 포기 기준, 구현 순서 초안
 
 `docs/1.1-project-plan.md` : `reference`
 `docs/1.2-master-spec.md` : `reference`
@@ -236,6 +240,7 @@ Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/3.2-karaoke-game-mode-spec.md`
+- `docs/3.3-third-extension-candidate-spec.md`
 
 Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
@@ -274,6 +279,7 @@ Appendix:
 - `3.0-extendplan-game-mode.md`
 - `3.1-extension-roadmap.md`
 - `3.2-karaoke-game-mode-spec.md`
+- `3.3-third-extension-candidate-spec.md`
 
 `archive`
 - legacy `0.x` text documents
