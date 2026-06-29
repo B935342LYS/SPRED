@@ -295,9 +295,11 @@ assert(
 );
 assert(
   normalizeNumberRawInput("999") === "999" &&
-    normalizeNumberRawInput("1000") === "100" &&
-    normalizeNumberRawInput("12a3") === "123",
-  "Number raw input should keep only the first three digits.",
+    normalizeNumberRawInput("1000") === "1000" &&
+    normalizeNumberRawInput("87.5") === "87.5" &&
+    normalizeNumberRawInput("12a3") === "123" &&
+    normalizeNumberRawInput("12.3.4") === "12.34",
+  "Number raw input should allow decimal text while removing invalid characters.",
 );
 
 assert(loadResult.ok, "Runtime document should load for tuplet placement test.");

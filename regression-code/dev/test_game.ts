@@ -946,6 +946,7 @@ assertClose(
   "Miss sample should count as 0% in the total average accuracy.",
 );
 assert(summaryAfterTimingBad.timingBadCount === 1, "Timing Bad should increment the timing bad count.");
+assert(summaryAfterTimingBad.currentCombo === 1, "Score-eligible Bad should continue combo.");
 assertClose(
   summaryAfterTimingBad.timingAccuracyPercent,
   100 / 3,

@@ -368,7 +368,7 @@ export function applyGameScoringSample(
   const timingLateCount = summary.timingLateCount + (sample.timing.kind === "late" ? 1 : 0);
   const timingBadCount = summary.timingBadCount + (sample.timing.kind === "bad" ? 1 : 0);
   const timingMissCount = summary.timingMissCount + (sample.timing.kind === "miss" ? 1 : 0);
-  const currentCombo = sample.scoreEligible && (sample.label === "Perfect" || sample.label === "Ok")
+  const currentCombo = sample.scoreEligible && sample.label !== "Miss"
     ? summary.currentCombo + 1
     : 0;
   const scoredSampleCount = perfectCount + okCount + badCount + missCount;
