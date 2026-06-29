@@ -14,8 +14,10 @@ import {
 import {
   collectGameEffectBonusTargets,
   type GameEffectFrame,
+  type GameTremRuntimeState,
   getGlissIntervalIndexAtSeconds,
   judgeGlissIntervalBonus,
+  judgeTremAttackBonus,
   judgeVibWindowBonus,
   shouldLockFailedGlissBonusTarget,
 } from "../src/app/game/game_effect_judge";
@@ -654,6 +656,58 @@ assertClose(
   0,
   1e-9,
   "Attack-required note without onset should not add score.",
+);
+
+const easyMissingAttackSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1200),
+  timingTarget,
+  1.2,
+  difficulty,
+  {
+    onsetCandidates: [],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+  "easy",
+);
+
+assert(
+  easyMissingAttackSample?.scoreEligible === true,
+  "Easy Mode should score pitch-only samples even when the attack is missing.",
+);
+assert(
+  easyMissingAttackSample?.scoreBlockedReason === null,
+  "Easy Mode should not report attackRequired for pitch-only scoring.",
+);
+assertClose(
+  easyMissingAttackSample?.scoreContribution ?? -1,
+  1,
+  1e-9,
+  "Easy Mode missing-attack Perfect should add pitch score.",
+);
+
+const easyLateAttackSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1300),
+  timingTarget,
+  1.3,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(10, 1.3)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+  "easy",
+);
+
+assert(
+  easyLateAttackSample?.label === "Perfect",
+  "Easy Mode should ignore timing downgrade and keep the pitch-only label.",
+);
+assert(
+  easyLateAttackSample?.timing.kind === "none",
+  "Easy Mode should not create timing judge results.",
 );
 
 const attackSatisfiedSustainSample = judgeGameScoringSample(
@@ -1500,6 +1554,163 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
 
   assert(summaryAfterVib.vibBonusCount === 1, "Vib bonus should increment vib count.");
   assert(summaryAfterVib.glissBonusCount === 0, "Vib bonus should not increment gliss count.");
+}
+
+const explicitTremNote = createTestNoteEvent("basic-explicit-trem-c4", "basic", 0, 4, 60);
+explicitTremNote.effects = [{
+  time: {
+    startTick: numberToTimeFraction(0),
+    endTick: numberToTimeFraction(4),
+  },
+  vib: false,
+  trem: {
+    division: 4,
+  },
+}];
+const rapidRepeatNotes = [
+  createTestNoteEvent("basic-repeat-c4-0", "basic", 0, 1, 60),
+  createTestNoteEvent("basic-repeat-c4-1", "basic", 1, 2, 60),
+  createTestNoteEvent("basic-repeat-c4-2", "basic", 2, 3, 60),
+];
+const twoRepeatNotes = [
+  createTestNoteEvent("basic-two-repeat-c4-0", "basic", 4, 5, 60),
+  createTestNoteEvent("basic-two-repeat-c4-1", "basic", 5, 6, 60),
+];
+const mixedPitchRepeatNotes = [
+  createTestNoteEvent("basic-repeat-c4-mixed-0", "basic", 7, 8, 60),
+  createTestNoteEvent("basic-repeat-d4-mixed-1", "basic", 8, 9, 62),
+  createTestNoteEvent("basic-repeat-c4-mixed-2", "basic", 9, 10, 60),
+];
+const tremAnalysis: AnalysisResult = {
+  timingTimeline: [{
+    time: {
+      startTick: numberToTimeFraction(0),
+      endTick: numberToTimeFraction(12),
+    },
+    startBpm: 120,
+    endBpm: 120,
+    bpmCurve: "instant",
+    beatsPerBar: 4,
+    stepsPerBeat: 4,
+    sourceCells: [],
+  }],
+  dynamicsTimeline: [],
+  trackResults: [
+    {
+      trackId: "basic",
+      events: [
+        explicitTremNote,
+        ...rapidRepeatNotes,
+        ...twoRepeatNotes,
+        ...mixedPitchRepeatNotes,
+      ],
+    },
+    {
+      trackId: "optional",
+      events: [
+        createTestNoteEvent("optional-repeat-c4-0", "optional", 0, 1, 60),
+        createTestNoteEvent("optional-repeat-c4-1", "optional", 1, 2, 60),
+        createTestNoteEvent("optional-repeat-c4-2", "optional", 2, 3, 60),
+      ],
+    },
+    {
+      trackId: "extra",
+      events: [],
+    },
+  ],
+  analysisIssues: [],
+};
+const tremTargets = collectGameEffectBonusTargets(
+  tremAnalysis,
+  ["basic"],
+  createTickTimeMapper(tremAnalysis.timingTimeline),
+);
+const explicitTremTarget = tremTargets.find((target) =>
+  target.kind === "trem" && target.source === "explicit"
+);
+const rapidRepeatTremTarget = tremTargets.find((target) =>
+  target.kind === "trem" && target.source === "rapidRepeat"
+);
+
+assert(explicitTremTarget?.kind === "trem", "Explicit trem effect should create a trem bonus target.");
+assert(rapidRepeatTremTarget?.kind === "trem", "Three adjacent 1tick same-pitch notes should create a rapid repeat trem target.");
+assert(
+  tremTargets.filter((target) => target.kind === "trem" && target.source === "rapidRepeat").length === 1,
+  "Two-note repeats and mixed-pitch 1tick runs should not create rapid repeat trem targets.",
+);
+
+if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem") {
+  const tremRuntime: GameTremRuntimeState = {
+    acceptedOnsetIds: new Set<number>(),
+    lastAcceptedScoreSeconds: null,
+    streakCount: 0,
+    rewardedOnsetIds: new Set<number>(),
+  };
+  const firstTremAttack = judgeTremAttackBonus(
+    rapidRepeatTremTarget,
+    [
+      createTimingOnset(1, rapidRepeatTremTarget.startSeconds + 0.02),
+    ],
+    tremRuntime,
+    rapidRepeatTremTarget.startSeconds + 0.02,
+    difficulty,
+  );
+  const secondTremAttack = judgeTremAttackBonus(
+    rapidRepeatTremTarget,
+    [
+      createTimingOnset(1, rapidRepeatTremTarget.startSeconds + 0.02),
+      createTimingOnset(2, rapidRepeatTremTarget.startSeconds + 0.14),
+    ],
+    tremRuntime,
+    rapidRepeatTremTarget.startSeconds + 0.14,
+    difficulty,
+  );
+  const duplicateTremAttack = judgeTremAttackBonus(
+    rapidRepeatTremTarget,
+    [
+      createTimingOnset(2, rapidRepeatTremTarget.startSeconds + 0.14),
+    ],
+    tremRuntime,
+    rapidRepeatTremTarget.startSeconds + 0.14,
+    difficulty,
+  );
+  const resetRuntime: GameTremRuntimeState = {
+    acceptedOnsetIds: new Set<number>(),
+    lastAcceptedScoreSeconds: null,
+    streakCount: 0,
+    rewardedOnsetIds: new Set<number>(),
+  };
+  const longTremTarget = {
+    ...rapidRepeatTremTarget,
+    endSeconds: rapidRepeatTremTarget.startSeconds + 1,
+  };
+  const delayedFirstAttack = judgeTremAttackBonus(
+    longTremTarget,
+    [
+      createTimingOnset(10, longTremTarget.startSeconds + 0.02),
+    ],
+    resetRuntime,
+    longTremTarget.startSeconds + 0.02,
+    difficulty,
+  );
+  const delayedSecondAttack = judgeTremAttackBonus(
+    longTremTarget,
+    [
+      createTimingOnset(10, longTremTarget.startSeconds + 0.02),
+      createTimingOnset(11, longTremTarget.startSeconds + 0.5),
+    ],
+    resetRuntime,
+    longTremTarget.startSeconds + 0.5,
+    difficulty,
+  );
+
+  assert(firstTremAttack === null, "First trem attack should start the streak without bonus.");
+  assert(secondTremAttack !== null, "Second continuous trem attack should create Trem bonus.");
+  assert(secondTremAttack?.displayText === "Trem!", "Trem bonus should use the Trem! display text.");
+  assertClose(secondTremAttack?.bonusContribution ?? -1, 0.12, 1e-9, "Trem attack bonus should use the single multiplier.");
+  assert(duplicateTremAttack === null, "Same trem onset should not be rewarded twice.");
+  assert(delayedFirstAttack === null, "First delayed trem attack should not create bonus.");
+  assert(delayedSecondAttack === null, "Long gap should reset trem streak instead of creating bonus.");
 }
 
 console.log("Game mode pitch math test completed.");
