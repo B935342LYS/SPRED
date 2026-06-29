@@ -22,6 +22,7 @@ import type {
 const PERFECT_ERROR_CENT = 50;
 const OK_ERROR_CENT = 100;
 const BAD_ERROR_CENT = 200;
+const NEXT_NOTE_GRACE_SECONDS = 0.03334;
 const PREVIOUS_NOTE_GRACE_SECONDS = 0.03334;
 const TIMING_DISPLAY_THRESHOLD_MS = 80;
 const TIMING_BAD_THRESHOLD_MS = 150;
@@ -81,7 +82,7 @@ export function collectGameJudgeTargetsAtSeconds(
   const activeTrackIdSet = new Set(activeTrackIds);
   const targets: GameJudgeTarget[] = [];
 
-  // active track의 현재 NoteEvent만 판정 후보로 수집한다.
+  // active track의 현재 NoteEvent와 짧은 전환 보정 구간의 이웃 NoteEvent를 판정 후보로 수집한다.
   for (const trackResult of analysis.trackResults) {
     if (!activeTrackIdSet.has(trackResult.trackId)) {
       continue;
@@ -95,7 +96,10 @@ export function collectGameJudgeTargetsAtSeconds(
       const startSeconds = mapper.tickToSeconds(event.time.startTick);
       const endSeconds = mapper.tickToSeconds(event.time.endTick);
 
-      if (scoreSeconds < startSeconds || scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS) {
+      if (
+        scoreSeconds < startSeconds - NEXT_NOTE_GRACE_SECONDS ||
+        scoreSeconds >= endSeconds + PREVIOUS_NOTE_GRACE_SECONDS
+      ) {
         continue;
       }
 

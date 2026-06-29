@@ -401,6 +401,12 @@ const transitionTargetsInGrace = collectGameJudgeTargetsAtSeconds(
   transitionMapper,
   0.52,
 );
+const transitionTargetsBeforeNextStart = collectGameJudgeTargetsAtSeconds(
+  transitionAnalysis,
+  ["basic"],
+  transitionMapper,
+  0.48,
+);
 const transitionTargetsAfterGrace = collectGameJudgeTargetsAtSeconds(
   transitionAnalysis,
   ["basic"],
@@ -412,6 +418,11 @@ assert(
   transitionTargetsInGrace.some((target) => target.eventId === "transition-c4") &&
     transitionTargetsInGrace.some((target) => target.eventId === "transition-d4"),
   "Adjacent note transition should keep the previous note target briefly after its end.",
+);
+assert(
+  transitionTargetsBeforeNextStart.some((target) => target.eventId === "transition-c4") &&
+    transitionTargetsBeforeNextStart.some((target) => target.eventId === "transition-d4"),
+  "Adjacent note transition should include the next note briefly before its start.",
 );
 assert(
   !transitionTargetsAfterGrace.some((target) => target.eventId === "transition-c4") &&
@@ -755,6 +766,29 @@ const expiredLateReleaseSample = judgeGameScoringSample(
 assert(
   expiredLateReleaseSample?.label === "Miss",
   "Late release should become a Miss after the previous note grace window expires.",
+);
+
+const earlyAttackSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1200,
+    rawFrequencyHz: 293.66,
+    frequencyHz: 293.66,
+    midi: 62,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  transitionTargetsBeforeNextStart,
+  0.48,
+  difficulty,
+);
+
+assert(
+  earlyAttackSample?.label === "Perfect" &&
+    earlyAttackSample.targetEventId === "transition-d4",
+  "Early attack during a note transition should match the next note instead of creating a Miss on the previous note.",
 );
 
 const rawShortJumpSample = judgeGameScoringSample(
