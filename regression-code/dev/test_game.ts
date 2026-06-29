@@ -32,6 +32,7 @@ import {
   loadGameSyncOffsetMsFromLocalStorage,
   saveGameSyncOffsetMsToLocalStorage,
 } from "../src/infra/game_preferences";
+import { createPracticeRangeStateFromApp } from "../src/app/playback/app_playback";
 import {
   calculateRms,
   createFrequencyRangeFromLayout,
@@ -357,6 +358,60 @@ const analysis: AnalysisResult = {
   analysisIssues: [],
 };
 const mapper = createTickTimeMapper(analysis.timingTimeline);
+const practiceRangeRuntime = {
+  timeMapper: mapper,
+};
+const disabledPracticeRange = createPracticeRangeStateFromApp(
+  {
+    loop: {
+      enabled: false,
+      startTick: 1,
+      endTick: 3,
+      pickMode: null,
+    },
+    renderInput: {
+      columnCount: 8,
+    },
+  } as never,
+  practiceRangeRuntime as never,
+);
+const enabledPracticeRange = createPracticeRangeStateFromApp(
+  {
+    loop: {
+      enabled: true,
+      startTick: 1,
+      endTick: 3,
+      pickMode: null,
+    },
+    renderInput: {
+      columnCount: 8,
+    },
+  } as never,
+  practiceRangeRuntime as never,
+);
+const invalidPracticeRange = createPracticeRangeStateFromApp(
+  {
+    loop: {
+      enabled: true,
+      startTick: 4,
+      endTick: 2,
+      pickMode: null,
+    },
+    renderInput: {
+      columnCount: 8,
+    },
+  } as never,
+  practiceRangeRuntime as never,
+);
+
+assert(disabledPracticeRange.enabled === false, "Practice range should be disabled when Loop UI is off.");
+assert(invalidPracticeRange.enabled === false, "Practice range should be disabled for an inverted range.");
+assert(enabledPracticeRange.enabled === true, "Practice range should be enabled for a valid Loop UI range.");
+if (enabledPracticeRange.enabled) {
+  assertClose(enabledPracticeRange.startSeconds, 0.125, 1e-9, "Practice range should start at the selected start tick.");
+  assertClose(enabledPracticeRange.endSeconds, 0.375, 1e-9, "Practice range should end at the selected end tick.");
+}
+
 const targetsAtStart = collectGameJudgeTargetsAtSeconds(
   analysis,
   ["basic", "optional"],
