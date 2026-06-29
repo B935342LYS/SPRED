@@ -399,19 +399,19 @@ const transitionTargetsInGrace = collectGameJudgeTargetsAtSeconds(
   transitionAnalysis,
   ["basic"],
   transitionMapper,
-  0.52,
+  0.6,
 );
 const transitionTargetsBeforeNextStart = collectGameJudgeTargetsAtSeconds(
   transitionAnalysis,
   ["basic"],
   transitionMapper,
-  0.48,
+  0.4,
 );
 const transitionTargetsAfterGrace = collectGameJudgeTargetsAtSeconds(
   transitionAnalysis,
   ["basic"],
   transitionMapper,
-  0.54,
+  0.63,
 );
 
 assert(
@@ -736,7 +736,7 @@ const lateReleaseSample = judgeGameScoringSample(
     rejectReason: null,
   },
   transitionTargetsInGrace,
-  0.52,
+  0.6,
   difficulty,
 );
 
@@ -759,7 +759,7 @@ const expiredLateReleaseSample = judgeGameScoringSample(
     rejectReason: null,
   },
   transitionTargetsAfterGrace,
-  0.54,
+  0.63,
   difficulty,
 );
 
@@ -781,7 +781,7 @@ const earlyAttackSample = judgeGameScoringSample(
     rejectReason: null,
   },
   transitionTargetsBeforeNextStart,
-  0.48,
+  0.4,
   difficulty,
 );
 
@@ -937,6 +937,76 @@ const okSample = judgeGameScoringSample(
 assert(okSample?.label === "Ok", "A 60 cent pitch error should create an Ok sample.");
 assertClose(okSample?.scoreContribution ?? -1, 2 / 3, 1e-9, "Ok should contribute two-thirds accuracy.");
 
+const proOkSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 533.44,
+    frequencyHz: 533.44,
+    midi: 72,
+    centOffset: 40,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+    attackRequired: true,
+  }],
+  0.1,
+  difficulty,
+  undefined,
+  "pro",
+);
+const proMissSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 0,
+    rawFrequencyHz: 553.37,
+    frequencyHz: 553.37,
+    midi: 73,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [{
+    eventId: "basic-c4",
+    trackId: "basic",
+    startSeconds: 0,
+    endSeconds: 1,
+    targetMidi: 60,
+    targetCentOffset: 0,
+    attackRequired: true,
+  }],
+  0.1,
+  difficulty,
+  undefined,
+  "pro",
+);
+const proTimingBadSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1060),
+  timingTarget,
+  1.12,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(6, 1.12)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+  "pro",
+);
+
+assert(proOkSample?.label === "Ok", "Pro Mode should classify 40 cent pitch error as Ok.");
+assert(proMissSample?.label === "Miss", "Pro Mode should classify 100 cent or more as Miss.");
+assert(proTimingBadSample?.label === "Bad", "Pro Mode should downgrade 100-149 ms timing offset to Bad.");
+
 const silentSample = judgeGameScoringSample(
   {
     capturedAtMs: 0,
@@ -965,6 +1035,9 @@ const summaryAfterMiss = missSample === null
 const summaryAfterTimingBad = timingBadSample === null
   ? emptySummary
   : applyGameScoringSample(emptySummary, timingBadSample);
+const proSummaryAfterTimingBad = proTimingBadSample === null
+  ? emptySummary
+  : applyGameScoringSample(summaryAfterPerfect, proTimingBadSample, "pro");
 const summaryAfterMissingAttack = missingAttackSample === null
   ? emptySummary
   : applyGameScoringSample(emptySummary, missingAttackSample);
@@ -981,6 +1054,7 @@ assertClose(
 );
 assert(summaryAfterTimingBad.timingBadCount === 1, "Timing Bad should increment the timing bad count.");
 assert(summaryAfterTimingBad.currentCombo === 1, "Score-eligible Bad should continue combo.");
+assert(proSummaryAfterTimingBad.currentCombo === 0, "Pro Mode Bad should reset combo.");
 assertClose(
   summaryAfterTimingBad.timingAccuracyPercent,
   100 / 3,
