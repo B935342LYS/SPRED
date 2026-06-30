@@ -9,6 +9,11 @@ Hub / index / current-state summary for this repository.
 Active implementation root:
 - `regression-code/`
 
+Local extension experiment root:
+- `regression-code-extend/`
+  - ignored by the root repository
+  - used for the separate `B935342LYS/SPRED_extend` repository / third-extension experiments
+
 Archived implementation roots:
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
@@ -126,6 +131,14 @@ Memo roots:
 `docs/a1.0-open-source-reference-survey.md` : `appendix`
 `docs/implementation-memo/` : `memo`
 `regression-code/` : `active`
+- stable SPRED implementation root for `B935342LYS/SPRED`
+- currently kept at the second-extension stable line around commit `21d7d82 구간 연습 지원`
+
+`regression-code-extend/` : `local-extension-copy`
+- local-only working copy for higher-risk third-extension experiments such as MIDI import
+- root `.gitignore` excludes this folder so top-level `git add .` does not stage extension code into `B935342LYS/SPRED`
+- publish this copy through the separate `B935342LYS/SPRED_extend` repository instead of the root `origin`
+
 `0. 이세계 코드 (legacy)/` : `archive`
 `1. 개발문서/` : `archive`
 `regression-code-2026-06-19/` : `interview-reference`
@@ -309,6 +322,11 @@ Appendix:
 Default implementation target:
 - `regression-code/`
 
+Separate extension implementation target:
+- `regression-code-extend/`
+  - use only when explicitly working on `SPRED_extend` / third-extension experiments
+  - do not rely on this folder for baseline SPRED implementation work
+
 Open on explicit review request only:
 - `docs/implementation-memo/`
 
@@ -322,6 +340,9 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+- `regression-code/` is the stable SPRED working root for `B935342LYS/SPRED`
+- higher-risk MIDI / audio-to-score import experiments have been split into local `regression-code-extend/` and remote `B935342LYS/SPRED_extend`
+- the root `.gitignore` excludes `regression-code-extend/` to prevent accidental staging through top-level `git add .`
 - implementation work has started in `regression-code/`
 - current work follows the first-stage roadmap in `docs/implementation-memo/1.0-roadmap.md`
 - `docs/implementation-memo/` is being used for implementation notes and design commentary
@@ -494,6 +515,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - first GitHub Pages user-test deployment was prepared through a separate local `regression-code-test-publish/` copy and pushed to `B935342LYS/spredtest`; the publish copy uses `base: "./"`, a short Korean README, `.gitignore`, and a GitHub Actions Pages workflow with Node 24 and `npm install`/`npm run build`
 - the deployment staging repo `regression-code-test-publish/` has been synced and pushed through commit `53e7030 Update practice effect judging`; this includes practice result grouping, edit-mode auto close on practice open, and gliss effect bonus judging/overlay updates
 - `regression-code-test-publish/` is a local deployment staging copy, not part of the main SPRED repository; the root `.gitignore` excludes test publish/deploy copies so future deployment staging folders are not committed into the original workspace
+- third-extension MIDI import experiment work was moved out of `regression-code/` into local `regression-code-extend/` after publishing experimental commit `442a922 Add MIDI import experiment` to `B935342LYS/SPRED_extend`; the stable `B935342LYS/SPRED` repository keeps `regression-code/` at `21d7d82 구간 연습 지원`
 - latest verified commands: `npm run test:game`, `npm run typecheck`, and `npm run build`; previous broader verification also included `npm run test:score`, `npm run test:parse`, `npm run test:edit`, `npm run test:view`, `npm run test:analyze`, `npm run test:layout`, `npm run test:audio`, `npm run test:youtube`, and `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
 
 Deferred planned work:

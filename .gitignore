@@ -34,5 +34,9 @@ regression-code-test-deploy/
 regression-code-*-publish/
 regression-code-*-deploy/
 
+# Local third-extension experiment copy
+regression-code-extend/
+regressoin-code-extend/
+
 # Local interview/reference snapshots
 regression-code-2026-06-19/
