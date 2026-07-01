@@ -18,21 +18,30 @@
 
 | # | 심각도 | 항목 | 위치 |
 |---|--------|------|------|
-| 1 | **High** | `globalLines.columnCount` 상한 미검증 → DoS | `score_validate.ts` / `canvas_grid_renderer.ts` |
-| 2 | **Medium** | 행 개수·행 높이 상한 미검증 → DoS/메모리 | `score_validate.ts` (`validateRowFields`) |
-| 3 | Low | 로드된 JSON의 `videoId`가 재검증을 안 거침 | `youtube_binding.ts` |
-| 4 | Low | `row.stringId` 참조·`midi` 유일성 미검증 | `score_validate.ts` |
-| 5 | Low | 음수/0 `columnCount` 미차단 | `score_validate.ts` |
-| 6 | Info | `parseYoutubeVideoId` 패턴이 느슨함(길이 상한 없음) | `youtube_url.ts` |
+| 1 | 해결 확인 | `globalLines.columnCount` 상한 미검증 → DoS | `score_validate.ts` / `canvas_grid_renderer.ts` |
+| 2 | 해결 확인 | 행 개수·행 높이 상한 미검증 → DoS/메모리 | `score_validate.ts` (`validateRowFields`) |
+| 3 | 해결 확인 | 로드된 JSON의 `videoId`가 재검증을 안 거침 | `youtube_binding.ts` |
+| 4 | 해결 확인 | `row.stringId` 참조·`midi` 유일성 미검증 | `score_validate.ts` |
+| 5 | 해결 확인 | 음수/0 `columnCount` 미차단 | `score_validate.ts` |
+| 6 | 해결 확인 | `parseYoutubeVideoId` 패턴이 느슨함(길이 상한 없음) | `youtube_url.ts` |
 | 7 | Info | 셀 총개수는 8MB 용량으로만 제한 | `score_limits.ts` |
 | 8 | Info | YouTube `loadVideo`의 비동기 오류 처리 경합 | `youtube_player.ts` |
+
+### 2026-07-01 안정화 재점검 메모
+
+- #1, #5: `globalLines.columnCount`는 현재 1..10000 정수 범위로 검증한다.
+- #2: `layout.rowDefinitions`는 4096행 이하, 각 row height는 1..500 정수 범위로 검증한다.
+- #3: 저장된 YouTube `videoId`도 `loadSavedVideo()`에서 `parseYoutubeVideoId()`로 재검증한 뒤 player에 전달한다.
+- #4: note/gap row의 `stringId` 참조와 같은 string 안의 note MIDI 중복을 검증한다.
+- #6: `parseYoutubeVideoId()`는 현재 `{6,64}` 길이 상한을 둔다.
+- 위 경계는 `regression-code/dev/test_score.ts`와 `regression-code/dev/test_youtube.ts`에서 회귀 테스트한다.
 
 ### 긍정적으로 확인된 점 (취약점 아님)
 
 - **XSS 없음.** 검토한 모든 DOM 생성이 `document.createElement` + `textContent`/`option.textContent` 기반이고 `innerHTML`/`insertAdjacentHTML`/`document.write`/`eval`/`new Function` 사용이 없다. 악보 메타데이터(제목·아티스트·코멘트), string 이름, 노트 라벨, 사용자 `rawText` 모두 텍스트 노드 또는 canvas `fillText`로만 렌더링된다.
 - **JSON은 `JSON.parse`로만 파싱** — eval류 없음. 코드 주입 불가.
 - **YouTube는 공식 IFrame API(`cueVideoById`)** 사용 — iframe `src`/URL을 직접 조립하지 않으므로 `javascript:` 등 URL 주입 불가, 자동재생도 아님.
-- **셀 `rawText` 길이 100자 제한**(`MAX_CELL_RAW_TEXT_LENGTH`)으로 셀 단위 파서 작업량이 유계.
+- **셀 `rawText` 길이 200자 제한**(`MAX_CELL_RAW_TEXT_LENGTH`)으로 셀 단위 파서 작업량이 유계.
 - **JSON 로드 8MiB 상한** 존재(`MAX_SCORE_JSON_BYTES`).
 
 ---

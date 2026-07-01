@@ -892,6 +892,11 @@ function testTupletGlissAnalysis(sourceText: string): void {
     item.sourceEventId === "basic:note:s1-note-60:62:slot:0" &&
     item.displayShape === "rect"
   );
+  const heldStartAnchorItem = tupletGlissNoteItems.find((item) =>
+    item.rowId === "s1-note-60" &&
+    item.startTick === 63 &&
+    item.endTick === 64
+  );
 
   assert(glissMarkers.length === 5, "Tuplet gliss events should convert to five gliss marker items.");
   assert(
@@ -997,13 +1002,20 @@ function testTupletGlissAnalysis(sourceText: string): void {
     "Held tuplet gliss base note rectangle should stop before the anchor square.",
   );
   assert(
-    tupletGlissNoteItems.some((item) =>
-      item.rowId === "s1-note-60" &&
-      item.startTick === 63 &&
-      item.endTick === 64 &&
-      item.displayShape === "anchorSquare"
-    ),
+    heldStartBaseItem?.omittedBorders?.right === true,
+    "Held tuplet gliss base note rectangle should omit the right border before the anchor square.",
+  );
+  assert(
+    heldStartAnchorItem !== undefined,
     "Held tuplet gliss start slot should add an anchor-square item at the held slot.",
+  );
+  assert(
+    heldStartAnchorItem?.omittedBorders?.left === true,
+    "Held tuplet gliss start square should omit the left border to connect with the previous rectangle.",
+  );
+  assert(
+    heldStartAnchorItem?.extendLeftToConnect === true,
+    "Held tuplet gliss start square should extend left to cover the intentional note inset gap.",
   );
 }
 

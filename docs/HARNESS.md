@@ -37,6 +37,7 @@ Primary spec roots:
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 - `docs/2.9-range-selection-edit-spec.md`
 - `docs/2.10-undo-redo-edit-history-spec.md`
+- `docs/2.11-example-score-and-manual-support-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/3.2-karaoke-game-mode-spec.md`
@@ -113,6 +114,9 @@ Memo roots:
 `docs/2.10-undo-redo-edit-history-spec.md` : `spec`
 - edit history, undo/redo stack, Undo button and keyboard shortcut policy
 
+`docs/2.11-example-score-and-manual-support-spec.md` : `spec`
+- example score manifest/provider, lazy score loading, Supabase read-only extension boundary, Manual support, and user-test feedback items
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -165,11 +169,12 @@ Read in this order for implementation work:
 11. `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 12. `docs/2.9-range-selection-edit-spec.md`
 13. `docs/2.10-undo-redo-edit-history-spec.md`
-14. `docs/1.5-note-cell-parser-spec.md`
-15. `docs/1.6-global-cell-parser-spec.md`
-16. `docs/1.7-analyzer-event-list-spec.md`
-17. `docs/1.3-score-json-format.md`
-18. `docs/1.0-development-spec.md`
+14. `docs/2.11-example-score-and-manual-support-spec.md`
+15. `docs/1.5-note-cell-parser-spec.md`
+16. `docs/1.6-global-cell-parser-spec.md`
+17. `docs/1.7-analyzer-event-list-spec.md`
+18. `docs/1.3-score-json-format.md`
+19. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -352,7 +357,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - the immediate code-review focus is the 2026-06-19 renderer, audio, and UI layer structure
 - current partial rebuild work has moved past note/global invalidation and canvas layer separation into partial parsed-document reuse, edited-track analyzer/render item rebuild, and drag input batching
 - Default/Long/Gliss/Trem/Pitch modifier UI input is now mostly wired for rawText creation, and Number UI input can edit global rows
-- Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 100 characters
+- Score JSON file load is limited to 8 MiB, local score save is limited to 3 MiB, and stored cell rawText is limited to 200 characters
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
@@ -409,7 +414,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - edit mode now supports same-cell click cycle `currentText -> - -> ~ -> currentText`, left-drag install, right-drag delete, and per-cell drag loop based on existing rawText
 - Number UI is always available in edit mode for global rows; `bpm` and `dynamics` accept ramp tokens while `beatsPerBar` and `stepsPerBeat` remain numeric-only
 - CUSTOM defaultText input is limited to 10 characters and escapes parser reserved characters at rawText composition time
-- tuplet slot input is limited to 30 characters, and composed tuplet rawText is blocked above the 100-character cell limit
+- tuplet slot input is limited to 30 characters, and composed tuplet rawText is blocked above the 200-character cell limit
 - absolutePitch UI uses a high-to-low sharp-note dropdown instead of direct MIDI number input
 - `@p(0)` and `@m(0)` are omitted from composed rawText because they have no effect
 - tuplet UI now supports On/Off state, slot activation, SELECT ROW slot filling with `@n(midi)`, and Finalize Value preparation for later cell insertion

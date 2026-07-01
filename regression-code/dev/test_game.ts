@@ -241,13 +241,13 @@ assertClose(
   applyGameSyncOffsetSeconds(1.5, 90),
   1.41,
   1e-9,
-  "Positive Sync should compare against an earlier score time.",
+  "Positive Sync should delay practice judge timing.",
 );
 assertClose(
   applyGameSyncOffsetSeconds(1.5, -40),
   1.54,
   1e-9,
-  "Negative Sync should compare against a later score time.",
+  "Negative Sync should advance practice judge timing.",
 );
 assertClose(
   applyGameSyncOffsetSeconds(0.03, 90),

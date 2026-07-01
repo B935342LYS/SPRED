@@ -5,7 +5,10 @@ import { loadScoreFile } from "../src/core/score/json_load";
 import {
   MAX_YOUTUBE_OFFSET_MS,
   MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_ROW_DEFINITIONS,
+  MAX_ROW_HEIGHT,
   MAX_SCORE_JSON_BYTES,
+  MAX_SCORE_COLUMN_COUNT,
   MIN_YOUTUBE_OFFSET_MS,
 } from "../src/core/score/score_limits";
 import { validateScoreFile } from "../src/core/score/score_validate";
@@ -21,6 +24,38 @@ const fixtureValue = JSON.parse(jsonText);
  */
 function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/**
+ * ScoreFile 검증 실패가 기대한 오류 코드와 경로로 발생하는지 확인한다.
+ * - 인수 : value : validateScoreFile()에 전달할 fixture 변형 값
+ * - 인수 : expectedCode : 기대하는 ScoreValidationError code
+ * - 인수 : label : 실패 메시지에 표시할 테스트 설명
+ * - 인수 : expectedPath : 기대하는 오류 path. 생략하면 path는 검사하지 않는다.
+ * - 반환값 : 없음
+ */
+function expectValidationError(
+  value: unknown,
+  expectedCode: string,
+  label: string,
+  expectedPath?: string,
+): void {
+  const result = validateScoreFile(value);
+
+  if (result.ok) {
+    console.error(`Score validation failed to reject ${label}.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (
+    result.error.code !== expectedCode ||
+    (expectedPath !== undefined && result.error.path !== expectedPath)
+  ) {
+    console.error(`Unexpected error for ${label}.`);
+    console.error(result.error);
+    process.exitCode = 1;
+  }
 }
 
 // UI와 edit/save 계약을 위해 고정 트랙 레이어 누락은 validator에서 차단해야 한다.
@@ -91,6 +126,73 @@ if (oversizedJsonResult.ok) {
   console.error(oversizedJsonResult.error);
   process.exitCode = 1;
 }
+
+const zeroColumnCount = cloneJson(fixtureValue);
+zeroColumnCount.globalLines.columnCount = 0;
+expectValidationError(
+  zeroColumnCount,
+  "invalid_shape",
+  "zero globalLines.columnCount",
+  "globalLines.columnCount",
+);
+
+const tooLargeColumnCount = cloneJson(fixtureValue);
+tooLargeColumnCount.globalLines.columnCount = MAX_SCORE_COLUMN_COUNT + 1;
+expectValidationError(
+  tooLargeColumnCount,
+  "invalid_shape",
+  "too large globalLines.columnCount",
+  "globalLines.columnCount",
+);
+
+const tooManyRows = cloneJson(fixtureValue);
+tooManyRows.layout.rowDefinitions = Array.from(
+  { length: MAX_ROW_DEFINITIONS + 1 },
+  (_, index) => ({
+    ...fixtureValue.layout.rowDefinitions[0],
+    rowId: `overflow-global-${index}`,
+  }),
+);
+expectValidationError(
+  tooManyRows,
+  "invalid_shape",
+  "too many layout rows",
+  "layout.rowDefinitions",
+);
+
+const tooTallRow = cloneJson(fixtureValue);
+tooTallRow.layout.rowDefinitions[0].height = MAX_ROW_HEIGHT + 1;
+expectValidationError(
+  tooTallRow,
+  "invalid_shape",
+  "too tall row",
+  "layout.rowDefinitions",
+);
+
+const unknownStringRow = cloneJson(fixtureValue);
+unknownStringRow.layout.rowDefinitions.find(
+  (row: { rowId: string }) => row.rowId === "s1-note-85",
+).stringId = "missing-string";
+expectValidationError(
+  unknownStringRow,
+  "invalid_shape",
+  "note row with unknown stringId",
+  "layout.rowDefinitions",
+);
+
+const duplicateStringMidiRow = cloneJson(fixtureValue);
+duplicateStringMidiRow.layout.rowDefinitions.push({
+  ...fixtureValue.layout.rowDefinitions.find(
+    (row: { rowId: string }) => row.rowId === "s1-note-85",
+  ),
+  rowId: "s1-note-85-duplicate",
+});
+expectValidationError(
+  duplicateStringMidiRow,
+  "invalid_shape",
+  "duplicate note MIDI in one string",
+  "layout.rowDefinitions",
+);
 
 const tooSmallYoutubeOffset = cloneJson(fixtureValue);
 tooSmallYoutubeOffset.musicData.youtube.offsetMs = MIN_YOUTUBE_OFFSET_MS - 1;
