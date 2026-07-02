@@ -26,6 +26,7 @@ import {
   createEmptyGameScoreSummary,
   formatGameSyncOffsetMs,
   isGameModeTrackChangeLocked,
+  isFullComboSummary,
   normalizeGameSyncOffsetMs,
 } from "../src/app/game/game_types";
 import {
@@ -805,6 +806,57 @@ assert(
   "Legato gliss destination targets should not be blocked only because no onset was detected.",
 );
 
+const glissEndAdjacentSamePitchSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1450,
+    rawFrequencyHz: 369.99,
+    frequencyHz: 369.99,
+    midi: 66,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [
+    {
+      eventId: "basic-gliss-end-fs4",
+      trackId: "basic",
+      startSeconds: 1,
+      endSeconds: 1.5,
+      targetMidi: 66,
+      targetCentOffset: 0,
+      attackRequired: false,
+    },
+    {
+      eventId: "basic-adjacent-fs4",
+      trackId: "basic",
+      startSeconds: 1.5,
+      endSeconds: 2,
+      targetMidi: 66,
+      targetCentOffset: 0,
+      attackRequired: true,
+    },
+  ],
+  1.52,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(31, 1.51)],
+    judgedEventIds: new Set(["basic-gliss-end-fs4"]),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(["basic-gliss-end-fs4"]),
+  },
+);
+
+assert(
+  glissEndAdjacentSamePitchSample?.targetEventId === "basic-adjacent-fs4",
+  "Same-pitch gliss end grace should not steal the adjacent active note target.",
+);
+assert(
+  glissEndAdjacentSamePitchSample?.scoreEligible === true,
+  "Adjacent same-pitch note after gliss should use its onset credit and score normally.",
+);
+
 const rawJumpSample = judgeGameScoringSample(
   {
     capturedAtMs: 1100,
@@ -1153,8 +1205,10 @@ const summaryAfterMissingAttack = missingAttackSample === null
 
 assert(summaryAfterPerfect.perfectCount === 1, "Perfect sample should increment Perfect count.");
 assert(summaryAfterPerfect.bestCombo === 1, "Perfect sample should increment combo.");
+assert(isFullComboSummary(summaryAfterPerfect), "A single judged Perfect sample should count as Full Combo.");
 assert(summaryAfterMiss.missCount === 1, "Miss sample should increment Miss count.");
 assert(summaryAfterMiss.currentCombo === 0, "Miss sample should reset current combo.");
+assert(!isFullComboSummary(summaryAfterMiss), "A judged Miss should prevent Full Combo.");
 assertClose(
   summaryAfterMiss.accuracyPercent,
   50,
@@ -1164,6 +1218,8 @@ assertClose(
 assert(summaryAfterTimingBad.timingBadCount === 1, "Timing Bad should increment the timing bad count.");
 assert(summaryAfterTimingBad.currentCombo === 1, "Score-eligible Bad should continue combo.");
 assert(proSummaryAfterTimingBad.currentCombo === 0, "Pro Mode Bad should reset combo.");
+assert(isFullComboSummary(summaryAfterTimingBad), "Standard Mode Bad should still count as Full Combo when combo continues.");
+assert(!isFullComboSummary(proSummaryAfterTimingBad), "Pro Mode Bad should prevent Full Combo because combo resets.");
 assertClose(
   summaryAfterTimingBad.timingAccuracyPercent,
   100 / 3,

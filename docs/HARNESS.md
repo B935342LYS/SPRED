@@ -14,6 +14,12 @@ Local extension experiment root:
   - ignored by the root repository
   - used for the separate `B935342LYS/SPRED_extend` repository / third-extension experiments
 
+Local deployment staging root:
+- `regression-code-test-publish/`
+  - ignored by the root repository
+  - used for GitHub Pages user-test deployment through `B935342LYS/spredtest`
+  - sync stable implementation changes here when updating the deployed test build
+
 Archived implementation roots:
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
@@ -142,6 +148,13 @@ Memo roots:
 - local-only working copy for higher-risk third-extension experiments such as MIDI import
 - root `.gitignore` excludes this folder so top-level `git add .` does not stage extension code into `B935342LYS/SPRED`
 - publish this copy through the separate `B935342LYS/SPRED_extend` repository instead of the root `origin`
+
+`regression-code-test-publish/` : `deployment-staging-copy`
+- local-only staging copy for GitHub Pages user-test deployment
+- remote deployment repository is `B935342LYS/spredtest`
+- copy/sync stable `regression-code/` implementation changes here before publishing a new test build
+- not part of the main `B935342LYS/SPRED` source repository
+- root `.gitignore` excludes this folder so deploy staging files are not committed into the original workspace
 
 `0. 이세계 코드 (legacy)/` : `archive`
 `1. 개발문서/` : `archive`
