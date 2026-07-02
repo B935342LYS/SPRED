@@ -312,6 +312,7 @@
           id,
           title: normalizeDisplayText(score.musicData.musicTitle, "Unknown"),
           artist: normalizeDisplayText(score.musicData.musicArtist, "Unknown"),
+          genre: normalizeDisplayText(score.musicData.musicGenre, "Unknown"),
           difficultyBasic: normalizeDifficulty(score.musicData.scoreDifficulty.basic),
           difficultyOptional: normalizeDifficulty(score.musicData.scoreDifficulty.optional),
           difficultyExtra: normalizeDifficulty(score.musicData.scoreDifficulty.extra),
@@ -359,7 +360,7 @@
         throw new Error(`${fileName}: missing tracks array.`);
       }
 
-      for (const field of ["musicTitle", "musicArtist", "createdAt", "updatedAt"]) {
+      for (const field of ["musicTitle", "musicArtist", "musicGenre", "createdAt", "updatedAt"]) {
         if (typeof musicData[field] !== "string") {
           throw new Error(`${fileName}: musicData.${field} must be a string.`);
         }
@@ -389,6 +390,7 @@
         sqlString(row.id),
         sqlString(row.title),
         sqlString(row.artist),
+        sqlString(row.genre),
         sqlNumberOrNull(row.difficultyBasic),
         sqlNumberOrNull(row.difficultyOptional),
         sqlNumberOrNull(row.difficultyExtra),
@@ -407,6 +409,7 @@
   id,
   title,
   artist,
+  genre,
   difficulty_basic,
   difficulty_optional,
   difficulty_extra,
@@ -424,6 +427,7 @@ ${values}
 on conflict (id) do update set
   title = excluded.title,
   artist = excluded.artist,
+  genre = excluded.genre,
   difficulty_basic = excluded.difficulty_basic,
   difficulty_optional = excluded.difficulty_optional,
   difficulty_extra = excluded.difficulty_extra,
@@ -457,7 +461,7 @@ where id in (${ids});
 
         item.className = "summary-row";
         name.textContent = row.objectName;
-        detail.textContent = `${row.title} / ${row.artist} / ${row.supportedTracks.join(", ")} / published ${row.isPublished}`;
+        detail.textContent = `${row.title} / ${row.artist} / ${row.genre} / ${row.supportedTracks.join(", ")} / published ${row.isPublished}`;
         item.append(name, detail);
         summary.append(item);
       }

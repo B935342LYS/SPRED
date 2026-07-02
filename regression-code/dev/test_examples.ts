@@ -10,6 +10,7 @@ const validManifest = {
       id: "sample-score",
       title: "Sample Score",
       artist: "Tester",
+      genre: "Test Genre",
       difficulty: {
         basic: 1.5,
         optional: 2,
@@ -43,6 +44,7 @@ assert.equal(validResult.ok, true);
 if (validResult.ok) {
   assert.deepEqual(validResult.manifest.examples[0]?.supportedTracks, ["basic", "optional"]);
   assert.equal(validResult.manifest.examples[0]?.difficulty?.basic, 1.5);
+  assert.equal(validResult.manifest.examples[0]?.genre, "Test Genre");
 }
 
 const duplicateTrack = cloneJson(validManifest);
@@ -56,6 +58,10 @@ expectInvalid(nonHttpsUrl, "examples[0].scoreUrl");
 const tooLargeDifficulty = cloneJson(validManifest);
 tooLargeDifficulty.examples[0].difficulty.basic = 100;
 expectInvalid(tooLargeDifficulty, "examples[0].difficulty.basic");
+
+const blankGenre = cloneJson(validManifest);
+blankGenre.examples[0].genre = " ";
+expectInvalid(blankGenre, "examples[0].genre");
 
 const badGeneratedAt = cloneJson(validManifest);
 badGeneratedAt.generatedAt = "not a date";

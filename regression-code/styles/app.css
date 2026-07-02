@@ -1720,6 +1720,26 @@ select:disabled {
   flex-wrap: wrap;
 }
 
+.examples-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 0.75fr) minmax(110px, 0.55fr);
+  gap: 10px;
+}
+
+.examples-controls label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.examples-controls input,
+.examples-controls select {
+  min-width: 0;
+  width: 100%;
+}
+
 .examples-notice {
   margin: 0;
   min-height: 18px;
@@ -1745,11 +1765,11 @@ select:disabled {
 
 .example-row {
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto auto auto;
   gap: 3px;
   width: 100%;
   min-width: 0;
-  min-height: 70px;
+  min-height: 88px;
   padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -1785,8 +1805,15 @@ select:disabled {
 }
 
 .example-row-meta,
-.example-row-detail {
+.example-row-detail,
+.example-row-file-meta {
   display: block;
+}
+
+@media (max-width: 640px) {
+  .examples-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .examples-empty {
