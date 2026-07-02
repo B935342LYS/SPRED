@@ -44,6 +44,7 @@ Primary spec roots:
 - `docs/2.9-range-selection-edit-spec.md`
 - `docs/2.10-undo-redo-edit-history-spec.md`
 - `docs/2.11-example-score-and-manual-support-spec.md`
+- `docs/2.12-manual-content-spec.md`
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
 - `docs/3.2-karaoke-game-mode-spec.md`
@@ -123,6 +124,9 @@ Memo roots:
 `docs/2.11-example-score-and-manual-support-spec.md` : `spec`
 - example score manifest/provider, lazy score loading, Supabase read-only extension boundary, Manual support, and user-test feedback items
 
+`docs/2.12-manual-content-spec.md` : `spec`
+- Manual content outline, writing template, screenshot/video policy, troubleshooting topics, and feedback guide structure
+
 `docs/3.0-extendplan-game-mode.md` : `extension-plan`
 - game mode expansion plan
 
@@ -183,11 +187,12 @@ Read in this order for implementation work:
 12. `docs/2.9-range-selection-edit-spec.md`
 13. `docs/2.10-undo-redo-edit-history-spec.md`
 14. `docs/2.11-example-score-and-manual-support-spec.md`
-15. `docs/1.5-note-cell-parser-spec.md`
-16. `docs/1.6-global-cell-parser-spec.md`
-17. `docs/1.7-analyzer-event-list-spec.md`
-18. `docs/1.3-score-json-format.md`
-19. `docs/1.0-development-spec.md`
+15. `docs/2.12-manual-content-spec.md`
+16. `docs/1.5-note-cell-parser-spec.md`
+17. `docs/1.6-global-cell-parser-spec.md`
+18. `docs/1.7-analyzer-event-list-spec.md`
+19. `docs/1.3-score-json-format.md`
+20. `docs/1.0-development-spec.md`
 
 Interpretation rules:
 
@@ -204,6 +209,7 @@ Interpretation rules:
 - note/global edit invalidation, layer redraw scope, partial rebuild staging은 `2.8`을 우선한다
 - Ctrl + drag 영역 선택, selection overlay, bulk delete/copy/paste 정책은 `2.9`를 우선한다
 - undo/redo history, Undo button, keyboard shortcut 정책은 `2.10`을 우선한다
+- Examples provider와 Manual 진입점은 `2.11`을 우선하고, Manual의 실제 내용 구조와 작성 양식은 `2.12`를 우선한다
 - note parser details follow `1.5` first
 - global parser details follow `1.6` first
 - analyzer result structures follow `1.7` first
@@ -267,6 +273,10 @@ Range selection / bulk edit:
 Undo / redo:
 - `docs/2.10-undo-redo-edit-history-spec.md`
 
+Examples / Manual:
+- `docs/2.11-example-score-and-manual-support-spec.md`
+- `docs/2.12-manual-content-spec.md`
+
 Extensions:
 - `docs/3.0-extendplan-game-mode.md`
 - `docs/3.1-extension-roadmap.md`
@@ -297,6 +307,8 @@ Appendix:
 - `2.8-edit-invalidation-and-partial-rebuild-spec.md`
 - `2.9-range-selection-edit-spec.md`
 - `2.10-undo-redo-edit-history-spec.md`
+- `2.11-example-score-and-manual-support-spec.md`
+- `2.12-manual-content-spec.md`
 
 `reference`
 - `1.1-project-plan.md`
