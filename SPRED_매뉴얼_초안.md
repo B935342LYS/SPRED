@@ -2,523 +2,600 @@
 
 이 문서는 현재 프로그램에 바로 적용하기 전, 문체와 설명 순서를 검토하기 위한 임시 초안입니다.
 
-레거시 OPREA Beta 2 매뉴얼처럼 처음 사용하는 분이 순서대로 따라갈 수 있도록 작성하되, 내용은 현재 웹 앱 `SPRED` / `회귀 코드` 기준으로 다시 정리했습니다.
+피드백, 버그 제보, 개선 의견 환영합니다. 제작자 이메일: `fav_09@naver.com`
 
-## 1. SPRED란?
+매뉴얼의 원본은 한글로 작성되었으며, 이외의 언어로 된 매뉴얼은 AI 번역과 최소한의 검수를 거친 번역본임을 밝힙니다. 내용이 부정확하면 제보 부탁드립니다.
 
-전국의 오타마토니스트 여러분 안녕하십니까?
+업데이트에 따라 매뉴얼과 달라지거나 추가된 기능이 있을 수 있습니다. 매뉴얼의 최종 갱신일은 --입니다.
 
-SPRED는 오타마톤 같은 프렛리스 악기를 위해 만든 피아노롤 악보 작성 / 재생 / 연습 보조 웹 앱입니다.
+아직 테스트 단계의 웹 앱입니다. 부족한 점이 있을 수 있습니다.
 
-예전 OPREA가 Google Spreadsheet 위에서 동작했다면, SPRED는 브라우저에서 바로 열 수 있는 웹 앱으로 다시 만든 버전입니다. 별도의 프로그램 설치 없이, 웹 페이지에서 악보 JSON을 불러오고, 재생하고, 편집하고, practice mode로 연습할 수 있습니다.
+<details open>
+<summary><strong>1. 시작하기</strong></summary>
+
+전세계 오타마토니스트 여러분 안녕하십니까?
+
+<details>
+<summary><strong>1.1. SPRED 소개</strong></summary>
+
+SPRED는 오타마톤같은 프렛리스 악기를 위해 개발된 악보 작성 / 재생 / 연습 보조용 도구입니다.
+
+별도의 프로그램 설치 없이 바로 웹 페이지에서 이용 가능합니다.
 
 주요 기능은 아래와 같습니다.
 
 - 악보 JSON 불러오기 / 저장하기
-- 예제 악보 DB에서 악보 불러오기
 - 피아노롤 악보 재생
-- basic / optional / extra 트랙 표시와 재생
-- 악보 셀 편집
-- layout 수정
+- 악보 제작과 편집
+- 악보 양식 변경
 - YouTube 영상과 악보 재생 싱크
-- 마이크 입력을 이용한 practice mode beta
+- 음정과 박자 평가 기능
 
-단, SPRED는 아직 테스트 단계의 웹 앱입니다. 일부 기능은 기기, 브라우저, 마이크 상태, 네트워크 상태에 따라 다르게 동작할 수 있습니다.
+</details>
 
-## 2. 시작하기
+<details>
+<summary><strong>1.2. 권장 환경</strong></summary>
 
-SPRED를 처음 여셨다면, 우선 예제 악보를 하나 불러와 재생해보시는 것을 권장합니다.
+- PC + Chrome 브라우저를 중심으로 개발하고 있습니다.
+- 모바일에서도 악보 로드 / 재생은 가능하지만 기본 지원 대상은 아닙니다. 일부 기능은 불편하거나 동작하지 않을 수 있습니다.
 
-### 2.1. 권장 환경
+</details>
 
-- 데스크톱 또는 노트북 브라우저를 권장합니다.
-- Chrome 계열 브라우저에서 가장 먼저 테스트하고 있습니다.
-- 모바일에서는 우선 악보 보기 / 불러오기 / 재생 중심으로 사용하시기 바랍니다.
-- 편집 모드와 practice mode는 데스크톱 환경을 권장합니다.
+<details>
+<summary><strong>1.3. 권장 사양</strong></summary>
 
-### 2.2. 처음 할 일
+현재 권장 사양은 테스트를 통해 정리 중입니다. 우선은 최신 Chrome 계열 브라우저가 원활하게 동작하는 PC 환경을 권장합니다.
 
-1. SPRED 페이지를 엽니다.
-2. 상단 메뉴에서 `File` → `Examples`를 누릅니다.
-3. 안내받은 `Access word`를 입력합니다.
-4. `Load List`를 눌러 예제 악보 목록을 불러옵니다.
-5. 원하는 악보를 선택한 뒤 `Load Example`을 누릅니다.
-6. 현재 악보를 교체해도 되는지 묻는 확인창이 나오면 확인합니다.
-7. 악보가 보이면 중앙의 `Play` 버튼으로 재생해봅니다.
+긴 악보, YouTube sync, practice mode는 기기 성능과 브라우저 상태에 영향을 받을 수 있습니다.
 
-직접 만든 악보 파일이 있다면 `File` → `JSON Load`로 불러올 수도 있습니다.
+</details>
 
-## 3. 화면 구성
+</details>
 
-SPRED 화면은 크게 네 부분으로 나뉩니다.
+<details open>
+<summary><strong>2. 상단 메뉴</strong></summary>
 
-### 3.1. 상단 메뉴
+상단 메뉴는 화면 위치에 따라 왼쪽 메뉴 영역, 중앙 플레이어 영역, 오른쪽 YouTube 영역으로 나눌 수 있습니다.
 
-화면 위쪽에는 파일, 보기, 반복, 도움말, 편집 관련 메뉴가 있습니다.
+<details open>
+<summary><strong>2.1. 왼쪽: 메뉴 영역</strong></summary>
 
-- `File` : 악보 파일 불러오기 / 저장하기 / 예제 악보 DB 열기
-- `View` : 화면 표시 방식 조정
-- `Loop` : 반복 재생 구간 설정
-- `Help` : 정보창과 Manual 열기
-- `Edit Mode` : 악보 편집 모드 전환
-- `Track` : basic / optional / extra 트랙 선택
-- `Expand` : 악보 오른쪽 공간 확장 또는 정리
-- `Clear All` : 현재 악보 내용을 비우기
+메뉴 영역에서는 프로그램의 각종 설정을 조정합니다.
 
-주의: `Clear All`은 악보 내용을 지우는 기능입니다. 테스트 중에는 먼저 `JSON Download`로 백업한 뒤 사용하는 것을 권장합니다.
+![왼쪽 상단 메뉴 영역 전체](regression-code/public/manual/resources/cellImage_0_0.jpg)
 
-### 3.2. 중앙 플레이어 영역
+<details>
+<summary><strong>File</strong></summary>
 
-중앙에는 현재 곡 정보, 재생 버튼, seek bar, volume, wave, practice mode 관련 정보가 있습니다.
+![File 메뉴](regression-code/public/manual/resources/cellImage_0_1.jpg)
 
-- `Play` : 재생 시작
-- `Stop` : 재생 정지
-- seek bar : 원하는 재생 위치로 이동
-- `Volume` : 앱 자체 악보 소리 크기 조절
-- `Wave` : 재생 음색 선택
-- `practice mode (beta)` : 마이크 판정 연습 모드 전환
+악보 파일을 로드하거나 저장합니다. 기본적으로 악보의 확장자는 `.json`입니다.
 
-### 3.3. 오른쪽 YouTube 영역
+| 항목 | 설명 |
+| --- | --- |
+| JSON Load | 로컬 Score JSON 파일을 불러옵니다. |
+| JSON Download | 현재 악보를 JSON 파일로 다운로드합니다. |
+| Local Save | 현재 브라우저의 local storage에 악보를 임시 저장합니다. |
+| Local Load | 같은 브라우저에 저장해둔 악보를 다시 불러옵니다. |
+| Examples | 테스트용 예제 악보 목록을 불러옵니다. 현재는 베타테스터용 access word가 필요합니다. |
 
-오른쪽에는 YouTube 연동 패널이 있습니다.
+주의: 제3자가 제작한 JSON 파일을 로드하고자 하는 경우, 사전에 안전한 파일인지 확인하는 것을 권장합니다. 장기 보관이나 공유에는 Local Save보다 JSON Download를 사용하세요.
 
-- `YouTube` : YouTube mode 켜기 / 끄기
-- `URL or ID` : YouTube 영상 주소 또는 ID 입력
-- `Offset (ms)` : 영상과 악보의 시작 시점 차이 조정
-- `Reload` : 입력한 영상 정보와 offset을 현재 악보 정보에 반영
+</details>
 
-YouTube mode는 영상을 다운로드하거나 저장하지 않습니다. 공식 embedded player를 열고, SPRED의 재생 위치에 맞춰 따라오게 하는 방식입니다.
+<details>
+<summary><strong>View</strong></summary>
 
-### 3.4. 악보 영역
+![View 메뉴](regression-code/public/manual/resources/cellImage_0_2.jpg)
 
-화면 아래쪽의 큰 캔버스가 실제 악보 영역입니다.
+악보의 시각적 설정을 변경합니다.
 
-- 왼쪽에는 row label과 layout 정보가 표시됩니다.
-- 오른쪽에는 시간 방향으로 이어지는 score cell이 표시됩니다.
-- 가로 스크롤로 긴 악보를 이동할 수 있습니다.
-- 세로 스크롤로 높은 음 / 낮은 음 영역을 이동할 수 있습니다.
+| 항목 | 설명 |
+| --- | --- |
+| Zoom | 악보 전체 배율을 조정합니다. |
+| Speed | 악보 cell의 가로 길이를 조정합니다. 실제 재생 시간이나 BPM은 바뀌지 않습니다. |
+| Fullscreen | 앱 화면을 전체 화면으로 전환합니다. |
+| Fit Height | 현재 화면 높이에 맞춰 악보가 보이도록 배율을 조정합니다. |
+| Normal / Reverse | 악보의 위아래 표시 방향을 전환합니다. |
+| Light / Dark | 색상 테마를 변경합니다. |
+| Text off | 노트 위의 텍스트 표시를 끕니다. global row 텍스트는 계속 보입니다. |
 
-## 4. File 메뉴
+</details>
 
-`File` 메뉴는 악보를 불러오고 저장하는 곳입니다.
+<details>
+<summary><strong>Loop</strong></summary>
 
-### 4.1. JSON Load
+![Loop 메뉴](regression-code/public/manual/resources/cellImage_0_3.jpg)
 
-로컬에 저장된 Score JSON 파일을 불러옵니다.
+악보의 특정 영역을 선택하여 루프할 수 있습니다.
 
-1. `File` → `JSON Load`를 누릅니다.
-2. `.json` 파일을 선택합니다.
-3. 파일 구조 검사를 통과하면 현재 악보로 불러옵니다.
+| 항목 | 설명 |
+| --- | --- |
+| Loop On / Off | 루프를 끄고 켭니다. |
+| Start | 시작 시점을 설정합니다. 기본값은 악보 전체의 시작 시점입니다. |
+| End | 종료 시점을 설정합니다. 기본값은 악보 전체의 종료 지점입니다. |
+| Select Column | 선택 후 악보의 한 점을 클릭하면 시작 또는 종료 시점을 변경할 수 있습니다. |
 
-주의: 깨진 JSON 파일이거나 SPRED 형식이 아닌 파일은 불러오지 않습니다. 이 경우 현재 악보는 유지됩니다.
+주의: 현재 매뉴얼 초안에서는 루프 UI 설명만 다룹니다. 실제 반복 재생 연결 상태는 테스트 빌드의 최신 구현을 기준으로 확인하세요.
 
-### 4.2. JSON Download
+</details>
 
-현재 악보를 JSON 파일로 다운로드합니다.
+<details>
+<summary><strong>Edit Mode</strong></summary>
 
-다른 사람에게 악보를 전달하거나, 브라우저 저장소와 별도로 백업하고 싶을 때 사용합니다.
+악보 편집 모드로 전환합니다. Edit Mode를 켠 뒤 악보 cell을 클릭하면 선택한 입력 도구와 활성 track 기준으로 악보가 수정됩니다.
 
-중요: 악보를 장기 보관하려면 `Local Save`만 믿지 말고 `JSON Download`로 파일을 받아두는 것을 권장합니다.
+세부 입력 방법은 이후 편집 항목에서 따로 설명할 예정입니다.
 
-### 4.3. Local Save / Local Load
+</details>
 
-`Local Save`는 현재 브라우저의 local storage에 악보를 저장합니다.
+<details>
+<summary><strong>Track</strong></summary>
 
-`Local Load`는 같은 브라우저에 저장해둔 악보를 다시 불러옵니다.
+![Track 메뉴](regression-code/public/manual/resources/cellImage_0_4.jpg)
 
-주의할 점은 아래와 같습니다.
+활성화할 트랙을 선택합니다. 현재 버전에는 `Basic`, `Optional`, `Extra` 세 종류가 있으며, 각기 다른 색으로 구분합니다.
 
-- local storage는 현재 브라우저 안에만 저장됩니다.
-- 다른 컴퓨터나 다른 브라우저에서는 보이지 않습니다.
-- 브라우저 데이터 삭제, 시크릿 모드, 저장소 정리 등에 의해 사라질 수 있습니다.
-- 다른 사람에게 공유할 파일을 만들 때는 `JSON Download`를 사용해야 합니다.
+- 비활성화된 track은 화면에서 반투명하게 표시됩니다.
+- 비활성화된 track은 재생 시 소리가 나지 않습니다.
+- track별 노트는 독립적으로 저장됩니다.
+- 여러 트랙을 동시에 켜고 노트를 찍으면 활성화된 트랙들에 동시에 입력될 수 있습니다.
 
-### 4.4. Examples
+</details>
 
-예제 악보 DB에서 테스트용 악보를 불러오는 기능입니다.
+<details>
+<summary><strong>Expand</strong></summary>
 
-1. `File` → `Examples`를 누릅니다.
-2. `Access word`를 입력합니다.
-3. `Load List`를 누릅니다.
-4. 목록에서 악보를 선택합니다.
-5. `Load Example`을 누릅니다.
-6. 현재 악보 교체 확인창에서 확인합니다.
+![Expand 메뉴](regression-code/public/manual/resources/cellImage_0_5.jpg)
 
-예제 목록에서는 곡 제목, 아티스트, 장르, 난이도, 지원 track 등의 정보를 확인할 수 있습니다.
+악보의 길이를 변경합니다.
 
-주의:
+| 항목 | 설명 |
+| --- | --- |
+| Columns | 확장 또는 정리할 기준 칸 개수를 입력합니다. |
+| Expand Right | 입력한 열 수만큼 오른쪽으로 공간을 추가합니다. |
+| Trim Right | 오른쪽의 불필요한 빈 공간을 정리합니다. |
 
-- 예제 DB는 테스트 참여자를 위한 임시 접근 방식입니다.
-- access word가 틀리거나 네트워크 문제가 있으면 목록이 뜨지 않습니다.
-- 목록 불러오기나 예제 악보 불러오기에 실패해도 현재 악보는 유지됩니다.
-- practice mode 중에는 악보 교체가 잠깁니다.
+주의: 너무 긴 악보는 기기 성능에 영향을 줄 수 있습니다. 필요한 만큼 나누어 확장하는 것을 권장합니다.
 
-## 5. View 메뉴
+</details>
 
-`View` 메뉴는 악보를 보는 방식을 바꾸는 메뉴입니다.
+<details>
+<summary><strong>Clear All</strong></summary>
 
-- `Zoom` : 악보 전체 배율 조정
-- `Speed` : 화면에서 한 칸이 차지하는 가로 폭 조정
-- `Fullscreen` : 전체 화면으로 보기
-- `Fit Height` : 현재 화면 높이에 맞춰 보기
-- `Normal / Reverse` : 표시 방향 전환
-- `Theme` : 화면 테마 전환
-- `Text` 관련 옵션 : 노트 글자 표시 여부 조정
+악보 전체를 비우고 초기 기본 상태로 되돌아갑니다.
 
-주의: `Speed`는 실제 음악 재생 속도를 바꾸는 기능이 아닙니다. 화면에서 열 간격을 넓히거나 좁히는 표시 옵션입니다.
+주의: 작업 중인 악보를 잃지 않도록 사용 전 `JSON Download`로 백업하세요.
 
-## 6. 재생과 탐색
+</details>
 
-악보를 불러온 뒤에는 중앙 플레이어 영역에서 재생할 수 있습니다.
+</details>
 
-1. `Play`를 누르면 현재 위치부터 재생합니다.
-2. `Stop`을 누르면 재생을 멈춥니다.
-3. seek bar를 움직이면 원하는 위치로 이동합니다.
-4. 악보 영역은 재생 위치에 맞춰 따라 움직입니다.
+<details open>
+<summary><strong>2.2. 중앙: 플레이어 영역</strong></summary>
 
-소리가 너무 크거나 작으면 `Volume`을 조정하세요. YouTube mode를 함께 사용할 때는 앱 자체 악보 소리를 줄이고 YouTube 소리만 듣는 편이 더 자연스러울 수 있습니다.
+전체적으로 일반적인 음악 플레이어와 비슷합니다.
 
-## 7. Loop 메뉴
+![중앙 플레이어 영역 전체](regression-code/public/manual/resources/cellImage_0_6.jpg)
 
-`Loop` 메뉴는 반복해서 연습하고 싶은 구간을 지정하기 위한 기능입니다.
+<details>
+<summary><strong>재생 관련 기능</strong></summary>
 
-1. `Loop` 메뉴를 엽니다.
-2. Loop를 `On`으로 바꿉니다.
-3. 시작 위치와 끝 위치를 고릅니다.
-4. `Select Column` 방식으로 악보 위의 열을 직접 선택할 수 있습니다.
+| 항목 | 설명 |
+| --- | --- |
+| 재생, 정지 | 보편적인 미디어 플레이어와 동일하게 동작합니다. |
+| 재생바 | 현재의 진행 상태를 나타냅니다. 드래그하여 악보를 슬라이드할 수도 있습니다. |
+| Volume, Wave | 악보 노트의 볼륨과 소리 유형을 결정합니다. |
 
-현재 단계에서는 UI와 구간 표시가 먼저 연결되어 있으며, 실제 playback 반복 동작은 후속 연결 상태를 확인해야 합니다. 테스트 중에는 반복 마커가 의도한 위치에 표시되는지 먼저 확인해주세요.
+</details>
 
-## 8. Track 사용
+<details>
+<summary><strong>Details</strong></summary>
 
-SPRED는 세 개의 track layer를 사용합니다.
+![Details dialog](regression-code/public/manual/resources/cellImage_0_7.jpg)
 
-- `Basic` : 기본 멜로디 라인
-- `Optional` : 선택적으로 따라 할 수 있는 화음, 2성부, 세션 라인
-- `Extra` : 선택 요소 중 난이도가 높은 라인
+악보의 정보를 열람하고 편집할 수 있습니다. 단, 생성일과 수정일은 저장 시점을 기준으로 자동 갱신되며 사용자가 직접 수정할 수 없습니다.
 
-`Track` 메뉴에서 각 트랙을 켜거나 끌 수 있습니다.
+편집 후 `Save`를 누르면 정보가 저장됩니다. `File` -> `JSON Download` / `Local Save` 버튼으로 해당 정보를 보존할 수 있습니다.
 
-- 켜진 트랙은 선명하게 표시됩니다.
-- 꺼진 트랙은 반투명하게 보이며, 재생 시 소리가 나지 않습니다.
-- Edit Mode에서 입력되는 노트는 현재 active track에 기록됩니다.
+</details>
 
-주의: 편집할 때는 현재 어떤 track이 active인지 반드시 확인하세요. 의도와 다른 track에 노트를 찍는 실수가 가장 자주 발생할 수 있습니다.
+<details>
+<summary><strong>practice mode (beta)</strong></summary>
 
-## 9. Edit Mode 기본
+마이크 입력을 받아 악보와의 일치도를 측정하여 사용자의 음정과 박자 감각을 평가하는 기능입니다.
 
-`Edit Mode`를 켜면 악보 셀을 수정할 수 있습니다.
+자세한 것은 별도 항목에서 기술합니다.
 
-### 9.1. 기본 입력 흐름
+</details>
+
+</details>
+
+<details open>
+<summary><strong>2.3. 오른쪽: YouTube 영역</strong></summary>
+
+유튜브 영상을 연동해 반주처럼 재생하는 기능입니다.
+
+![오른쪽 YouTube 영역](regression-code/public/manual/resources/cellImage_0_8.jpg)
+
+<details>
+<summary><strong>YouTube sync</strong></summary>
+
+| 항목 | 설명 |
+| --- | --- |
+| YouTube | YouTube mode를 켜거나 끕니다. |
+| URL or ID | Video 주소 입력창에 유튜브 링크 또는 영상 ID를 입력합니다. |
+| Offset (ms) | 영상의 재생 시점을 악보에 맞춰 조절합니다. 음수 값이면 영상이 악보보다 빠르게, 양수 값이면 영상이 악보보다 느리게 재생되도록 맞춥니다. 기기와 브라우저에 따라 적정값이 달라질 수 있습니다. |
+| Reload | 링크나 Offset 수정 후 설정값에 따라 새로고침합니다. |
+
+SPRED는 YouTube 영상을 다운로드, 저장, 캐시, 추출, 재배포하지 않습니다. 공식 embedded player를 사용해 악보 재생 위치를 따라오게 합니다.
+
+주의: YouTube Premium 또는 광고 차단 기능을 사용하지 않는 환경에서는 영상 재생 전에 광고가 나올 수 있습니다. 광고가 끝난 뒤에는 일반 영상과 동일하게 동작합니다.
+
+</details>
+
+</details>
+
+</details>
+
+<details open>
+<summary><strong>3. 악보 영역</strong></summary>
+
+악보 영역은 실제 피아노롤 악보가 표시되는 공간입니다. 왼쪽에는 각 줄의 의미를 나타내는 라벨이 있고, 오른쪽에는 시간 방향으로 이어지는 악보 cell이 있습니다.
+
+![악보 영역 전체](regression-code/public/manual/resources/cellImage_0_9.jpg)
+
+<details>
+<summary><strong>3.1. 화면 구조</strong></summary>
+
+| 영역 | 설명 |
+| --- | --- |
+| Row label | 각 행의 음높이, global row, gap row 같은 정보를 표시합니다. |
+| Score canvas | 실제 note cell과 global cell이 표시되는 영역입니다. |
+| Playback line | 현재 재생 위치를 시각적으로 보여주는 기준선입니다. |
+| Scroll area | 긴 악보를 가로 / 세로로 이동하며 볼 수 있습니다. |
+
+가로 방향은 시간의 흐름을 의미합니다. 세로 방향은 악보의 row 구조를 의미합니다.
+
+</details>
+
+<details>
+<summary><strong>3.2. 행의 종류</strong></summary>
+
+| 종류 | 설명 |
+| --- | --- |
+| note row | 실제 음표가 입력되는 줄입니다. 오타마톤의 음높이와 대응됩니다. |
+| global row | BPM, 박자, dynamics처럼 악보 전체 흐름에 영향을 주는 값을 입력하는 줄입니다. |
+| gap row | 음 사이의 시각적 간격을 만들기 위한 줄입니다. 일반적으로 직접 노트를 입력하지 않습니다. |
+
+처음에는 note row에 일반 노트를 입력하고, global row는 BPM 같은 기본값을 확인하는 정도로 사용하는 것을 권장합니다.
+
+</details>
+
+<details>
+<summary><strong>3.3. 악보 보기</strong></summary>
+
+- 긴 악보는 가로 스크롤로 이동합니다.
+- 높은 음 / 낮은 음은 세로 스크롤로 이동합니다.
+- `View` 메뉴의 `Zoom`, `Speed`, `Fit Height`를 이용해 보기 편한 크기로 조정할 수 있습니다.
+- `Text off`를 사용하면 note 위의 텍스트 표시를 줄여 더 깔끔한 악보를 볼 수 있습니다.
+
+주의: 매우 긴 악보는 기기 성능에 따라 스크롤이나 렌더링이 느려질 수 있습니다.
+
+</details>
+
+</details>
+
+<details open>
+<summary><strong>4. Edit Mode 기본</strong></summary>
+
+Edit Mode는 악보 cell을 직접 수정하기 위한 모드입니다. 악보를 처음 작성한다면 기본 note 입력과 삭제, Undo / Redo부터 익히는 것을 권장합니다.
+
+![Edit Mode 입력 패널 전체](regression-code/public/manual/resources/cellImage_0_10.jpg)
+
+<details>
+<summary><strong>4.1. 기본 사용 흐름</strong></summary>
 
 1. `Edit Mode`를 켭니다.
-2. `Track`에서 수정할 track을 선택합니다.
-3. 오른쪽 또는 상단의 입력 도구에서 입력할 값을 고릅니다.
-4. 악보 영역의 원하는 cell을 클릭합니다.
-5. 선택한 rawText가 해당 cell에 입력됩니다.
+2. `Track` 메뉴에서 수정할 track을 확인합니다.
+3. 입력 도구에서 원하는 값을 선택합니다.
+4. 악보 영역의 cell을 클릭합니다.
+5. 선택한 입력값이 현재 active track의 cell에 기록됩니다.
 
-### 9.2. 지우기
+주의: 여러 track을 동시에 켠 상태에서 입력하면 활성화된 여러 track에 함께 입력될 수 있습니다. 편집 전 Track 상태를 확인하세요.
 
-- 빈 입력값 또는 지우개 계열 기능으로 cell을 비울 수 있습니다.
-- 일부 환경에서는 우클릭 삭제 대신 별도 지우기 기능을 사용하는 편이 안전합니다.
+</details>
 
-### 9.3. Undo / Redo
+<details>
+<summary><strong>4.2. 지우기와 되돌리기</strong></summary>
 
-편집 패널의 `Undo`, `Redo` 버튼으로 최근 편집을 되돌리거나 다시 적용할 수 있습니다.
+| 항목 | 설명 |
+| --- | --- |
+| 빈 입력 / 삭제 도구 | 선택한 cell의 내용을 비웁니다. |
+| Delete / Backspace | 선택 영역 또는 선택된 cell을 지울 때 사용합니다. |
+| Undo | 최근 편집을 되돌립니다. |
+| Redo | 되돌린 편집을 다시 적용합니다. |
 
-단, undo/redo는 현재 세션 안에서만 유지됩니다. 악보 파일을 새로 불러오거나 구조가 크게 바뀌면 history가 초기화됩니다.
+Undo / Redo 기록은 현재 세션 안에서만 유지됩니다. 악보 파일을 새로 불러오거나 구조가 크게 바뀌면 초기화될 수 있습니다.
 
-### 9.4. Range selection
+</details>
+
+<details>
+<summary><strong>4.3. 범위 선택과 복사</strong></summary>
 
 `Ctrl + drag`로 여러 cell을 한 번에 선택할 수 있습니다.
 
-- 선택 후 `Delete` 또는 `Backspace`로 여러 cell을 지울 수 있습니다.
-- `Ctrl+C`로 내부 복사, `Ctrl+V`로 붙여넣기를 할 수 있습니다.
-- 붙여넣기 전에는 preview rectangle이 표시됩니다.
+| 조작 | 설명 |
+| --- | --- |
+| Ctrl + drag | 여러 cell 범위를 선택합니다. |
+| Delete / Backspace | 선택한 범위의 cell을 삭제합니다. |
+| Ctrl + C | 선택한 범위를 내부 clipboard에 복사합니다. |
+| Ctrl + V | 복사한 범위를 현재 위치에 붙여넣습니다. |
+| Ctrl + X | 잘라내기 기능입니다. |
 
-주의: 이 복사 기능은 SPRED 내부 score cell 복사용입니다. 일반 텍스트 편집기의 복사/붙여넣기와 완전히 같지는 않습니다.
+붙여넣기 전에는 preview rectangle이 표시됩니다. 이 복사 기능은 SPRED 내부 score cell 복사용이며, 일반 텍스트 편집기의 복사 / 붙여넣기와 완전히 같지는 않습니다.
 
-### 9.5. 모바일 편집
+</details>
 
-초기 버전에서 모바일은 보기 / 불러오기 / 재생 중심입니다. 악보 작성과 대량 편집은 데스크톱에서 진행하는 것을 권장합니다.
+</details>
 
-## 10. 입력 기호와 표현
+<details open>
+<summary><strong>5. 입력 기호와 표현</strong></summary>
 
-SPRED의 note cell은 단순한 글자뿐 아니라 여러 연주 기호를 포함할 수 있습니다.
+SPRED의 note cell은 연주 표현을 추가하기 위한 여러 기호를 포함할 수 있습니다.
 
-대표적인 기호는 아래와 같습니다.
+![입력 도구 패널 전체](regression-code/public/manual/resources/cellImage_0_10.jpg)
 
-- 일반 노트 : 기본 음 입력
-- `-` : 일반 롱노트
-- `~` : vib가 있는 롱노트
-- gliss marker : 글리산도 연결
-- trem marker : 트레몰로 표현
-- tuplet : 셋잇단부터 여러 분할음 입력
-- comment : 실제 음 없이 화면에 표시하는 설명
+<details>
+<summary><strong>5.1. 기본 입력</strong></summary>
+
+| 항목 | 설명 |
+| --- | --- |
+| 기본 note | 일반 음표를 입력합니다. |
+| comment | 실제 음 없이 악보 위에 표시할 설명을 입력합니다. |
+| custom text | 사용자가 직접 정한 텍스트를 cell에 입력합니다. |
+
+![Default 입력 모드 선택](regression-code/public/manual/resources/cellImage_0_11.jpg)
+
+처음 악보를 만들 때는 일반 note와 간단한 텍스트 입력부터 사용하는 것을 권장합니다.
+
+</details>
+
+<details>
+<summary><strong>5.2. 롱노트와 표현 기호</strong></summary>
+
+| 기호 / 기능 | 설명 |
+| --- | --- |
+| `-` | 일반 롱노트 연결에 사용합니다. |
+| `~` | vib가 있는 롱노트 표현에 사용합니다. |
+| gliss marker | 글리산도 연결을 표현합니다. |
+| trem marker | 트레몰로 표현에 사용합니다. |
+| Pitch | 표시된 row와 실제로 울릴 음정을 다르게 지정하거나, cent 단위 미분음을 입력할 때 사용합니다. |
+
+Pitch는 주로 배음처럼 손가락 위치와 실제 발음이 다른 경우, 예외적인 음 처리, 미분음 표현에 사용합니다.
 
 기호 조합은 가능하지만, 음악적으로 동시에 해석하기 어려운 조합은 제한되거나 일부만 해석될 수 있습니다.
 
-처음 악보를 만들 때는 일반 노트와 `-` 롱노트부터 사용해보고, 이후 gliss / vib / trem / tuplet을 추가하는 순서를 권장합니다.
+</details>
 
-## 11. Layout 사용
+<details>
+<summary><strong>5.3. Glissando 입력</strong></summary>
 
-`Layout`은 악보의 세로 구조, 음높이 행, gap row, row height 등을 정하는 기능입니다.
+Glissando는 시작 지점, 중간 지점, 끝 지점을 이어 음높이가 미끄러지듯 변하는 표현입니다.
 
-왼쪽 악보 label 영역의 `Settings` 버튼을 누르면 layout dialog를 열 수 있습니다.
+![Glissando 연결 예시](regression-code/public/manual/resources/cellImage_0_12.jpg)
 
-주요 항목은 아래와 같습니다.
+| 항목 | 설명 |
+| --- | --- |
+| Gliss kind | gliss marker의 역할을 고릅니다. 기본 흐름은 start - mid - end 순서입니다. |
+| start | 글리산도가 시작되는 지점입니다. |
+| mid | 시작과 끝 사이를 지나는 중간 지점입니다. 필요할 때 여러 개를 둘 수 있습니다. |
+| end | 글리산도가 끝나는 지점입니다. |
+| Gliss id | 같은 id를 가진 marker끼리 하나의 glissando로 연결됩니다. |
 
-- `Preset` : 저장된 layout preset 선택
-- `Instrument` : 악기 종류와 string 설정
-- `Rows` : 현재 악보 row 목록
-- `Preview` : 수정 중인 layout 미리보기
-- `Add Row` : note / gap row 추가
-- `Apply` : 수정한 layout을 현재 악보에 적용
-- `Cancel` : 적용하지 않고 닫기
+서로 다른 glissando를 동시에 쓰거나 가까운 위치에 배치할 때는 id를 다르게 지정해 연결이 섞이지 않도록 합니다.
 
-주의:
+주의: 같은 id 안에서는 start - mid - end 순서가 자연스럽게 이어져야 합니다. 순서가 뒤섞이거나 end가 없는 경우 의도와 다르게 해석될 수 있습니다.
 
-- layout은 악보 구조와 연결되어 있습니다.
+</details>
+
+<details>
+<summary><strong>5.4. Tuplet 입력</strong></summary>
+
+Tuplet은 한 칸 안을 여러 분할음으로 나누어 셋잇단음 같은 리듬을 표현하는 기능입니다. 입력 과정이 다른 도구보다 복잡하므로, 먼저 tuplet 값을 만든 뒤 악보에 배치하는 흐름으로 이해하면 됩니다.
+
+![Tuplet 입력 패널](regression-code/public/manual/resources/cellImage_0_13.jpg)
+
+| 항목 | 설명 |
+| --- | --- |
+| Tuplet mode | Tuplet 입력 모드를 켜거나 끕니다. 이 모드에서는 tuplet 관련 입력을 우선 사용합니다. |
+| Division | 한 칸을 몇 개의 분할음으로 나눌지 정합니다. 예를 들어 3이면 셋잇단음 계열 입력입니다. |
+| Insert mode | 각 분할 슬롯에 어떤 방식으로 값을 넣을지 정합니다. 선택한 기본 note, 롱노트, 표현 기호 설정이 함께 반영될 수 있습니다. |
+| Slot | 분할음 하나하나의 입력칸입니다. 현재 선택된 slot에 note나 쉼표 값을 넣습니다. |
+| Select row | 악보의 row를 클릭해 현재 slot에 해당 음높이를 넣는 방식입니다. |
+| Finalize Value | slot에 입력한 분할음 구성을 확정합니다. 확정 후 악보 cell을 클릭해 tuplet을 배치합니다. |
+
+기본 순서는 아래와 같습니다.
+
+1. `Tuplet mode`를 켭니다.
+2. `Division`에서 분할 수를 고릅니다.
+3. 입력할 slot을 선택합니다.
+4. `Select row` 또는 입력 도구를 사용해 각 slot의 음을 채웁니다.
+5. 쉼표가 필요한 slot은 빈 값으로 둡니다.
+6. 모든 slot을 정했으면 `Finalize Value`를 누릅니다.
+7. 악보 영역의 원하는 cell을 클릭해 tuplet을 입력합니다.
+
+주의: Tuplet은 여러 분할음이 하나의 cell 안에 들어가는 구조입니다. 이미 입력된 tuplet을 수정할 때는 일반 note보다 hit 영역과 slot 선택을 더 주의해서 확인하세요.
+
+</details>
+
+<details>
+<summary><strong>5.5. Pitch 입력</strong></summary>
+
+Pitch 영역은 악보에서 클릭한 row의 기본 음높이를 기준으로, 실제 발음 음정과 미세한 cent 보정을 따로 지정하는 기능입니다.
+
+| 항목 | 설명 |
+| --- | --- |
+| absolutePitch | 실제로 울릴 음정을 계이름 드롭다운으로 지정합니다. 비워두면 클릭한 note row의 기본 음정을 그대로 사용합니다. |
+| AUTO◇ +2oct | 클릭한 row보다 2옥타브 높은 음정을 자동으로 지정합니다. 배음 표기처럼 표시 위치와 실제 발음이 달라지는 경우에 사용합니다. |
+| microPitch | 현재 음정에서 cent 단위로 미세하게 올리거나 내립니다. 입력 범위는 -100부터 100까지이며, 소수점 이하 1자리까지 사용할 수 있습니다. |
+
+기본 입력 순서는 아래와 같습니다.
+
+1. `Edit Mode`를 켭니다.
+2. 필요하면 `absolutePitch`에서 실제 발음 음정을 고릅니다.
+3. 미분음이 필요하면 `microPitch`에 cent 값을 입력합니다.
+4. 악보 영역의 원하는 note row와 cell을 클릭합니다.
+
+예를 들어 표시 위치는 낮은 음 row에 두되 실제 소리는 배음처럼 높은 음으로 내고 싶다면 `absolutePitch` 또는 `AUTO◇ +2oct`를 사용합니다. 기준 음보다 조금 높거나 낮게 연주해야 하는 음은 `microPitch`에 양수 또는 음수 cent 값을 넣습니다.
+
+주의: Pitch modifier는 표시 위치, 재생 음정, practice mode 판정에 영향을 줄 수 있습니다. 의도한 음정과 다르게 들리면 먼저 absolutePitch와 microPitch 값이 남아 있는지 확인하세요.
+
+</details>
+
+</details>
+
+<details open>
+<summary><strong>6. Layout 사용</strong></summary>
+
+Layout은 악보의 세로 구조, 음높이 행, gap row, row height 등을 정하는 기능입니다.
+
+![Layout dialog](regression-code/public/manual/resources/cellImage_0_14.jpg)
+
+<details>
+<summary><strong>6.1. Layout이 하는 일</strong></summary>
+
+| 항목 | 설명 |
+| --- | --- |
+| Instrument | 악기 종류와 string 설정을 관리합니다. |
+| Rows | 현재 악보 row 목록을 확인하고 수정합니다. |
+| Preview | 수정 중인 layout을 미리 봅니다. |
+| Add Row | note row 또는 gap row를 추가합니다. |
+| Apply | 수정한 layout을 현재 악보에 적용합니다. |
+
+Layout은 악보 구조와 직접 연결되어 있으므로, 처음에는 row height 조정이나 preset 확인 정도부터 사용하는 것을 권장합니다.
+
+</details>
+
+<details>
+<summary><strong>6.2. Preset 저장과 불러오기</strong></summary>
+
+| 항목 | 설명 |
+| --- | --- |
+| New Preset | 현재 설정을 새 preset으로 만듭니다. |
+| Local Save / Local Load | 현재 브라우저에 layout preset을 저장하거나 불러옵니다. |
+| File Save / File Load | layout preset을 파일로 저장하거나 파일에서 불러옵니다. |
+
+악보 파일은 기본 layout을 저장하고, 사용자의 layout custom은 별도 preset으로 관리하는 방향입니다.
+
+</details>
+
+<details>
+<summary><strong>6.3. 주의할 점</strong></summary>
+
 - row를 삭제하거나 종류를 바꾸면 기존 cell과 충돌할 수 있습니다.
-- 구조 충돌이 큰 경우에는 import 또는 apply가 실패할 수 있습니다.
-- 처음에는 row height 조정이나 preset 저장 정도부터 사용하는 것을 권장합니다.
+- 구조 충돌이 큰 경우 apply 또는 import가 실패할 수 있습니다.
+- 악보가 이상하게 보이면 먼저 layout preset과 row 구조를 확인하세요.
+- 불확실할 때는 `JSON Download`로 악보를 백업한 뒤 layout을 수정하세요.
 
-## 12. Expand와 Clear All
+</details>
 
-### 12.1. Expand
+</details>
 
-악보 오른쪽 공간이 부족할 때 `Expand` 메뉴를 사용할 수 있습니다.
+<details open>
+<summary><strong>7. Practice Mode Beta</strong></summary>
 
-- `Columns`에 늘릴 열 수를 입력합니다.
-- `Expand right`를 누르면 오른쪽으로 공간을 추가합니다.
-- `Trim Right`는 오른쪽의 불필요한 공간을 줄이는 용도입니다.
+Practice Mode Beta는 마이크 입력을 사용하여 악보와의 일치도를 측정하고, 음정과 박자 감각을 확인하는 연습 보조 기능입니다.
 
-긴 악보는 브라우저 성능에 영향을 줄 수 있습니다. 너무 큰 값을 한 번에 넣기보다는 필요한 만큼 나누어 확장하는 편이 좋습니다.
+![Practice Mode panel](regression-code/public/manual/resources/cellImage_0_15.jpg)
 
-### 12.2. Clear All
+<details>
+<summary><strong>7.1. 시작 방법</strong></summary>
 
-현재 악보 내용을 비우는 기능입니다.
-
-주의: 테스트 중 실수로 작업물을 잃지 않도록, 사용 전 `JSON Download`로 백업하세요.
-
-## 13. YouTube Sync
-
-YouTube mode는 악보 재생과 YouTube 영상을 함께 보기 위한 기능입니다.
-
-### 13.1. 사용 방법
-
-1. 오른쪽 YouTube 영역의 `URL or ID`에 YouTube 주소 또는 영상 ID를 입력합니다.
-2. `Offset (ms)`를 입력합니다.
-3. `Reload`를 누릅니다.
-4. `YouTube` toggle을 켭니다.
-5. SPRED의 `Play`, `Stop`, seek bar를 사용합니다.
-
-SPRED는 YouTube player를 follower로 제어합니다. 즉, 재생의 기준은 SPRED 악보 쪽이고, YouTube 영상이 그 위치를 따라오는 방식입니다.
-
-### 13.2. Offset이란?
-
-`Offset (ms)`는 영상 시작 시점과 악보 시작 시점의 차이를 밀리초 단위로 조정하는 값입니다.
-
-- 영상이 악보보다 늦게 들리면 offset을 조정해 맞춥니다.
-- 영상마다 앞부분 무음, 인트로, 편집 방식이 다르므로 직접 맞춰야 합니다.
-- 브라우저와 기기 상태에 따라 같은 값이어도 약간의 차이가 날 수 있습니다.
-
-주의:
-
-- YouTube 영상이 embedding을 막아둔 경우 로드되지 않을 수 있습니다.
-- 영상 로드에 실패해도 기본 악보 재생은 유지됩니다.
-- SPRED는 영상이나 음원을 저장, 캐시, 추출, 재배포하지 않습니다.
-
-## 14. Practice Mode Beta
-
-`practice mode (beta)`는 마이크 입력을 사용해 사용자의 연주 pitch와 timing을 대략 판정하는 연습 보조 기능입니다.
-
-정확한 음악 평가 도구가 아니라, 연습 중 참고할 수 있는 보조 기능으로 생각해주세요.
-
-### 14.1. 시작 방법
-
-1. 마이크를 사용할 수 있는 환경에서 SPRED를 엽니다.
-2. 연습할 악보와 active track을 선택합니다.
+1. 연습할 악보를 불러옵니다.
+2. 연습할 track을 확인합니다.
 3. `practice mode (beta)`를 누릅니다.
 4. 브라우저가 마이크 권한을 요청하면 허용합니다.
-5. 필요하면 `Sync`에서 입력 지연을 조정합니다.
-6. `Play`를 누르면 카운트다운 후 practice가 시작됩니다.
+5. 필요하면 `Sync`로 입력 지연을 조정합니다.
+6. 재생을 시작합니다.
 
-practice mode 중에는 악보 교체, 편집, layout 변경 같은 일부 기능이 잠깁니다. 이는 연습 중 점수 계산 기준이 바뀌는 것을 막기 위한 동작입니다.
+![Practice Mode Sync dialog](regression-code/public/manual/resources/cellImage_0_16.jpg)
 
-### 14.2. 판정 표시
+Practice mode 중에는 악보 교체, 편집, layout 변경 같은 일부 기능이 잠깁니다. 연습 중 점수 계산 기준이 바뀌는 것을 막기 위한 동작입니다.
 
-연주 중 악보 위에는 판정 텍스트가 표시됩니다.
+</details>
 
-- `Perfect` : pitch와 timing이 잘 맞은 경우
-- `Ok` : 어느 정도 맞은 경우
-- `Bad` : 많이 벗어난 경우
-- `Miss` : 판정 기준을 크게 벗어난 경우
-- `COMBO n` : 연속 성공 수
+<details>
+<summary><strong>7.2. 판정 표시</strong></summary>
+
+세부 내용은 Practice 모드 윈도우 좌상단의 Rules에서 확인할 수 있습니다.
+
+| 표시 | 설명 |
+| --- | --- |
+| Perfect | pitch와 timing이 잘 맞은 경우입니다. |
+| Ok | 어느 정도 맞은 경우입니다. |
+| Bad | 많이 벗어난 경우입니다. |
+| Miss | 판정 기준을 크게 벗어난 경우입니다. |
+| COMBO | 연속 성공 수를 표시합니다. |
 
 결과창에서는 pitch accuracy, timing accuracy, total score, max combo, 각 판정 개수 등을 확인할 수 있습니다.
 
-### 14.3. Easy / Std / Pro
+</details>
 
-practice mode에는 판정 난이도 버튼이 있습니다.
-
-- `Easy` : 가장 넓은 판정
-- `Std` : 기본 판정
-- `Pro` : 더 엄격한 판정 후보
-
-현재 Pro Mode는 사양상 정리되어 있으나, 실제 구현 상태는 테스트 시점에 따라 다를 수 있습니다. 화면에 보이는 버튼과 결과 표시를 기준으로 확인해주세요.
-
-### 14.4. 잘 인식되지 않을 때
-
-마이크 판정이 이상하면 아래를 확인하세요.
+<details>
+<summary><strong>7.3. 인식이 이상할 때</strong></summary>
 
 - 조용한 장소에서 테스트하세요.
 - 브라우저가 올바른 마이크를 사용하고 있는지 확인하세요.
 - 너무 작은 소리나 주변 소음은 pitch detection을 방해할 수 있습니다.
 - 스피커 소리가 마이크에 크게 들어가면 판정이 흔들릴 수 있습니다.
-- 오타마톤의 실제 음정이 악보의 target pitch와 다를 수 있습니다.
 
-주의: 이어폰이나 헤드셋을 반드시 권장하지는 않습니다. 일부 환경에서는 연결된 재생 장치가 브라우저나 OS의 입력 라우팅에 영향을 줄 수 있습니다.
+주의: Practice Mode Beta는 엄밀한 판정을 갖춘 게임이 아닌 단순 연습 보조 기능입니다. 결과가 부정확할 수 있습니다.
 
-## 15. 예제 DB 검색 / 정렬 팁
+</details>
 
-예제 악보가 많아지면 Examples dialog의 검색과 정렬을 사용하세요.
+</details>
 
-- `Name` 검색은 제목과 아티스트를 함께 대상으로 합니다.
-- `Genre` 검색은 장르 부분 검색을 지원합니다.
-- 예를 들어 `Rock`을 검색하면 `Indie Rock`, `Pop Rock`, `Jazz Rock` 같은 항목도 함께 찾을 수 있습니다.
-- `Sort`에서 Title, Artist, Difficulty, Updated 등을 고를 수 있습니다.
-- `Ascend` / `Descend`로 오름차순과 내림차순을 바꿀 수 있습니다.
+<details open>
+<summary><strong>8. 보안과 개인정보</strong></summary>
 
-난이도 값이 없는 항목은 정렬 시 뒤쪽으로 밀릴 수 있습니다.
-
-## 16. 오류와 문제 해결
-
-### 16.1. Examples 목록이 안 뜹니다
-
-- access word가 맞는지 확인하세요.
-- 네트워크 연결을 확인하세요.
-- 테스트 서버 또는 Supabase Edge Function 상태 문제일 수 있습니다.
-- 실패해도 현재 악보는 유지됩니다.
-
-### 16.2. Example 악보 로드에 실패합니다
-
-- 해당 score URL이 열리는 상태인지 확인이 필요합니다.
-- JSON 파일이 깨졌거나 SPRED 형식과 맞지 않을 수 있습니다.
-- 파일 크기 제한을 넘었을 수 있습니다.
-- 실패해도 현재 악보는 유지됩니다.
-
-### 16.3. JSON Load가 실패합니다
-
-- `.json` 파일인지 확인하세요.
-- SPRED Score JSON 형식인지 확인하세요.
-- 파일 크기가 너무 크지 않은지 확인하세요.
-- 직접 수정한 JSON이라면 쉼표, 따옴표, 중괄호 오류가 없는지 확인하세요.
-
-### 16.4. 소리가 나지 않습니다
-
-- 브라우저 탭이 음소거되어 있지 않은지 확인하세요.
-- `Volume`이 0이 아닌지 확인하세요.
-- active track이 꺼져 있지 않은지 확인하세요.
-- YouTube mode만 보고 있다면 앱 소리를 줄여둔 상태일 수 있습니다.
-
-### 16.5. YouTube 영상이 로드되지 않습니다
-
-- URL 또는 ID가 맞는지 확인하세요.
-- 영상이 embedded playback을 허용하는지 확인하세요.
-- 네트워크 또는 브라우저 차단 설정을 확인하세요.
-- 영상이 실패해도 악보 자체 재생은 사용할 수 있습니다.
-
-### 16.6. 마이크 권한을 거부했습니다
-
-- 브라우저 주소창 왼쪽의 사이트 권한 설정에서 마이크를 허용하세요.
-- OS의 마이크 권한도 확인하세요.
-- 권한을 바꾼 뒤 페이지를 새로고침해야 할 수 있습니다.
-
-### 16.7. 화면이 너무 작거나 스크롤이 이상합니다
-
-- 데스크톱 브라우저에서 다시 시도하세요.
-- `Fit Height`, `Fullscreen`, `Zoom`을 조정하세요.
-- 매우 긴 악보는 기기 성능에 따라 렌더링이 느려질 수 있습니다.
-
-## 17. 테스트 피드백 작성 방법
-
-오류를 제보할 때는 아래 정보를 함께 적어주시면 확인이 훨씬 쉬워집니다.
-
-- 테스트 일시
-- 사용한 앱 URL 또는 commit
-- 브라우저 이름과 버전
-- OS와 기기 종류
-- 불러온 예제 악보 이름 또는 JSON 파일명
-- 어떤 버튼을 어떤 순서로 눌렀는지
-- 기대한 동작
-- 실제 동작
-- 오류 메시지
-- 재현 가능 여부
-- 콘솔 오류 여부
-- 스크린샷 또는 녹화 여부
-
-가능하다면 “어디서부터 다시 따라 하면 같은 문제가 나오는지”를 순서대로 적어주세요.
-
-## 18. 보안과 개인정보
-
-SPRED는 Google Spreadsheet Apps Script 버전과 다르게, 여러분의 Google Drive나 Gmail에 접근하지 않습니다.
-
-다만 아래 사항은 지켜주세요.
+<details>
+<summary><strong>8.1. 개인정보 입력 주의</strong></summary>
 
 - 악보 metadata나 comment에 민감한 개인정보를 적지 마세요.
-- 모르는 사람이 준 JSON 파일은 신뢰할 수 있는 출처인지 확인하세요.
-- 테스트용 access word를 공개 게시판에 올리지 마세요.
-- local storage에 저장한 데이터는 같은 브라우저 사용자에게 보일 수 있습니다.
 - 공용 PC에서는 `Local Save` 사용을 피하거나 테스트 후 브라우저 데이터를 정리하세요.
+- local storage에 저장한 데이터는 같은 브라우저 사용자에게 보일 수 있습니다.
 
-## 19. 저작권에 대하여
+</details>
 
-SPRED는 음악 파일 다운로드, 업로드, 저장, 캐시, 추출, 공유 서비스를 제공하지 않습니다.
+<details>
+<summary><strong>8.2. 파일과 access word</strong></summary>
 
-YouTube를 사용할 때도 공식 embedded player를 통해 재생할 뿐, 영상이나 음원을 복사하거나 저장하지 않습니다.
+- 모르는 사람이 준 JSON 파일은 신뢰할 수 있는 출처인지 확인하세요.
+- 전문가나 AI 에이전트의 도움을 빌려 안전성을 검사하는 것도 좋습니다.
 
-사용자가 만든 악보, metadata, 예제 자료의 권리 문제는 사용자가 직접 확인해야 합니다.
+</details>
 
-예제 또는 공개 배포용 자료는 아래에 해당하는 것만 사용하는 것을 권장합니다.
+</details>
 
-- 직접 만든 곡
-- 퍼블릭 도메인 작품
-- 변환과 재배포가 허용된 공개 라이선스 자료
-- 권리자로부터 사용 허락을 받은 자료
+<details open>
+<summary><strong>10. 용어 정리</strong></summary>
 
-저작권이 불명확한 상용곡 악보, 가사, 음원, 영상, metadata를 허가 없이 배포하지 마세요.
+앱 안에서 반복되는 용어를 간단히 정리합니다.
 
-저작권 문의 또는 takedown 요청은 현재 앱 안내에 적힌 연락처를 기준으로 처리합니다.
+| 용어 | 설명 |
+| --- | --- |
+| Score JSON | SPRED 악보 데이터를 저장하는 JSON 파일입니다. |
+| cell | 악보의 한 칸입니다. |
+| note cell | 실제 음표 또는 연주 기호가 들어가는 칸입니다. |
+| global cell | BPM, 박자, dynamics 같은 전체 흐름 값을 적는 칸입니다. |
+| track | basic / optional / extra로 나뉘는 악보 레이어입니다. |
+| layout | 악보 row 구조와 높이, 음높이 배치를 정하는 정보입니다. |
+| preset | 저장해두고 다시 불러올 수 있는 layout 설정입니다. |
+| tick | SPRED 내부에서 시간 위치를 세는 단위입니다. |
+| BPM | 분당 박자 수입니다. |
+| offset | 영상 또는 입력 타이밍을 악보와 맞추기 위한 시간 차이입니다. |
+| manifest | 예제 DB에서 악보 목록을 표현하는 정보입니다. |
+| practice mode | 마이크 입력으로 연습 판정을 표시하는 beta 기능입니다. |
 
-## 20. 용어 정리
-
-- `Score JSON` : SPRED 악보 데이터를 저장하는 JSON 파일
-- `cell` : 악보의 한 칸
-- `note cell` : 실제 음표 또는 연주 기호가 들어가는 칸
-- `global cell` : BPM, 박자, dynamics 같은 전체 흐름 값을 적는 칸
-- `track` : basic / optional / extra로 나뉘는 악보 레이어
-- `layout` : 악보 row 구조와 높이, 음높이 배치를 정하는 정보
-- `preset` : 저장해두고 다시 불러올 수 있는 layout 설정
-- `tick` : SPRED 내부에서 시간 위치를 세는 단위
-- `BPM` : 분당 박자 수
-- `offset` : 영상 또는 입력 타이밍을 악보와 맞추기 위한 시간 차이
-- `manifest` : 예제 DB에서 악보 목록을 표현하는 정보
-- `practice mode` : 마이크 입력으로 연습 판정을 표시하는 beta 기능
-
-## 21. 처음 사용자 추천 순서
-
-처음 SPRED를 테스트한다면 아래 순서대로 진행해보세요.
-
-1. `File` → `Examples`로 예제 악보 하나 불러오기
-2. `Play` / `Stop` / seek bar로 기본 재생 확인
-3. `View` → `Speed`, `Fit Height`, `Fullscreen` 확인
-4. `Track`에서 Basic / Optional / Extra 표시와 재생 차이 확인
-5. `JSON Download`로 예제 악보 저장해보기
-6. `JSON Load`로 방금 받은 파일 다시 불러오기
-7. `Edit Mode`에서 간단한 note cell 하나 수정
-8. `Undo` / `Redo` 확인
-9. YouTube URL이 있는 악보라면 YouTube mode와 offset 확인
-10. 조용한 장소에서 `practice mode (beta)` 테스트
-
-이 순서만 정상적으로 진행되어도, 현재 사용자 테스트의 핵심 흐름은 대부분 확인한 것입니다.
+</details>

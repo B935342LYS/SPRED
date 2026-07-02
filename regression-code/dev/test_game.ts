@@ -496,7 +496,7 @@ const difficulty = normalizeGameTrackDifficulty({
 
 assertClose(difficulty.basic, 1, 1e-9, "Basic difficulty should fall back when score difficulty is 0.");
 assertClose(difficulty.optional, 2, 1e-9, "Optional difficulty should use a positive score difficulty.");
-assertClose(difficulty.extra, 1.5, 1e-9, "Extra difficulty should fall back when score difficulty is invalid.");
+assertClose(difficulty.extra, 3, 1e-9, "Extra difficulty should fall back when score difficulty is invalid.");
 
 const perfectSample = judgeGameScoringSample(
   {
@@ -1334,8 +1334,8 @@ if (glissTarget !== undefined && glissTarget.kind === "gliss") {
 
   assert(summaryAfterGliss.glissBonusCount === 1, "Gliss bonus should increment gliss count.");
   assert(summaryAfterGliss.vibBonusCount === 0, "Gliss bonus should not increment vib count.");
-  assertClose(summaryAfterGliss.effectBonusScore, 0.25, 1e-9, "Gliss interval bonus should add effect bonus score.");
-  assertClose(summaryAfterGliss.score, 0.25, 1e-9, "Gliss interval bonus should add to total score.");
+  assertClose(summaryAfterGliss.effectBonusScore, 2.5, 1e-9, "Gliss interval bonus should add effect bonus score.");
+  assertClose(summaryAfterGliss.score, 2.5, 1e-9, "Gliss interval bonus should add to total score.");
 
   const failedGlissBonus = judgeGlissIntervalBonus(
     glissTarget,
@@ -1652,7 +1652,7 @@ if (vibTarget !== undefined && vibTarget.kind === "vib") {
 
   assert(vibBonus !== null, "Alternating target-near pitch should create Vib bonus.");
   assert(vibBonus?.displayText === "Vib!", "Vib bonus should use the Vib! display text.");
-  assertClose(vibBonus?.bonusContribution ?? -1, 0.5, 1e-9, "Vib segment bonus should add effect bonus score.");
+  assertClose(vibBonus?.bonusContribution ?? -1, 5.0, 1e-9, "Vib segment bonus should add effect bonus score.");
   assert(subtleVibBonus !== null, "Alternating pitch around +/-10 cent should create Vib bonus.");
   assert(shortTwoTickVibBonus !== null, "Short 160 BPM two-tick vib should use the short-target threshold.");
   assert(shortSubtleVibBonus !== null, "Short alternating pitch around +/-10 cent should create Vib bonus.");
@@ -2028,7 +2028,7 @@ if (rapidRepeatTremTarget !== undefined && rapidRepeatTremTarget.kind === "trem"
   assert(firstTremAttack === null, "First trem attack should start the streak without bonus.");
   assert(secondTremAttack !== null, "Second continuous trem attack should create Trem bonus.");
   assert(secondTremAttack?.displayText === "Trem!", "Trem bonus should use the Trem! display text.");
-  assertClose(secondTremAttack?.bonusContribution ?? -1, 0.12, 1e-9, "Trem attack bonus should use the single multiplier.");
+  assertClose(secondTremAttack?.bonusContribution ?? -1, 0.5, 1e-9, "Trem attack bonus should use the single multiplier.");
   assert(duplicateTremAttack === null, "Same trem onset should not be rewarded twice.");
   assert(delayedFirstAttack === null, "First delayed trem attack should not create bonus.");
   assert(delayedSecondAttack === null, "Long gap should reset trem streak instead of creating bonus.");
