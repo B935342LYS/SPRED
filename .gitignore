@@ -25,6 +25,11 @@ dist/
 coverage/
 .vite/
 
+# Local environment variables
+.env
+.env.*
+!.env.example
+
 # Common TypeScript build artifacts
 *.tsbuildinfo
 
