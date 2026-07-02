@@ -66,6 +66,7 @@
     }
 
     input,
+    select,
     textarea,
     button {
       font: inherit;
@@ -73,6 +74,7 @@
 
     input[type="text"],
     input[type="number"],
+    select,
     textarea {
       width: 100%;
       min-width: 0;
@@ -180,7 +182,10 @@
       <div class="grid">
         <label>
           Access group
-          <input class="access-group-input" type="text" value="tester">
+          <select class="access-group-input">
+            <option value="public">Public list</option>
+            <option value="tester" selected>Tester list</option>
+          </select>
         </label>
         <label>
           Start display order
@@ -190,11 +195,13 @@
       <label>
         <span>
           <input class="published-input" type="checkbox" checked>
-          Publish generated rows (is_published = true)
+          Show generated rows in their matching list (is_published = true)
         </span>
       </label>
+      <p>Use public + checked for public examples, tester + checked for access-word examples, and unchecked to hide rows from all lists.</p>
       <div class="actions">
         <button class="generate-button" type="button">Generate Upsert SQL</button>
+        <button class="visibility-button" type="button">Generate Visibility SQL</button>
         <button class="delete-button" type="button">Generate Delete SQL</button>
         <button class="copy-button" type="button" disabled>Copy SQL</button>
         <button class="download-button" type="button" disabled>Download .sql</button>
@@ -222,6 +229,7 @@
     const startOrderInput = document.querySelector(".start-order-input");
     const publishedInput = document.querySelector(".published-input");
     const generateButton = document.querySelector(".generate-button");
+    const visibilityButton = document.querySelector(".visibility-button");
     const deleteButton = document.querySelector(".delete-button");
     const copyButton = document.querySelector(".copy-button");
     const downloadButton = document.querySelector(".download-button");
@@ -231,6 +239,12 @@
 
     generateButton.addEventListener("click", () => {
       generateUpsertSql().catch((error) => {
+        setNotice(error instanceof Error ? error.message : "Unknown generator error.", "error");
+      });
+    });
+
+    visibilityButton.addEventListener("click", () => {
+      generateVisibilitySql().catch((error) => {
         setNotice(error instanceof Error ? error.message : "Unknown generator error.", "error");
       });
     });
@@ -278,6 +292,17 @@
       downloadButton.disabled = false;
       renderSummary(rows);
       setNotice(`Generated delete SQL for ${rows.length} row(s). Storage objects are not deleted.`, "info");
+    }
+
+    async function generateVisibilitySql() {
+      const rows = await buildRowsFromSelectedFiles();
+      const sql = createVisibilitySql(rows);
+
+      sqlOutput.value = sql;
+      copyButton.disabled = false;
+      downloadButton.disabled = false;
+      renderSummary(rows);
+      setNotice(`Generated visibility SQL for ${rows.length} row(s). access_group = ${rows[0]?.accessGroup ?? ""}, is_published = ${publishedInput.checked ? "true" : "false"}.`, "info");
     }
 
     async function buildRowsFromSelectedFiles() {
@@ -440,6 +465,27 @@ on conflict (id) do update set
   access_group = excluded.access_group,
   created_at = excluded.created_at,
   updated_at = excluded.updated_at;
+`;
+    }
+
+    function createVisibilitySql(rows) {
+      const values = rows.map((row) => `  (${[
+        sqlString(row.id),
+        sqlString(row.accessGroup),
+        row.isPublished ? "true" : "false",
+        row.displayOrder,
+      ].join(", ")})`).join(",\n");
+
+      return `update public.example_scores as target
+set
+  access_group = updates.access_group,
+  is_published = updates.is_published,
+  display_order = updates.display_order
+from (
+  values
+${values}
+) as updates(id, access_group, is_published, display_order)
+where target.id = updates.id;
 `;
     }
 
