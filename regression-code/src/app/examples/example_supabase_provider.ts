@@ -9,10 +9,10 @@ import type {
   ExampleError,
   ExampleErrorResponse,
   ExampleProvider,
-  ExampleProviderConfig,
   ExampleScoreManifest,
   ExampleScoreManifestItem,
 } from "./example_types";
+import type { ExampleProviderConfig } from "./example_config";
 
 /**
  * Supabase Edge Function provider를 생성한다.
@@ -101,7 +101,6 @@ function createFunctionHeaders(config: ExampleProviderConfig): HeadersInit {
 
   if (config.publishableKey.length > 0) {
     headers.apikey = config.publishableKey;
-    headers.Authorization = `Bearer ${config.publishableKey}`;
   }
 
   return headers;

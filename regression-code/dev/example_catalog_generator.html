@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPRED Example Catalog SQL Generator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7f8;
+      --surface: #ffffff;
+      --line: #c8d2d8;
+      --text: #172026;
+      --muted: #63717a;
+      --accent: #4f5961;
+      --accent-weak: #eef1f3;
+      --danger: #b85042;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    section {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    input[type="file"] {
+      max-width: 100%;
+    }
+
+    textarea {
+      min-height: 360px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    button {
+      min-height: 34px;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      background: var(--accent-weak);
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .notice {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .notice.error {
+      color: var(--danger);
+    }
+
+    .summary {
+      display: grid;
+      gap: 6px;
+      max-height: 220px;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .summary-row code {
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>SPRED Example Catalog SQL Generator</h1>
+      <p>Score JSON files are read locally in this browser. The tool generates SQL only and does not upload files.</p>
+    </header>
+
+    <section aria-label="Input">
+      <label>
+        Score JSON files
+        <input class="file-input" type="file" accept="application/json,.json" multiple>
+      </label>
+      <label>
+        Public Storage base URL
+        <input class="base-url-input" type="text" value="https://nflcoszlsiddxjvydjwu.supabase.co/storage/v1/object/public/example-scores">
+      </label>
+      <div class="grid">
+        <label>
+          Access group
+          <input class="access-group-input" type="text" value="tester">
+        </label>
+        <label>
+          Start display order
+          <input class="start-order-input" type="number" min="1" step="1" value="1">
+        </label>
+      </div>
+      <label>
+        <span>
+          <input class="published-input" type="checkbox" checked>
+          Publish generated rows (is_published = true)
+        </span>
+      </label>
+      <div class="actions">
+        <button class="generate-button" type="button">Generate Upsert SQL</button>
+        <button class="delete-button" type="button">Generate Delete SQL</button>
+        <button class="copy-button" type="button" disabled>Copy SQL</button>
+        <button class="download-button" type="button" disabled>Download .sql</button>
+      </div>
+      <div class="notice" role="status" aria-live="polite">Select JSON files and generate SQL.</div>
+    </section>
+
+    <section aria-label="Summary">
+      <h2>Rows</h2>
+      <div class="summary"></div>
+    </section>
+
+    <section aria-label="SQL output">
+      <h2>SQL</h2>
+      <textarea class="sql-output" spellcheck="false" readonly></textarea>
+    </section>
+  </main>
+
+  <script>
+    const TRACK_ORDER = ["basic", "optional", "extra"];
+
+    const fileInput = document.querySelector(".file-input");
+    const baseUrlInput = document.querySelector(".base-url-input");
+    const accessGroupInput = document.querySelector(".access-group-input");
+    const startOrderInput = document.querySelector(".start-order-input");
+    const publishedInput = document.querySelector(".published-input");
+    const generateButton = document.querySelector(".generate-button");
+    const deleteButton = document.querySelector(".delete-button");
+    const copyButton = document.querySelector(".copy-button");
+    const downloadButton = document.querySelector(".download-button");
+    const notice = document.querySelector(".notice");
+    const summary = document.querySelector(".summary");
+    const sqlOutput = document.querySelector(".sql-output");
+
+    generateButton.addEventListener("click", () => {
+      generateUpsertSql().catch((error) => {
+        setNotice(error instanceof Error ? error.message : "Unknown generator error.", "error");
+      });
+    });
+
+    deleteButton.addEventListener("click", () => {
+      generateDeleteSql().catch((error) => {
+        setNotice(error instanceof Error ? error.message : "Unknown generator error.", "error");
+      });
+    });
+
+    copyButton.addEventListener("click", () => {
+      navigator.clipboard.writeText(sqlOutput.value)
+        .then(() => setNotice("SQL copied.", "info"))
+        .catch(() => setNotice("Copy failed. Select the SQL text manually.", "error"));
+    });
+
+    downloadButton.addEventListener("click", () => {
+      const blob = new Blob([sqlOutput.value], { type: "text/sql;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+
+      anchor.href = url;
+      anchor.download = "example_scores.sql";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    });
+
+    async function generateUpsertSql() {
+      const rows = await buildRowsFromSelectedFiles();
+      const sql = createUpsertSql(rows);
+
+      sqlOutput.value = sql;
+      copyButton.disabled = false;
+      downloadButton.disabled = false;
+      renderSummary(rows);
+      setNotice(`Generated ${rows.length} upsert row(s). is_published = ${publishedInput.checked ? "true" : "false"}.`, "info");
+    }
+
+    async function generateDeleteSql() {
+      const rows = await buildRowsFromSelectedFiles();
+      const sql = createDeleteSql(rows);
+
+      sqlOutput.value = sql;
+      copyButton.disabled = false;
+      downloadButton.disabled = false;
+      renderSummary(rows);
+      setNotice(`Generated delete SQL for ${rows.length} row(s). Storage objects are not deleted.`, "info");
+    }
+
+    async function buildRowsFromSelectedFiles() {
+      const files = Array.from(fileInput.files ?? []);
+      const baseUrl = baseUrlInput.value.trim().replace(/\/+$/, "");
+      const accessGroup = accessGroupInput.value.trim() || "tester";
+      const startOrder = Number.parseInt(startOrderInput.value, 10);
+
+      if (files.length === 0) {
+        throw new Error("Select at least one JSON file.");
+      }
+
+      if (!baseUrl.startsWith("https://")) {
+        throw new Error("Public Storage base URL must start with https://.");
+      }
+
+      if (!Number.isInteger(startOrder) || startOrder <= 0) {
+        throw new Error("Start display order must be a positive integer.");
+      }
+
+      const sortedFiles = files.slice().sort((left, right) => left.name.localeCompare(right.name));
+      const rows = [];
+      const usedIds = new Set();
+
+      for (const [index, file] of sortedFiles.entries()) {
+        const jsonText = await file.text();
+        const score = parseScoreJson(jsonText, file.name);
+        const id = createUniqueSlug(slugify(removeJsonExtension(file.name)), usedIds, index + 1);
+        const objectName = `${id}.json`;
+
+        rows.push({
+          id,
+          title: normalizeDisplayText(score.musicData.musicTitle, "Unknown"),
+          artist: normalizeDisplayText(score.musicData.musicArtist, "Unknown"),
+          difficultyBasic: normalizeDifficulty(score.musicData.scoreDifficulty.basic),
+          difficultyOptional: normalizeDifficulty(score.musicData.scoreDifficulty.optional),
+          difficultyExtra: normalizeDifficulty(score.musicData.scoreDifficulty.extra),
+          supportedTracks: findSupportedTracks(score),
+          durationSeconds: null,
+          sizeBytes: utf8ByteLength(jsonText),
+          scoreUrl: `${baseUrl}/${objectName}`,
+          displayOrder: startOrder + index,
+          isPublished: publishedInput.checked,
+          accessGroup,
+          createdAt: score.musicData.createdAt,
+          updatedAt: score.musicData.updatedAt,
+          fileName: file.name,
+          objectName,
+        });
+      }
+
+      return rows;
+    }
+
+    function parseScoreJson(jsonText, fileName) {
+      let parsed;
+
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (error) {
+        throw new Error(`${fileName}: invalid JSON.`);
+      }
+
+      if (!isObject(parsed)) {
+        throw new Error(`${fileName}: JSON root must be an object.`);
+      }
+
+      const musicData = parsed.musicData;
+
+      if (!isObject(musicData)) {
+        throw new Error(`${fileName}: missing musicData.`);
+      }
+
+      if (!isObject(musicData.scoreDifficulty)) {
+        throw new Error(`${fileName}: missing musicData.scoreDifficulty.`);
+      }
+
+      if (!Array.isArray(parsed.tracks)) {
+        throw new Error(`${fileName}: missing tracks array.`);
+      }
+
+      for (const field of ["musicTitle", "musicArtist", "createdAt", "updatedAt"]) {
+        if (typeof musicData[field] !== "string") {
+          throw new Error(`${fileName}: musicData.${field} must be a string.`);
+        }
+      }
+
+      for (const track of TRACK_ORDER) {
+        if (typeof musicData.scoreDifficulty[track] !== "number") {
+          throw new Error(`${fileName}: musicData.scoreDifficulty.${track} must be a number.`);
+        }
+      }
+
+      return parsed;
+    }
+
+    function findSupportedTracks(score) {
+      const supported = TRACK_ORDER.filter((trackId) => {
+        const track = score.tracks.find((candidate) => candidate.trackId === trackId);
+
+        return track !== undefined && Array.isArray(track.cells) && track.cells.length > 0;
+      });
+
+      return supported.length > 0 ? supported : ["basic"];
+    }
+
+    function createUpsertSql(rows) {
+      const values = rows.map((row) => `  (${[
+        sqlString(row.id),
+        sqlString(row.title),
+        sqlString(row.artist),
+        sqlNumberOrNull(row.difficultyBasic),
+        sqlNumberOrNull(row.difficultyOptional),
+        sqlNumberOrNull(row.difficultyExtra),
+        sqlTrackArray(row.supportedTracks),
+        sqlNumberOrNull(row.durationSeconds),
+        sqlNumberOrNull(row.sizeBytes),
+        sqlString(row.scoreUrl),
+        row.displayOrder,
+        row.isPublished ? "true" : "false",
+        sqlString(row.accessGroup),
+        sqlTimestamp(row.createdAt),
+        sqlTimestamp(row.updatedAt),
+      ].join(", ")})`).join(",\n");
+
+      return `insert into public.example_scores (
+  id,
+  title,
+  artist,
+  difficulty_basic,
+  difficulty_optional,
+  difficulty_extra,
+  supported_tracks,
+  duration_seconds,
+  size_bytes,
+  score_url,
+  display_order,
+  is_published,
+  access_group,
+  created_at,
+  updated_at
+) values
+${values}
+on conflict (id) do update set
+  title = excluded.title,
+  artist = excluded.artist,
+  difficulty_basic = excluded.difficulty_basic,
+  difficulty_optional = excluded.difficulty_optional,
+  difficulty_extra = excluded.difficulty_extra,
+  supported_tracks = excluded.supported_tracks,
+  duration_seconds = excluded.duration_seconds,
+  size_bytes = excluded.size_bytes,
+  score_url = excluded.score_url,
+  display_order = excluded.display_order,
+  is_published = excluded.is_published,
+  access_group = excluded.access_group,
+  created_at = excluded.created_at,
+  updated_at = excluded.updated_at;
+`;
+    }
+
+    function createDeleteSql(rows) {
+      const ids = rows.map((row) => sqlString(row.id)).join(", ");
+
+      return `delete from public.example_scores
+where id in (${ids});
+`;
+    }
+
+    function renderSummary(rows) {
+      summary.replaceChildren();
+
+      for (const row of rows) {
+        const item = document.createElement("div");
+        const name = document.createElement("code");
+        const detail = document.createElement("span");
+
+        item.className = "summary-row";
+        name.textContent = row.objectName;
+        detail.textContent = `${row.title} / ${row.artist} / ${row.supportedTracks.join(", ")} / published ${row.isPublished}`;
+        item.append(name, detail);
+        summary.append(item);
+      }
+    }
+
+    function removeJsonExtension(fileName) {
+      return fileName.replace(/\.json$/i, "");
+    }
+
+    function slugify(value) {
+      return value
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .replace(/-{2,}/g, "-");
+    }
+
+    function createUniqueSlug(baseSlug, usedIds, fallbackIndex) {
+      const normalizedBase = baseSlug.length > 0
+        ? baseSlug
+        : `example-score-${String(fallbackIndex).padStart(3, "0")}`;
+      let candidate = normalizedBase;
+      let suffix = 2;
+
+      while (usedIds.has(candidate)) {
+        candidate = `${normalizedBase}-${suffix}`;
+        suffix += 1;
+      }
+
+      usedIds.add(candidate);
+      return candidate;
+    }
+
+    function normalizeDisplayText(value, fallback) {
+      const text = value.trim();
+
+      return text.length > 0 ? text : fallback;
+    }
+
+    function normalizeDifficulty(value) {
+      return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    function utf8ByteLength(text) {
+      return new TextEncoder().encode(text).length;
+    }
+
+    function sqlString(value) {
+      return `'${value.replace(/'/g, "''")}'`;
+    }
+
+    function sqlTimestamp(value) {
+      return `${sqlString(value)}::timestamptz`;
+    }
+
+    function sqlNumberOrNull(value) {
+      return value === null ? "null" : String(value);
+    }
+
+    function sqlTrackArray(tracks) {
+      return `array[${tracks.map(sqlString).join(", ")}]::text[]`;
+    }
+
+    function isObject(value) {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+
+    function setNotice(text, level) {
+      notice.textContent = text;
+      notice.classList.toggle("error", level === "error");
+    }
+  </script>
+</body>
+</html>
