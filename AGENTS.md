@@ -159,7 +159,7 @@ Deprioritized material:
 - `cent_num` is a finite real number in the range `-100` to `100`.
 - `cent_num` allows up to 1 fractional digit.
 - cell `rawText` length limit: `200`
-- `score comment` length limit: `100`
+- `score comment` length limit: `500`
 - JSON file size limit: `8MB`
 - no global cell-count hard limit is imposed
 - mobile target scope is view/load/play only

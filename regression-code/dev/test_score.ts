@@ -5,6 +5,7 @@ import { loadScoreFile } from "../src/core/score/json_load";
 import {
   MAX_YOUTUBE_OFFSET_MS,
   MAX_CELL_RAW_TEXT_LENGTH,
+  MAX_SCORE_COMMENT_LENGTH,
   MAX_ROW_DEFINITIONS,
   MAX_ROW_HEIGHT,
   MAX_SCORE_JSON_BYTES,
@@ -116,6 +117,33 @@ if (longTrackRawTextResult.ok) {
   console.error(longTrackRawTextResult.error);
   process.exitCode = 1;
 }
+
+const licenseCreditComment = [
+  "Credits (please copy paste)",
+  "Music: TheFatRat - Fly Away feat. Anjulie",
+  "Watch the official music video: https://tinyurl.com/tfrflyaway",
+  "Listen to Fly Away: https://thefatrat.ffm.to/flyaway",
+  "Follow TheFatRat: https://ffm.bio/thefatrat",
+].join("\n");
+
+const licenseCreditCommentScore = cloneJson(fixtureValue);
+licenseCreditCommentScore.musicData.comment = licenseCreditComment;
+
+const licenseCreditCommentResult = validateScoreFile(licenseCreditCommentScore);
+if (!licenseCreditCommentResult.ok) {
+  console.error("Score validation failed to accept license credit comment.");
+  console.error(licenseCreditCommentResult.error);
+  process.exitCode = 1;
+}
+
+const tooLongComment = cloneJson(fixtureValue);
+tooLongComment.musicData.comment = "x".repeat(MAX_SCORE_COMMENT_LENGTH + 1);
+expectValidationError(
+  tooLongComment,
+  "invalid_shape",
+  "too long musicData.comment",
+  "musicData.comment",
+);
 
 const oversizedJsonResult = loadScoreFile(" ".repeat(MAX_SCORE_JSON_BYTES + 1));
 if (oversizedJsonResult.ok) {

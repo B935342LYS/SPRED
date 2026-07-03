@@ -181,10 +181,11 @@
       </label>
       <div class="grid">
         <label>
-          Access group
-          <select class="access-group-input">
-            <option value="public">Public list</option>
-            <option value="tester" selected>Tester list</option>
+          List visibility
+          <select class="visibility-input">
+            <option value="public">Public examples (auto-loaded)</option>
+            <option value="extra" selected>Extra examples (access word)</option>
+            <option value="hidden">Hidden from all lists</option>
           </select>
         </label>
         <label>
@@ -192,13 +193,7 @@
           <input class="start-order-input" type="number" min="1" step="1" value="1">
         </label>
       </div>
-      <label>
-        <span>
-          <input class="published-input" type="checkbox" checked>
-          Show generated rows in their matching list (is_published = true)
-        </span>
-      </label>
-      <p>Use public + checked for public examples, tester + checked for access-word examples, and unchecked to hide rows from all lists.</p>
+      <p>Public examples appear when the app opens Examples. Extra examples appear after Load Extra List with a valid access word. Hidden rows stay in the DB but are not returned by the manifest function.</p>
       <div class="actions">
         <button class="generate-button" type="button">Generate Upsert SQL</button>
         <button class="visibility-button" type="button">Generate Visibility SQL</button>
@@ -225,9 +220,8 @@
 
     const fileInput = document.querySelector(".file-input");
     const baseUrlInput = document.querySelector(".base-url-input");
-    const accessGroupInput = document.querySelector(".access-group-input");
+    const visibilityInput = document.querySelector(".visibility-input");
     const startOrderInput = document.querySelector(".start-order-input");
-    const publishedInput = document.querySelector(".published-input");
     const generateButton = document.querySelector(".generate-button");
     const visibilityButton = document.querySelector(".visibility-button");
     const deleteButton = document.querySelector(".delete-button");
@@ -280,7 +274,7 @@
       copyButton.disabled = false;
       downloadButton.disabled = false;
       renderSummary(rows);
-      setNotice(`Generated ${rows.length} upsert row(s). is_published = ${publishedInput.checked ? "true" : "false"}.`, "info");
+      setNotice(`Generated ${rows.length} upsert row(s). visibility = ${formatVisibilityLabel(rows[0]?.visibility ?? "hidden")}.`, "info");
     }
 
     async function generateDeleteSql() {
@@ -302,13 +296,14 @@
       copyButton.disabled = false;
       downloadButton.disabled = false;
       renderSummary(rows);
-      setNotice(`Generated visibility SQL for ${rows.length} row(s). access_group = ${rows[0]?.accessGroup ?? ""}, is_published = ${publishedInput.checked ? "true" : "false"}.`, "info");
+      setNotice(`Generated visibility SQL for ${rows.length} row(s). visibility = ${formatVisibilityLabel(rows[0]?.visibility ?? "hidden")}.`, "info");
     }
 
     async function buildRowsFromSelectedFiles() {
       const files = Array.from(fileInput.files ?? []);
       const baseUrl = baseUrlInput.value.trim().replace(/\/+$/, "");
-      const accessGroup = accessGroupInput.value.trim() || "tester";
+      const visibility = normalizeVisibility(visibilityInput.value);
+      const catalogAccess = toCatalogAccess(visibility);
       const startOrder = Number.parseInt(startOrderInput.value, 10);
 
       if (files.length === 0) {
@@ -346,8 +341,9 @@
           sizeBytes: utf8ByteLength(jsonText),
           scoreUrl: `${baseUrl}/${objectName}`,
           displayOrder: startOrder + index,
-          isPublished: publishedInput.checked,
-          accessGroup,
+          isPublished: catalogAccess.isPublished,
+          accessGroup: catalogAccess.accessGroup,
+          visibility,
           createdAt: score.musicData.createdAt,
           updatedAt: score.musicData.updatedAt,
           fileName: file.name,
@@ -507,7 +503,7 @@ where id in (${ids});
 
         item.className = "summary-row";
         name.textContent = row.objectName;
-        detail.textContent = `${row.title} / ${row.artist} / ${row.genre} / ${row.supportedTracks.join(", ")} / published ${row.isPublished}`;
+        detail.textContent = `${row.title} / ${row.artist} / ${row.genre} / ${row.supportedTracks.join(", ")} / ${formatVisibilityLabel(row.visibility)}`;
         item.append(name, detail);
         summary.append(item);
       }
@@ -551,6 +547,46 @@ where id in (${ids});
 
     function normalizeDifficulty(value) {
       return Number.isFinite(value) && value > 0 ? value : null;
+    }
+
+    function normalizeVisibility(value) {
+      if (value === "public" || value === "extra" || value === "hidden") {
+        return value;
+      }
+
+      return "hidden";
+    }
+
+    function toCatalogAccess(visibility) {
+      if (visibility === "public") {
+        return {
+          accessGroup: "public",
+          isPublished: true,
+        };
+      }
+
+      if (visibility === "extra") {
+        return {
+          accessGroup: "tester",
+          isPublished: true,
+        };
+      }
+
+      return {
+        accessGroup: "tester",
+        isPublished: false,
+      };
+    }
+
+    function formatVisibilityLabel(visibility) {
+      switch (visibility) {
+        case "public":
+          return "public examples";
+        case "extra":
+          return "extra examples";
+        default:
+          return "hidden";
+      }
     }
 
     function utf8ByteLength(text) {

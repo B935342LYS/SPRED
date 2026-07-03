@@ -26,6 +26,7 @@ import {
   loadLayoutPresetSlotsFromLocalStorage,
   saveLayoutPresetSlotToLocalStorage,
 } from "../src/infra/layout_preset_storage";
+import { NORMAL_SCORE_LAYOUT_PRESET } from "../src/assets/templates/normal-score-layout-preset";
 import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 
 /**
@@ -187,8 +188,11 @@ if (loadResult.ok) {
         "Layout preset file name should use only the layout preset display name.",
       );
       assert(
-        emptySlots.length === 3 && emptySlots.every((slot) => slot.preset === null),
-        "Local layout preset storage should expose three empty slots initially.",
+        emptySlots.length === 3 &&
+          emptySlots[0]?.preset?.layoutPresetDisplayName === "Normal Score" &&
+          emptySlots[1]?.preset === null &&
+          emptySlots[2]?.preset === null,
+        "Local layout preset storage should expose bundled Normal Score in slot 1 initially.",
       );
 
       const savedSlots = saveLayoutPresetSlotToLocalStorage(parsedPresetResult.value, 2);
@@ -204,6 +208,30 @@ if (loadResult.ok) {
       );
     }
   }
+
+  globalThis.localStorage.clear();
+
+  const normalScoreSlots = loadLayoutPresetSlotsFromLocalStorage("otamatone-basic");
+  const normalScoreSlot = loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1);
+
+  assert(
+    normalScoreSlots[0]?.layoutPresetDisplayName === "Normal Score",
+    "Bundled Normal Score preset should appear in slot 1 for otamatone-basic.",
+  );
+  assert(
+    normalScoreSlot?.layoutPresetDisplayName === "Normal Score",
+    "Bundled Normal Score preset should load from slot 1 when no user preset is saved.",
+  );
+  assert(
+    normalScoreSlot?.rowDefinitions.length === 37 &&
+      normalScoreSlot.rowDefinitions.every((row) => row.type === "note" && row.height === 21),
+    "Bundled Normal Score preset should contain only 21px note rows from C3 to C6.",
+  );
+  assert(
+    NORMAL_SCORE_LAYOUT_PRESET.instData.strings[0]?.minMidi === 48 &&
+      NORMAL_SCORE_LAYOUT_PRESET.instData.strings[0]?.maxMidi === 84,
+    "Bundled Normal Score instrument range should be C3..C6.",
+  );
 
   const invalidPresetResult = parseUserLayoutPresetJson(JSON.stringify({
     formatVersion: "1",
