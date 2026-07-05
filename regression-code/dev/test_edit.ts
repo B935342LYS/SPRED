@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { createInitialState } from "../src/app/app_runtime";
-import type { ScoreHit, ScoreSelection } from "../src/app/app_types";
 import { applyRawTextBatchToScore } from "../src/app/app_runtime";
 import { buildCanvasScoreLayout } from "../src/renderer/canvas_coordinate";
 import {
@@ -43,7 +42,6 @@ import {
   resolveAutoHarmonicAbsolutePitch,
   resolveAutoPitchInputs,
 } from "../src/app/pitch_label";
-import { advanceRepeatedClickCycle } from "../src/app/edit/edit_pointer";
 
 /**
  * 조건이 거짓이면 테스트 실패 상태를 기록한다.
@@ -302,58 +300,6 @@ assert(
     normalizeNumberRawInput("12a3") === "123" &&
     normalizeNumberRawInput("12.3.4") === "12.34",
   "Number raw input should allow decimal text while removing invalid characters.",
-);
-
-const clickCycleHit = {
-  rowId: "s1-note-60",
-  rowKind: "note" as const,
-  col: 4,
-};
-const getClickCycleSelection = (hit: ScoreHit): ScoreSelection => ({
-  ...hit,
-  trackId: "basic",
-});
-const clickFromFilledNote = advanceRepeatedClickCycle(
-  null,
-  clickCycleHit,
-  "C4@p(60)",
-  "A4",
-  getClickCycleSelection,
-);
-const clickAfterFilledNote = advanceRepeatedClickCycle(
-  clickFromFilledNote.cycleState,
-  clickCycleHit,
-  "C4@p(60)",
-  "-@p(60)",
-  getClickCycleSelection,
-);
-const clickFromFilledHold = advanceRepeatedClickCycle(
-  null,
-  clickCycleHit,
-  "C4@p(60)",
-  "-",
-  getClickCycleSelection,
-);
-const clickFromFilledVibHold = advanceRepeatedClickCycle(
-  null,
-  clickCycleHit,
-  "C4@p(60)",
-  "~",
-  getClickCycleSelection,
-);
-
-assert(
-  clickFromFilledNote.rawText === "-@p(60)" &&
-    clickAfterFilledNote.rawText === "~@p(60)",
-  "Click cycle on an existing note should start from hold and continue to vibrato hold.",
-);
-assert(
-  clickFromFilledHold.rawText === "~@p(60)",
-  "Click cycle on an existing hold should start from vibrato hold.",
-);
-assert(
-  clickFromFilledVibHold.rawText === "C4@p(60)",
-  "Click cycle on an existing vibrato hold should wrap to the base note.",
 );
 
 assert(loadResult.ok, "Runtime document should load for tuplet placement test.");

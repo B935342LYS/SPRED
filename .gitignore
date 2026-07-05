@@ -33,6 +33,10 @@ coverage/
 # Common TypeScript build artifacts
 *.tsbuildinfo
 
+# Local report preparation artifacts
+docs/report-prep/
+tools/
+
 # Local GitHub Pages test-publish copies
 regression-code-test-publish/
 regression-code-test-deploy/
