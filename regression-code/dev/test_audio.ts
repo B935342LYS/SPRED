@@ -1522,6 +1522,18 @@ if (loadResult.ok) {
   assertNear(controller.getCurrentScoreSeconds(), 0.25, "Loop playback should clamp outside seek to loop start.");
 
   controller.stop();
+
+  fakeAudioTime = 0;
+  await controller.playFromSeconds(schedule.durationSeconds - 0.01);
+  fakeAudioTime = 0.02;
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert(controller.getState().kind === "stopped", "Natural playback end should enter stopped state.");
+  assertNear(
+    controller.getCurrentScoreSeconds(),
+    schedule.durationSeconds,
+    "Natural playback end should preserve the score duration position.",
+  );
+  controller.stop();
 }
 
 console.log("Audio timing mapper test completed.");
