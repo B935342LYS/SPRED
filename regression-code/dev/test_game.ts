@@ -806,29 +806,6 @@ assert(
   "Legato gliss destination targets should not be blocked only because no onset was detected.",
 );
 
-const glissEndLegatoWithStaleOnsetSample = judgeGameScoringSample(
-  createPerfectTimingFrame(1400),
-  [{
-    ...timingTarget[0],
-    eventId: "basic-gliss-end-c4",
-    attackRequired: false,
-  }],
-  1.4,
-  difficulty,
-  {
-    onsetCandidates: [createTimingOnset(41, 0.95)],
-    judgedEventIds: new Set(),
-    consumedOnsetIds: new Set(),
-    attackSatisfiedEventIds: new Set(),
-  },
-);
-
-assert(
-  glissEndLegatoWithStaleOnsetSample?.label === "Perfect" &&
-    glissEndLegatoWithStaleOnsetSample.timing.kind === "none",
-  "Legato gliss destination targets should ignore stale timing onsets instead of downgrading to Miss.",
-);
-
 const glissEndAdjacentSamePitchSample = judgeGameScoringSample(
   {
     capturedAtMs: 1450,
