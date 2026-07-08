@@ -857,6 +857,58 @@ assert(
   "Adjacent same-pitch note after gliss should use its onset credit and score normally.",
 );
 
+const glissEndAdjacentSamePitchEarlyAttackSample = judgeGameScoringSample(
+  {
+    capturedAtMs: 1440,
+    rawFrequencyHz: 369.99,
+    frequencyHz: 369.99,
+    midi: 66,
+    centOffset: 0,
+    clarity: 1,
+    rms: 0.1,
+    isVoiced: true,
+    rejectReason: null,
+  },
+  [
+    {
+      eventId: "basic-gliss-end-fs4",
+      trackId: "basic",
+      startSeconds: 1,
+      endSeconds: 1.5,
+      targetMidi: 66,
+      targetCentOffset: 0,
+      attackRequired: false,
+    },
+    {
+      eventId: "basic-adjacent-fs4",
+      trackId: "basic",
+      startSeconds: 1.5,
+      endSeconds: 2,
+      targetMidi: 66,
+      targetCentOffset: 0,
+      attackRequired: true,
+    },
+  ],
+  1.44,
+  difficulty,
+  {
+    onsetCandidates: [createTimingOnset(32, 1.44)],
+    judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(),
+    attackSatisfiedEventIds: new Set(),
+  },
+);
+
+assert(
+  glissEndAdjacentSamePitchEarlyAttackSample?.targetEventId === "basic-adjacent-fs4",
+  "Early attack for an adjacent same-pitch note after gliss should select the next note target.",
+);
+assert(
+  glissEndAdjacentSamePitchEarlyAttackSample?.label === "Perfect" &&
+    glissEndAdjacentSamePitchEarlyAttackSample.timing.kind === "none",
+  "Slightly early attack for an adjacent same-pitch note after gliss should keep Perfect instead of becoming Miss.",
+);
+
 const rawJumpSample = judgeGameScoringSample(
   {
     capturedAtMs: 1100,
