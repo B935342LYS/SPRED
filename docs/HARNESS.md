@@ -20,6 +20,12 @@ Local deployment staging root:
   - used for GitHub Pages user-test deployment through `B935342LYS/spredtest`
   - sync stable implementation changes here when updating the deployed test build
 
+Local report commentary root:
+- `regression-code-report-commentary/`
+  - ignored by the root repository
+  - copied from `regression-code/` for report-writing explanation comments
+  - used only for dense code-reading comments, not for active product fixes
+
 Archived implementation roots:
 - `0. 이세계 코드 (legacy)/`
 - `1. 개발문서/`
@@ -54,6 +60,9 @@ Primary spec roots:
 Memo roots:
 - `docs/implementation-memo/`
 
+Report writing guide:
+- `docs/4.0-second-extension-report-guide.md`
+
 ## 3. Path Roles
 
 `docs/HARNESS.md` : `hub`
@@ -69,6 +78,11 @@ Memo roots:
 `docs/1.0-development-spec.md` : `roadmap`
 - long-term development roadmap
 - stage goals and implementation direction
+
+`docs/4.0-second-extension-report-guide.md` : `report-guide`
+- 2026-06-19 이후 2차 구현 보고서 목차 구조
+- 보고서 서술 원칙
+- 보고서 원자료와 해설용 코드 스냅샷 사용 기준
 
 `docs/1.3-score-json-format.md` : `spec`
 - score storage format
@@ -159,6 +173,13 @@ Memo roots:
 - copy/sync stable `regression-code/` implementation changes here before publishing a new test build
 - not part of the main `B935342LYS/SPRED` source repository
 - root `.gitignore` excludes this folder so deploy staging files are not committed into the original workspace
+
+`regression-code-report-commentary/` : `report-commentary-copy`
+- local-only copy of `regression-code/` for dense explanatory comments used during report preparation
+- root `.gitignore` excludes this folder so explanation-only comments are not committed into the active implementation repository
+- preserve runtime behavior; do not use this folder for product fixes
+- when continuing the commentary work, add Korean operation-level comments in the style of `regression-code-2026-06-19/`
+- active `regression-code/` should remain the source of truth for behavior, tests, and deployment
 
 `0. 이세계 코드 (legacy)/` : `archive`
 `1. 개발문서/` : `archive`
@@ -379,6 +400,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - current focus has moved from additional 2nd-extension implementation to report preparation for the 2026-06-19 이후 2차 구현 work
 - `docs/report-prep/` now contains mechanically extracted Codex session logs, git logs, session summaries, a daily timeline, and the first time-sequence + feature-group report outline
 - implementation changes are paused unless new real-use test issues are found; near-term work should use the report-prep materials to draft the 2nd-extension report before broad refactoring
+- dense report-commentary comments are currently being added to the ignored `regression-code-report-commentary/` copy; active `regression-code/` should not receive these explanation-only comments
 - the previous implementation focus moved from track/audio/YouTube stabilization to first user-test deployment follow-up, practice-mode stabilization, Examples / Manual support, and GitHub Pages deployment
 - after the latest deployment sync, implementation work is temporarily paused for advisor meeting preparation
 - meeting preparation uses `regression-code-2026-06-19/` as a readable historical snapshot because the latest version contains too many follow-up features to explain within the meeting time
@@ -516,6 +538,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 - `docs/report-prep/README.md` records the report-preparation extraction pipeline, including Codex session extraction, git log collection, session summary generation, and outline use rules
 - `docs/report-prep/session-summaries/daily-timeline.md` is the current compact chronological source for 2026-06-19 이후 work; use it instead of loading raw `.jsonl` transcripts into context
 - `docs/report-prep/second-extension-report-outline.md` is the current report structure draft, organized by time sequence plus feature groups
+- `regression-code-report-commentary/` currently has dense explanation comments in `src/app/main.ts`, `src/app/app_runtime.ts`, `src/app/app_types.ts`, `src/orchestration/partial_rebuild/`, and most renderer modules including `canvas_score_renderer.ts`, `canvas_viewport.ts`, `canvas_visible_range.ts`, `canvas_coordinate.ts`, `canvas_grid_renderer.ts`, `canvas_item_builder.ts`, `canvas_note_renderer.ts`, `canvas_marker_renderer.ts`, `canvas_note_colors.ts`, `canvas_theme.ts`, and `canvas_types.ts`
+- remaining report-commentary work should continue module-by-module outside active `regression-code/`; likely next candidates are app playback, audio scheduling/playback, game/practice mode, examples/manual support, edit/history/range-selection, and smaller UI helper modules
 - `docs/2.3-audio-playback-module-spec.md` defines the audio generator, playback controller, lookahead scheduler, and Web Audio backend structure
 - `docs/2.7-youtube-sync-ui-spec.md` defines YouTube mode, `musicData.youtube` usage, iframe player sync, offset semantics, YouTube-panel video/offset editing, and Reload policy
 - YouTube sync first pass is implemented: the right panel owns video/offset input even while mode is off/error, Details no longer edits YouTube fields, `Reload` updates `musicData.youtube` and `updatedAt`, the IFrame API is lazy-loaded, playback play/pause/stop/seek drives the player as a follower, and URL/offset helpers have unit coverage
@@ -573,6 +597,8 @@ Deferred planned work:
   - split the report into manageable sections because 2026-06-19 이후 work is too broad for a single uninterrupted draft pass
   - before writing final prose, cross-check each section against `docs/HARNESS.md`, `docs/implementation-memo/`, and representative git commits
   - exclude raw transcript content, personal situational notes, and long tool outputs from any externally shared report
+  - continue dense code-reading comments only in `regression-code-report-commentary/`, keeping `regression-code/` clean for behavior changes and deployment
+  - after moving machines, first check `.gitignore`, `docs/4.0-second-extension-report-guide.md`, and this `HARNESS` section before resuming commentary work
 - long-score performance roadmap:
   - first viewport bounded rendering target is implemented and should be rechecked on lower-end laptops with real 9000+ column scores
   - use the runtime profiler to compare initial/full render, single edit, drag edit, range paste/delete, and scroll redraw before choosing the next optimization target

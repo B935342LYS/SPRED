@@ -36,6 +36,7 @@ coverage/
 # Local report preparation artifacts
 docs/report-prep/
 tools/
+regression-code-report-commentary/
 
 # Local GitHub Pages test-publish copies
 regression-code-test-publish/
