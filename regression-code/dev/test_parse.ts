@@ -40,6 +40,8 @@ if (!result.ok) {
   }
 
   const globalLimitSamples = [
+    { rowId: "global-bpm", rawText: "1", expectedKind: "linearGlobalValue" },
+    { rowId: "global-bpm", rawText: "0.999", expectedCode: "invalid_bpm_range" },
     { rowId: "global-bpm", rawText: "999<", expectedKind: "linearGlobalValue" },
     { rowId: "global-bpm", rawText: "1000", expectedCode: "invalid_bpm_range" },
     { rowId: "global-bpb", rawText: "999", expectedKind: "instantGlobalValue" },
@@ -48,7 +50,7 @@ if (!result.ok) {
     { rowId: "global-spb", rawText: "1000", expectedCode: "invalid_steps_per_beat_range" },
   ] as const;
 
-  // global timing 계열의 parser 상한은 999 포함, 1000 이상 거부로 고정한다.
+  // BPM은 1..999, 나머지 global timing 정수 계열은 1..999 범위로 고정한다.
   const unexpectedGlobalLimitResults = globalLimitSamples
     .map((sample) => ({
       sample,
