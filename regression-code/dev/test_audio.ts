@@ -781,24 +781,24 @@ const tupletBoundaryGliss = tupletBoundaryGlissSchedule.events.find(
 );
 
 assert(
-  tupletBoundaryStartNote?.sourceEventKind === "note" &&
+  tupletBoundaryStartNote === undefined &&
     tupletBoundaryEndNote === undefined &&
     tupletBoundaryGliss?.sourceEventKind === "glissChain",
-  "Tuplet boundary gliss fixture should create a clipped start note and one gliss chain.",
+  "Tuplet boundary gliss fixture should absorb both anchor notes into one gliss chain.",
 );
 
 if (
-  tupletBoundaryStartNote?.sourceEventKind === "note" &&
   tupletBoundaryGliss?.sourceEventKind === "glissChain"
 ) {
-  assertNear(tupletBoundaryStartNote.endSeconds, tupletBoundaryGliss.startSeconds, "Start anchor note should end at gliss start.");
+  assertNear(tupletBoundaryGliss.startSeconds, timeFractionToNumber(numberToTimeFraction(40 / 6)) / 16,
+    "Chain should start at the first slot onset.");
   assertNear(
-    tupletBoundaryStartNote.endSeconds - tupletBoundaryStartNote.startSeconds,
+    (tupletBoundaryGliss.segments[0]?.endSeconds ?? 0) - tupletBoundaryGliss.startSeconds,
     0.03125,
-    "240BPM 8:6 boundary start anchor note should be a very short clipped note.",
+    "240BPM 8:6 boundary start anchor should remain a constant-pitch segment inside the chain.",
   );
   assertNear(
-    tupletBoundaryGliss.segments[0]?.endSeconds ?? -1,
+    tupletBoundaryGliss.segments[1]?.endSeconds ?? -1,
     0.53125,
     "240BPM 8:6 boundary ramp should end at the first-slot end anchor.",
   );
@@ -1261,8 +1261,79 @@ assertNear(
   "Different pitch in duplicate plus chord should receive only chord gain.",
 );
 
+/**
+ * tuplet의 시작 음, gliss, 종료 hold가 하나의 연속 재생 체인으로 변환되는지 검증한다.
+ * - 인수 : sourceText : 유효한 기본 ScoreFile JSON
+ * - 반환값 : 없음. 잘못된 스케줄이면 테스트를 실패시킨다.
+ */
+function testTupletGlissContinuousPlayback(sourceText: string): void {
+  // 1tick 미만/동일/초과 슬롯과 0이 아닌 head 좌표, 그룹 밖 hold 연결을 함께 확인한다.
+  for (const groupLength of [1, 3, 4]) {
+    for (const headCol of [0, 7]) {
+      for (const outsideHold of [false, true]) {
+        const base = loadRuntimeDocument(sourceText);
+        assert(base.ok, "Tuplet playback base fixture should load.");
+        if (!base.ok) continue;
+
+        const score = base.document.score;
+        for (const track of score.tracks) track.cells = [];
+        const track = score.tracks.find((entry) => entry.trackId === "basic");
+        assert(track !== undefined, "Tuplet playback fixture requires basic track.");
+        if (track === undefined) continue;
+
+        track.cells.push({
+          rowId: "s1-note-63",
+          col: headCol,
+          rawText: "/3(D#4@g(a,S)@n(63)|D4@g(a,E)@n(62)|-@n(62))",
+        });
+        for (let offset = 1; offset < groupLength; offset += 1) {
+          track.cells.push({ rowId: "s1-note-63", col: headCol + offset, rawText: "/&" });
+        }
+        if (outsideHold) {
+          track.cells.push({ rowId: "s1-note-62", col: headCol + groupLength, rawText: "-" });
+        }
+
+        // 변경한 셀의 indexes를 다시 구성하고 실제 parser/analyzer를 통과시킨다.
+        const loaded = loadRuntimeDocument(JSON.stringify(score));
+        assert(loaded.ok, "Tuplet playback fixture should reload.");
+        if (!loaded.ok) continue;
+        const analysis = analyzeDocument({
+          ...loaded.document,
+          parsed: buildParsedDocument(loaded.document),
+        });
+        assert(analysis.analysisIssues.length === 0, "Tuplet playback fixture should analyze without issues.");
+        const schedule = buildAudioSchedule({ analysis, activeTrackIds: ["basic"] });
+        const chain = schedule.events[0];
+        assert(schedule.events.length === 1 && chain?.sourceEventKind === "glissChain",
+          "Tuplet anchor notes must be absorbed into one chain without independent reattacks.");
+        if (chain?.sourceEventKind !== "glissChain") continue;
+
+        const [start, ramp, end] = chain.segments;
+        assert(chain.segments.length === 3, "Tuplet chain should contain constant pitch, ramp, and hold.");
+        assert(start !== undefined && ramp !== undefined && end !== undefined, "All chain segments should exist.");
+        if (start === undefined || ramp === undefined || end === undefined) continue;
+        const anchorOffset = Math.min(groupLength / 6, 0.5);
+        assertNear(chain.startSeconds, headCol / 8, "Chain should preserve slot onset at 120 BPM.");
+        assertNear(chain.endSeconds, (headCol + groupLength + Number(outsideHold)) / 8,
+          "Chain should preserve the entire end hold.");
+        assertNear(start.startSeconds, chain.startSeconds, "First segment should start with chain.");
+        assertNear(start.endSeconds, (headCol + anchorOffset) / 8, "Start anchor timing should remain unchanged.");
+        assertNear(start.endSeconds, ramp.startSeconds, "Start-to-ramp boundary should be continuous.");
+        assertNear(ramp.endSeconds, (headCol + groupLength / 3 + anchorOffset) / 8,
+          "End anchor timing should remain unchanged.");
+        assertNear(ramp.endSeconds, end.startSeconds, "Ramp-to-hold boundary should be continuous.");
+        assertNear(end.endSeconds, chain.endSeconds, "Last segment should end with chain.");
+        assert(start.startMidi === 63 && start.endMidi === 63 && ramp.startMidi === 63 &&
+          ramp.endMidi === 62 && end.startMidi === 62 && end.endMidi === 62,
+          "Chain should preserve D#4, descending gliss, and D4 hold pitches.");
+      }
+    }
+  }
+}
+
 const fixtureUrl = new URL("./test_cases/minimal-valid-score.json", import.meta.url);
 const jsonText = readFileSync(fixtureUrl, "utf8");
+testTupletGlissContinuousPlayback(jsonText);
 const loadResult = loadRuntimeDocument(jsonText);
 
 assert(loadResult.ok, "Audio schedule fixture should load.");
