@@ -12,6 +12,9 @@ Thumbs.db
 .tmp_docx_*/
 .tmp_docx_*.zip
 
+# Local agent temporary artifacts (keep shared skills eligible for tracking)
+/.agents/tmp/
+
 # Large local-only media assets
 *.mp4
 

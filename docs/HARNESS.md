@@ -391,6 +391,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+2026-09-16 현재 `9월 2주차 보고서` 작성 및 제출은 사용자 확인 기준으로 완료되었다. [9월 3주차 DB 확장·CREPE 실험·MIDI 변환 계획](3.5-september-third-week-implementation-plan.md)의 DB 접근 유지 기준(DB-A1~6)이 확정되었으며 다음 구현 대상은 해당 기능이다. 재생 시간 자동 등록은 보류하고 CREPE·MIDI는 후속 논의 대상으로 유지한다. 미결정 제안은 active 명세를 대체하지 않는다. 아래의 이전 구현·보고서·회의 준비 기록은 누적 이력이며, 최신 작업 재개 지점은 10장의 날짜별 현황을 우선한다.
+
 - `regression-code/` is the stable SPRED working root for `B935342LYS/SPRED`
 - higher-risk MIDI / audio-to-score import experiments have been split into local `regression-code-extend/` and remote `B935342LYS/SPRED_extend`
 - the root `.gitignore` excludes `regression-code-extend/` to prevent accidental staging through top-level `git add .`
@@ -411,6 +413,42 @@ If memo content is explicitly adopted by the user for implementation order or st
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
+
+### Latest checkpoint — 2026-09-17
+
+- Pages 배포 완료: [Actions 35184383237](https://github.com/B935342LYS/spredtest/actions/runs/35184383237)의 build/deploy 모두 성공. 배포 사이트와 JS 응답 HTTP 200 및 게시 번들의 접근 단어 임시 상태·요청 취소 처리 반영 확인.
+- DB 접근 유지 로컬 구현 완료: `example_binding.ts`에서 페이지 메모리의 검증된 단어를 재사용하고 `example_dialog.ts`에서 재개방 시 복원·자동 조회한다. 저장소나 서버 인증 계약은 변경하지 않았다.
+- 보관 단어 인증 거부 시 초기화, 통신·서버 오류 및 다른 단어 오입력 시 보관값 유지. 닫힌 창·이전 요청의 응답은 목록과 busy 상태를 덮어쓰지 않는다.
+- 한국어 JSDoc·핵심 블록 주석 추가. `typecheck`, `test:examples`, `build` 통과. 로컬 Chrome + 모의 응답으로 재개방·악보 로드·오류·요청 경합·새로고침·새 탭·접근 단어 미저장을 검증했다.
+- 상세 결과는 `3.5` 3.5절. 사용자 후속 요청으로 원본 `SPRED` main `ae04a82`, 배포용 `spredtest` main `6929c77`에 코드 두 파일을 커밋·푸시했다. 배포 폴더 typecheck/build 통과. 배포 폴더의 Examples 테스트는 대상 파일 부재로 실행 실패했고 원본 테스트는 통과했다. Supabase 실서비스 인증 검증은 수행하지 않았다. 재생 시간 자동 등록은 보류 유지.
+
+### Previous checkpoint — 2026-09-16
+
+- DB 접근 유지 확정: 검증된 단어를 현재 페이지 메모리에만 보관한다. Examples 재개방 시 단어를 복원하고 추가 목록을 자동 조회한다. 새로고침·새 탭·브라우저 재방문 시 재입력한다.
+- localStorage/sessionStorage 및 별도 기억 UI는 추가하지 않는다. 세부 기준은 `3.5` 3장과 갱신된 `2.11`을 따른다.
+- 재생 시간 자동 등록은 사용자 결정으로 보류한다. 현재 null 등록 경로를 유지하고 기존 DB 값을 별도로 보충하지 않는다.
+- 이번 DB 구현 범위는 접근 유지 기능만이다. 현재까지는 기준 문서만 갱신했으며 제품 코드 변경·원격 DB 갱신·배포는 수행하지 않았다.
+
+### Previous checkpoint — 2026-09-15
+
+- 사용자 확인: 9월 2주차 보고서 작성 및 제출 완료.
+- 새 작업 계획: `docs/3.5-september-third-week-implementation-plan.md`. DB 접근 유지, 등록 시 재생 시간, CREPE 시범 가동, MIDI 정합성 설계를 다룬다.
+- 문서 상태: `task-plan / decision-pending`. 확정 요청·현황·제안·미결정을 구분하며 질문 ID별 답변을 반영한다. 코드 구현이나 원격 DB 갱신·배포를 완료한 상태가 아니다.
+- CREPE 비교는 `docs/3.4-practice-pitch-detector-backend-spec.md`의 기존 실험 브랜치·동일 WAV 비교·채택 기준을 따른다. 실험 코드와 자료의 실제 위치는 착수 시 확인한다.
+- 이번 변경은 계획 문서 작성과 하네스 재개 지점 갱신이다. 제품 테스트와 빌드는 재실행하지 않았다.
+
+### Previous checkpoint — 2026-09-11
+
+- 안정판 최근 반영: CSS 역할별 분리(`6a09f5c`), BPM 하한 1 적용(`662c352`), tuplet 내부 gliss 연속 재생 수정(`00110e0`).
+- tuplet gliss 수정은 `audio_schedule_builder.ts`에서 slot anchor의 실제 시간 경계로 앞뒤 발음 구간을 체인에 흡수하도록 보완한 것이다. `slotIndex`가 있는 음은 일반 단일 셀 판정에서 제외한다. parser / analyzer / ScoreFile 형식은 변경하지 않았다.
+- 검증: 슬롯 길이·head 위치·외부 hold 연결을 조합한 12개 회귀 사례 추가. 수정 당시 `test:audio`, `test:analyze`, `test:partial`, `test:game`, `build` 통과. 이후 사용자가 원래 문제 악보에서 정상 동작을 확인했다.
+- 원격 반영: `B935342LYS/SPRED` main `00110e0`, 배포 저장소 `B935342LYS/spredtest` main `d364d25`까지 푸시 완료. 배포본 로컬 빌드는 통과했으나 해당 푸시의 GitHub Actions / Pages 완료 여부는 별도로 확인하지 않았다.
+- 소수 tick 시간 보정은 `docs/3.3-third-extension-candidate-spec.md` 9.6절에 3차 확장 후보로 기록했다. `C4@f(0.15,0.80)`은 예시이며 문법·단위·제약은 미확정, 구현하지 않았다.
+- 저장소 정리: `.gitignore`에 `/.agents/tmp/`를 추가하고 기존 추적 파일 `karaoke-mode-draft.pdf`는 `git rm --cached`로 추적 해제했다. PDF와 브라우저 프로필은 로컬에 유지한다. 이 정리 변경은 아직 커밋·푸시하지 않았다.
+- 보고서: 로컬 `1. 개발문서/주간보고서/9월 2주차 보고서.pdf`의 3.1.2 `출력 limit 설정` 작성 중. 출력 압축 설정값·gainScale과의 역할 구분·한계에 관한 부연 문단을 제안한 상태이며, PDF 반영은 미확인이다. 다음 작성 대상은 3.2 gliss 오버랩 실패와 연속 체인 전환이다.
+- 보고서와 흐름도의 상세 재개 기준은 `docs/4.0-second-extension-report-guide.md` 8장에 기록한다. 이번 체크포인트의 테스트 결과는 이전 수정 때의 실행 기록이지 문서 정리 시 재실행한 결과가 아니다.
+
+### Earlier accumulated implementation history
 
 - active specification documents `1.3`, `1.5`, `1.6`, `1.7`, `1.8` are prepared
 - active MVP implementation specification document `1.9` is prepared for the first analyzer / renderer / UI connection
