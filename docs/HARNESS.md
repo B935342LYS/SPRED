@@ -416,13 +416,16 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ### Latest checkpoint — 2026-09-18
 
+- 사용자 안정화 확인 후 누적 변경 배포 완료. Sync 창의 `Saved for this browser. Score playback stays paused; use Play after closing.` 안내를 삭제하고 한글·영어 매뉴얼 7.1의 입력/출력 지연 설명을 포함해 반영했다.
+- 배포 커밋 `41f7a23`, [Actions 35279572439](https://github.com/B935342LYS/spredtest/actions/runs/35279572439) 성공. 개발·배포본 build 및 `test:game`·`test:youtube`·`test:audio` 통과, 양쪽 JS/CSS 빌드 해시 일치. 게시 사이트와 두 매뉴얼 HTTP 200, 안내 삭제·±1ms 버튼·Display 저장 키 반영 확인.
+
 - Display offset 후속 기준 확정·로컬 구현 완료: 별도 localStorage 저장/복원, 800ms 테스트 노트와 beep, 공통 Start/Stop, Sync 진입 시 악보/YouTube 일시정지, 닫기 뒤 Play 수동 재개.
 - Display offset·Input Sync에 ±1ms 버튼을 추가하고 ±10ms 버튼을 축소했다. 값은 좌우 버튼 사이에 중앙 정렬하며 저장·복원 정밀도도 1ms로 변경했다. `test:game`, `build`, Chrome 증감·배치·새로고침 복원 검증 통과.
 - UI 후속 정정: Apply를 헤더로 이동하고 Input Sync Reset을 원위치로 복구했다. 미리보기 노트 중심의 기준선 접촉에 140ms 원형 강조 효과를 추가했다. 보정값별 효과 시점·정리와 빌드 검증 통과. 악보 파일 자체의 타이밍 결함 가능성은 미확정이며 이번 UI 보완에서는 오디오 동기화 코드를 추가 변경하지 않았다.
 - countdown과 비동기 재생 준비 요청을 Sync 진입 시 무효화한다. 미리보기 종료 시 RAF·노드·예약 oscillator·AudioContext·flash 타이머를 정리한다.
 - `test:game`, `test:youtube`, `build` 통과. 로컬 Chrome에서 저장 복원·미리보기 실행/정리·countdown 취소·재생 일시정지/수동 재개를 확인했다. 실제 장치 청취와 실제 YouTube 영상 확인은 별도 필요.
 - Sync 후 재개 보완: 영상 위치 차이가 50ms 이내인 일시정지 재개는 YouTube seek를 생략한다. Display offset의 오디오 시간 유입은 재현되지 않았으며 실제 청감 원인은 미확정이다. 헤더 우측을 Start/Stop → Apply → Close 순으로 배치했다. `test:audio` 및 모의 YouTube를 연결한 실제 앱 재개 검증도 통과.
-- 상세는 `3.5` 11.8~11.9절, `3.2` 13.2~13.3절 및 `2.7` 5절. 이번 변경은 아직 커밋·배포하지 않았다.
+- 상세는 `3.5` 11.8~11.9절, `3.2` 13.2~13.3절 및 `2.7` 5절. 아래 이전 체크포인트와 상세 문서의 로컬·미배포 표기는 당시 작업 기록이다.
 
 ### Previous checkpoint — 2026-09-17
 
