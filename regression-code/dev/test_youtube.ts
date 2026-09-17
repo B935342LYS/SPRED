@@ -6,6 +6,7 @@ import {
   MIN_YOUTUBE_OFFSET_MS,
 } from "../src/core/score/score_limits";
 import {
+  canResumeYoutubeWithoutSeek,
   isYoutubeBeforeVideoStart,
   scoreSecondsToRawYoutubeSeconds,
   scoreSecondsToYoutubeSeconds,
@@ -36,6 +37,19 @@ function runYoutubeTests(): void {
   assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
   assert.equal(shouldResyncYoutubeDrift(10, 22.5, -12500), false);
   assert.equal(shouldResyncYoutubeDrift(0.1, 0.25, 300), false);
+
+  // 일시정지 재개만 50ms 이내 위치를 유지하고, 최초 재생·위치 불일치·영상 시작 전에는 seek 경로를 유지한다.
+  assert.equal(canResumeYoutubeWithoutSeek(false, 10, 10, 0), false);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, 10, 0), true);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, 10.02, 0), true);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 0, 0.05, 0), true);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, 10.051, 0), false);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, 22.5, -12500), true);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 1, 0.7, 300), true);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 0.1, 0, 300), false);
+  assert.equal(canResumeYoutubeWithoutSeek(true, NaN, 10, 0), false);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, Infinity, 0), false);
+  assert.equal(canResumeYoutubeWithoutSeek(true, 10, 10, NaN), false);
 
   assert.equal(clampYoutubeOffsetMs(MIN_YOUTUBE_OFFSET_MS - 1), MIN_YOUTUBE_OFFSET_MS);
   assert.equal(clampYoutubeOffsetMs(MAX_YOUTUBE_OFFSET_MS + 1), MAX_YOUTUBE_OFFSET_MS);

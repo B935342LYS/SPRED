@@ -1,4 +1,6 @@
 import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
+import { getPracticeDisplaySeconds } from "../src/app/playback/app_playback_ui";
+import { normalizeGameDisplayOffsetMs } from "../src/app/game/game_types";
 import type { AnalysisResult, GlissEvent, NoteEvent } from "../src/core/analyze/types";
 import type { GameTimingOnsetCandidate } from "../src/app/game/game_types";
 import { createTickTimeMapper, numberToTimeFraction } from "../src/audio/tick_time_mapper";
@@ -32,6 +34,8 @@ import {
 import {
   loadGameSyncOffsetMsFromLocalStorage,
   saveGameSyncOffsetMsToLocalStorage,
+  loadGameDisplayOffsetMsFromLocalStorage,
+  saveGameDisplayOffsetMsToLocalStorage,
 } from "../src/infra/game_preferences";
 import { createPracticeRangeStateFromApp } from "../src/app/playback/app_playback";
 import {
@@ -223,8 +227,8 @@ assert(
   "Default practice Sync should start at +90 ms.",
 );
 assert(
-  normalizeGameSyncOffsetMs(96) === 100,
-  "Sync offset should snap to 10 ms steps.",
+  normalizeGameSyncOffsetMs(96) === 96,
+  "Sync offset should preserve 1 ms steps.",
 );
 assert(
   normalizeGameSyncOffsetMs(500) === 500,
@@ -264,8 +268,8 @@ assert(
   "Missing Sync preference should load the default value.",
 );
 assert(
-  saveGameSyncOffsetMsToLocalStorage(96) === 100 &&
-    loadGameSyncOffsetMsFromLocalStorage() === 100,
+  saveGameSyncOffsetMsToLocalStorage(96) === 96 &&
+    loadGameSyncOffsetMsFromLocalStorage() === 96,
   "Sync preference should save and load a normalized value.",
 );
 
@@ -2153,5 +2157,40 @@ if (explicitTremTarget !== undefined && explicitTremTarget.kind === "trem") {
   assert(duplicateSyntheticTremHit === null, "Explicit trem synthetic hit should not reward the same division twice.");
   assert(secondSyntheticTremHit !== null, "Explicit trem should reward another division hit inside one note event.");
 }
+
+// 화면 보정은 입력 Sync와 독립적이며 시작·끝 및 비정상 값에서도 유효한 시간만 반환한다.
+assertClose(getPracticeDisplaySeconds(10.3, 20, 300), 10, 1e-9, "Positive display offset delays the viewport.");
+assertClose(getPracticeDisplaySeconds(10, 20, -300), 10.3, 1e-9, "Negative display offset advances the viewport.");
+assertClose(getPracticeDisplaySeconds(0.1, 20, 300), 0, 1e-9, "Display time clamps at score start.");
+assertClose(getPracticeDisplaySeconds(19.9, 20, -300), 20, 1e-9, "Display time clamps at score end.");
+assertClose(getPracticeDisplaySeconds(4, 20, 0), 4, 1e-9, "Default display offset preserves playback position.");
+assertClose(getPracticeDisplaySeconds(4, 20, Number.NaN), 4, 1e-9, "Invalid display offset falls back to zero.");
+assert(normalizeGameDisplayOffsetMs(999) === 500, "Display upper bound is 500ms.");
+assert(normalizeGameDisplayOffsetMs(-999) === -500, "Display lower bound is -500ms.");
+assert(normalizeGameDisplayOffsetMs(24) === 24, "Display offset preserves 1ms steps.");
+assert(normalizeGameDisplayOffsetMs(-24.4) === -24, "Display offset rounds to integer milliseconds.");
+assert(normalizeGameSyncOffsetMs(96.4) === 96, "Input Sync rounds to integer milliseconds.");
+assertClose(applyGameSyncOffsetSeconds(10.3, 90), 10.21, 1e-9, "Input Sync continues to use its independent offset.");
+
+// 입력 Sync와 별개로 화면 보정의 저장·복원·오염 값·저장소 실패를 검증한다.
+const displayStorage = installLocalStorageMock();
+saveGameSyncOffsetMsToLocalStorage(90);
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 0, "Missing display preference defaults to zero.");
+assert(saveGameDisplayOffsetMsToLocalStorage(304) === 304, "Stored display preference preserves 1ms steps.");
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 304, "Display preference survives reload.");
+assert(loadGameSyncOffsetMsFromLocalStorage() === 90, "Display preference does not overwrite input Sync.");
+assert(saveGameSyncOffsetMsToLocalStorage(91) === 91, "Input Sync saves 1ms adjustments.");
+assert(loadGameSyncOffsetMsFromLocalStorage() === 91, "Input Sync restores 1ms adjustments.");
+displayStorage.set("regression-code:game-display-offset-ms", "broken");
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 0, "Invalid stored display preference defaults to zero.");
+displayStorage.set("regression-code:game-display-offset-ms", "900");
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 500, "Stored display preference is bounded.");
+saveGameDisplayOffsetMsToLocalStorage(0);
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 0, "Display Reset persists zero.");
+const usableStorage = globalThis.localStorage;
+Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Storage blocked"); } });
+assert(loadGameDisplayOffsetMsFromLocalStorage() === 0, "Blocked storage reads use zero.");
+assert(saveGameDisplayOffsetMsToLocalStorage(300) === 300, "Blocked storage writes preserve runtime adjustment.");
+Object.defineProperty(globalThis, "localStorage", { configurable: true, writable: true, value: usableStorage });
 
 console.log("Game mode pitch math test completed.");

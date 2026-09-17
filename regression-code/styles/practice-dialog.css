@@ -133,6 +133,14 @@
   margin: 0;
 }
 
+.practice-sync-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .practice-sync-help {
   margin: 0;
   color: var(--muted);
@@ -146,6 +154,39 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   background: linear-gradient(90deg, #f8fafc, #ffffff);
+}
+
+/* 테스트 노트는 고정된 붉은 기준선으로 이동하며 입력 marker와 별도로 표시한다. */
+.practice-display-preview .practice-sync-center {
+  background: #dc2626;
+  z-index: 1;
+}
+
+/* 노트 중심의 기준선 접촉 시 작은 붉은 테두리를 표시한다. 감쇠는 노트와 같은 시계로 계산한다. */
+.practice-display-preview .practice-sync-center::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #ef4444;
+  border-radius: 50%;
+  background: rgb(254 202 202 / 45%);
+  opacity: var(--practice-contact-strength, 0);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.practice-preview-note {
+  position: absolute;
+  top: 26px;
+  width: 28px;
+  height: 18px;
+  border: 2px solid #1d4ed8;
+  border-radius: 5px;
+  background: #93c5fd;
+  transform: translateX(-50%);
 }
 
 .practice-sync-center {
@@ -196,11 +237,20 @@
 
 .practice-sync-controls {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, auto));
+  grid-template-columns: calc(6ch + 24px) calc(5ch + 24px) minmax(80px, 1fr) calc(5ch + 24px) calc(6ch + 24px) auto;
   align-items: center;
   gap: 8px;
 }
 
+.practice-sync-controls button {
+  min-width: 0;
+  height: auto;
+  min-height: 34px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.practice-display-value,
 .practice-sync-value {
   min-width: 64px;
   text-align: center;

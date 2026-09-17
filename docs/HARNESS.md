@@ -414,8 +414,20 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 10. Current Progress Summary
 
-### Latest checkpoint — 2026-09-17
+### Latest checkpoint — 2026-09-18
 
+- Display offset 후속 기준 확정·로컬 구현 완료: 별도 localStorage 저장/복원, 800ms 테스트 노트와 beep, 공통 Start/Stop, Sync 진입 시 악보/YouTube 일시정지, 닫기 뒤 Play 수동 재개.
+- Display offset·Input Sync에 ±1ms 버튼을 추가하고 ±10ms 버튼을 축소했다. 값은 좌우 버튼 사이에 중앙 정렬하며 저장·복원 정밀도도 1ms로 변경했다. `test:game`, `build`, Chrome 증감·배치·새로고침 복원 검증 통과.
+- UI 후속 정정: Apply를 헤더로 이동하고 Input Sync Reset을 원위치로 복구했다. 미리보기 노트 중심의 기준선 접촉에 140ms 원형 강조 효과를 추가했다. 보정값별 효과 시점·정리와 빌드 검증 통과. 악보 파일 자체의 타이밍 결함 가능성은 미확정이며 이번 UI 보완에서는 오디오 동기화 코드를 추가 변경하지 않았다.
+- countdown과 비동기 재생 준비 요청을 Sync 진입 시 무효화한다. 미리보기 종료 시 RAF·노드·예약 oscillator·AudioContext·flash 타이머를 정리한다.
+- `test:game`, `test:youtube`, `build` 통과. 로컬 Chrome에서 저장 복원·미리보기 실행/정리·countdown 취소·재생 일시정지/수동 재개를 확인했다. 실제 장치 청취와 실제 YouTube 영상 확인은 별도 필요.
+- Sync 후 재개 보완: 영상 위치 차이가 50ms 이내인 일시정지 재개는 YouTube seek를 생략한다. Display offset의 오디오 시간 유입은 재현되지 않았으며 실제 청감 원인은 미확정이다. 헤더 우측을 Start/Stop → Apply → Close 순으로 배치했다. `test:audio` 및 모의 YouTube를 연결한 실제 앱 재개 검증도 통과.
+- 상세는 `3.5` 11.8~11.9절, `3.2` 13.2~13.3절 및 `2.7` 5절. 이번 변경은 아직 커밋·배포하지 않았다.
+
+### Previous checkpoint — 2026-09-17
+
+- 후속 로컬 시범 구현: Practice Sync 팝업에 독립적인 Display offset 추가. 기본 0ms, ±500ms, 10ms 단계, 페이지 메모리만 유지. 오디오/입력 판정은 기존 시간을 사용하고 화면 좌표 변환만 보정한다. 상세는 `3.2` 13.2절.
+- 화면 보정 검증: `test:game`, `test:youtube`, `build` 통과. 로컬 Chrome 가상 마이크로 조절 범위·Reset·입력 Sync 독립성·Practice 재진입 유지·새로고침 초기화·저장소 미변경·모드별 mapper 전달 시간을 확인했다. 실제 인터페이스/YouTube 청취 보정, 긴 곡·구간 반복의 체감 검증은 사용자 환경에서 필요하다. 이번 화면 보정은 커밋·배포하지 않았다.
 - Pages 배포 완료: [Actions 35184383237](https://github.com/B935342LYS/spredtest/actions/runs/35184383237)의 build/deploy 모두 성공. 배포 사이트와 JS 응답 HTTP 200 및 게시 번들의 접근 단어 임시 상태·요청 취소 처리 반영 확인.
 - DB 접근 유지 로컬 구현 완료: `example_binding.ts`에서 페이지 메모리의 검증된 단어를 재사용하고 `example_dialog.ts`에서 재개방 시 복원·자동 조회한다. 저장소나 서버 인증 계약은 변경하지 않았다.
 - 보관 단어 인증 거부 시 초기화, 통신·서버 오류 및 다른 단어 오입력 시 보관값 유지. 닫힌 창·이전 요청의 응답은 목록과 busy 상태를 덮어쓰지 않는다.

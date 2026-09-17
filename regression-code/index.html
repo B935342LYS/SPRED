@@ -542,21 +542,39 @@
         <form method="dialog" class="practice-sync-form">
             <div class="dialog-title-row">
                 <h2>Sync</h2>
-                <button type="button" class="practice-sync-close-button" aria-label="Close">Close</button>
+                <div class="practice-sync-header-controls">
+                    <button type="button" class="practice-sync-start-button">Start</button>
+                    <button type="button" class="practice-sync-apply-button">Apply</button>
+                    <button type="button" class="practice-sync-close-button" aria-label="Close">Close</button>
+                </div>
             </div>
-            <p class="practice-sync-help">Adjust Sync until your input marker lands near the center.</p>
+            <h3>Display offset</h3>
+            <p class="practice-sync-help">Match notes at the red line to the beep you hear. Positive values make notes arrive later. Saved for this browser. Score playback stays paused; use Play after closing.</p>
+            <div class="practice-display-preview practice-sync-meter" aria-label="Test notes approaching the red line">
+                <div class="practice-sync-center"></div>
+            </div>
+            <div class="practice-sync-controls">
+                <button type="button" class="practice-display-minus-button">-10 ms</button>
+                <button type="button" class="practice-display-fine-minus-button">-1 ms</button>
+                <strong class="practice-display-value" aria-live="polite">+0 ms</strong>
+                <button type="button" class="practice-display-fine-plus-button">+1 ms</button>
+                <button type="button" class="practice-display-plus-button">+10 ms</button>
+                <button type="button" class="practice-display-reset-button">Reset display</button>
+            </div>
+            <h3>Input Sync</h3>
+            <p class="practice-sync-help">After matching the display and sound, adjust input timing with Sync. Adjust Sync until your input marker lands near the center.</p>
             <div class="practice-sync-meter" aria-label="Practice sync timing meter">
                 <div class="practice-sync-center"></div>
                 <div class="practice-sync-beat"></div>
                 <div class="practice-sync-marker"></div>
             </div>
             <div class="practice-sync-controls">
-                <button type="button" class="practice-sync-start-button">Start</button>
                 <button type="button" class="practice-sync-minus-button">-10 ms</button>
+                <button type="button" class="practice-sync-fine-minus-button">-1 ms</button>
                 <strong class="practice-sync-value">+90 ms</strong>
+                <button type="button" class="practice-sync-fine-plus-button">+1 ms</button>
                 <button type="button" class="practice-sync-plus-button">+10 ms</button>
-                <button type="button" class="practice-sync-reset-button">Reset</button>
-                <button type="button" class="practice-sync-apply-button">Apply</button>
+                <button type="button" class="practice-sync-reset-button" title="Reset Input Sync">Reset</button>
             </div>
         </form>
     </dialog>
