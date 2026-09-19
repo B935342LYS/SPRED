@@ -418,6 +418,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 - YouTube Local offset과 후속 UI 보완을 배포 저장소 main `841a422`에 푸시했다. 라벨은 입력 아래에 두고 버튼·입력 높이를 통일하며, 토글 색상을 Edit Mode와 맞췄다. 좁은 창에서는 한 줄을 강제하지 않고 버튼 아래 폭도 줄바꿈에 활용한다. 1280px에서 컨트롤 세 줄을 두 줄로 줄여 영상 포함 높이를 약 32px 낮췄다.
 - 원본 `test:youtube`, `test:game`, `test:audio`, 원본·배포본 `build` 통과. 양쪽 JS/CSS 빌드 결과 일치. 배포본에는 dev 테스트 디렉터리가 없어 단위 테스트는 원본에서 실행했다. 사용자가 기능의 정상 동작을 확인했으며 전체 기기 청감 검증으로 일반화하지 않는다.
+- [Pages Actions 35475721400](https://github.com/B935342LYS/spredtest/actions/runs/35475721400) 성공. 게시 사이트와 한글·영어 매뉴얼 HTTP 200, Local offset 입력·저장 키·매뉴얼 설명·최종 줄바꿈 CSS 반영을 확인했다. 게시 CSS는 로컬 빌드와 일치한다.
 
 ### Previous checkpoint — 2026-09-19
 
