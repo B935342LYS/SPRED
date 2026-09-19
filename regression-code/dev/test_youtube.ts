@@ -7,15 +7,50 @@ import {
 } from "../src/core/score/score_limits";
 import {
   canResumeYoutubeWithoutSeek,
+  getEffectiveYoutubeOffsetMs,
   isYoutubeBeforeVideoStart,
   scoreSecondsToRawYoutubeSeconds,
   scoreSecondsToYoutubeSeconds,
   secondsUntilYoutubeStart,
   shouldResyncYoutubeDrift,
 } from "../src/app/youtube/youtube_sync";
+import { loadYoutubeLocalOffsetMs, saveYoutubeLocalOffsetMs, normalizeYoutubeLocalOffsetMs } from "../src/infra/youtube_preferences";
 import { parseYoutubeVideoId } from "../src/app/youtube/youtube_url";
 
 function runYoutubeTests(): void {
+  // 합산은 곡 범위를 넘겨도 유지하고, 영상 경계와 drift가 같은 보정을 사용한다.
+  assert.equal(getEffectiveYoutubeOffsetMs(60000, 5000), 65000);
+  const effective = getEffectiveYoutubeOffsetMs(2000, -200);
+  assert.equal(effective, 1800);
+  assert.equal(isYoutubeBeforeVideoStart(1.79, effective), true);
+  assert.equal(isYoutubeBeforeVideoStart(1.8, effective), false);
+  assert.equal(scoreSecondsToYoutubeSeconds(10, -200), 10.2);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.2, -200), false);
+  assert.equal(normalizeYoutubeLocalOffsetMs(-5001), -5000);
+  assert.equal(normalizeYoutubeLocalOffsetMs(5001), 5000);
+  assert.equal(normalizeYoutubeLocalOffsetMs(1.4), 1);
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+  } });
+  try {
+    assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    assert.equal(saveYoutubeLocalOffsetMs(-201), -201);
+    assert.equal(loadYoutubeLocalOffsetMs(), -201);
+    for (const raw of ["", " ", "oops", "NaN", "Infinity"]) {
+      values.set("regression-code:youtube-local-offset-ms", raw);
+      assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    }
+    assert.deepEqual([...values.keys()], ["regression-code:youtube-local-offset-ms"]);
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("blocked"); } });
+    assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    assert.equal(saveYoutubeLocalOffsetMs(201), 201);
+  } finally {
+    if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
+    else Reflect.deleteProperty(globalThis, "localStorage");
+  }
   assert.equal(parseYoutubeVideoId("abcDEF_123-"), "abcDEF_123-");
   assert.equal(parseYoutubeVideoId("https://www.youtube.com/watch?v=abcDEF_123-"), "abcDEF_123-");
   assert.equal(parseYoutubeVideoId("https://youtu.be/abcDEF_123-?si=test"), "abcDEF_123-");
