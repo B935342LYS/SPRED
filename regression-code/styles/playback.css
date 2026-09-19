@@ -386,10 +386,9 @@
 
 .youtube-group {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto;
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
@@ -427,12 +426,8 @@
 }
 
 .youtube-controls {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
+  /* 버튼 아래의 폭도 다음 줄에서 활용하도록 모든 컨트롤을 같은 flex 흐름에 둔다. */
+  display: contents;
 }
 
 /* 라벨은 입력 아래에 두고 첫 줄의 버튼·입력 사각형 높이를 통일한다. */

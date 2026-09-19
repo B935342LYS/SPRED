@@ -414,11 +414,16 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 10. Current Progress Summary
 
-### Latest checkpoint — 2026-09-19
+### Latest checkpoint — 2026-09-20
+
+- YouTube Local offset과 후속 UI 보완을 배포 저장소 main `841a422`에 푸시했다. 라벨은 입력 아래에 두고 버튼·입력 높이를 통일하며, 토글 색상을 Edit Mode와 맞췄다. 좁은 창에서는 한 줄을 강제하지 않고 버튼 아래 폭도 줄바꿈에 활용한다. 1280px에서 컨트롤 세 줄을 두 줄로 줄여 영상 포함 높이를 약 32px 낮췄다.
+- 원본 `test:youtube`, `test:game`, `test:audio`, 원본·배포본 `build` 통과. 양쪽 JS/CSS 빌드 결과 일치. 배포본에는 dev 테스트 디렉터리가 없어 단위 테스트는 원본에서 실행했다. 사용자가 기능의 정상 동작을 확인했으며 전체 기기 청감 검증으로 일반화하지 않는다.
+
+### Previous checkpoint — 2026-09-19
 
 - 사용자 결정에 따라 기존 3.7 비동기 초기 동기화 명세를 삭제하고 [3.7 YouTube Local offset 구현 명세](3.7-youtube-local-offset-spec.md)로 대체했다. 곡 offset과 별도로 브라우저에 환경 보정값을 저장하고, Video 폭을 줄여 기존 Offset 오른쪽에 한 줄로 배치한다.
 - Local offset 로컬 구현 완료: load/play/resume/seek/stop/loop/drift/영상 시작 경계에 곡 offset과의 합산값을 적용한다. YL-1~3 답변에 따라 ±5000ms·기본 0ms·1ms 단위로 구현했다. change/Enter 확정 시만 브라우저에 저장·적용하고 0 입력으로 초기화한다. 곡 데이터·미적용 Video/곡 offset 입력은 보존한다. 큰 값의 영상 생략·시작 대기는 명세에 기록했다. Android 일괄 보정이나 새 PLAYING 대기 절차는 도입하지 않는다. CREPE 계획은 3.6에 보존한다.
-- 한글·영어 매뉴얼과 한국어 코드 주석을 반영했다. `test:youtube`, `test:game`, `build` 통과. Chrome 모의 YouTube로 저장/복원·확정 시 적용·재생 상태 유지·drift·시작 대기 취소·1280/1440px 배치를 확인했다. 실제 장치의 청감 보정 효과는 사용자 확인이 필요하며, 이번 변경은 아직 커밋·배포하지 않았다.
+- 한글·영어 매뉴얼과 한국어 코드 주석을 반영했다. `test:youtube`, `test:game`, `build` 통과. Chrome 모의 YouTube로 저장/복원·확정 시 적용·재생 상태 유지·drift·시작 대기 취소·당시 1280/1440px 배치를 확인했다. 이후 원본 `bfcfa90`에 커밋됐으며, 9월 20일 후속 UI와 함께 배포했다.
 
 ### Previous checkpoint — 2026-09-18
 
