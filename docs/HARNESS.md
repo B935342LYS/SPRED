@@ -414,7 +414,16 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 10. Current Progress Summary
 
-### Latest checkpoint — 2026-09-20
+### Latest checkpoint — 2026-09-21
+
+- 배포 완료: 사용자 안정화 확인 후 입력 확정·패널 접기·error:2 수정·양 언어 매뉴얼을 배포 저장소 main `1a8884d`에 푸시했다. [Pages Actions 35592417030](https://github.com/B935342LYS/spredtest/actions/runs/35592417030) 성공. 원본 테스트 3종과 원본·배포본 build 통과, 양쪽 로컬 산출물 일치. 게시 CSS 일치, JS는 raw 악보 템플릿의 CRLF/LF 차이만 있으며 정규화 후 전체 일치. 게시 사이트 실제 영상 `gpcRRvCuXfs`의 악보 로드·Reload·Play/Pause·off/on도 오류 없이 확인했다. 원본 저장소 변경은 미커밋 상태다. 아래 로컬·미배포 설명은 이전 작업 시점의 기록이며 상세는 `3.7` 22절을 따른다.
+- 실제 영상 error:2 후속 수정: 빈 ID로 생성한 player의 `/embed/` 초기 오류를 실제 API에서 재현했다. 생성 시 확정된 videoId를 전달하도록 수정하고 생성 옵션 회귀 검사를 추가했다. `test:youtube`, `build`, Chrome 모의 회귀 통과. 사용자 ID `gpcRRvCuXfs`를 넣은 ScoreFile의 on·Reload·Play/Pause·off/on에서 오류 없이 실제 영상 재생을 확인했다. 상세는 `3.7` 21절. 청감·전체 기기 검증 및 배포는 별도다.
+- [3.7 YouTube 입력 확정·패널 명세](3.7-youtube-local-offset-spec.md)의 최신 결정에 따라 `regression-code/` 로컬 구현 완료. Video·곡 offset을 change/Enter에서 독립 적용하며 Reload는 저장된 영상 재로딩으로 분리했다. 곡 metadata 변경은 indexes·분석·오디오·편집 이력을 재사용한다.
+- YouTube off는 버튼만 표시하고 부속 UI·영상을 접는다. 빈 링크·영상 오류에서도 사용자가 켠 패널은 유지하며 링크 수정·Reload로 복구한다. 영상 변경·Reload별 player 분리, AbortController/요청 세대, API 실패 캐시 해제·준비 timeout·소유 mount 정리로 이전 요청의 개입을 차단했다.
+- `test:youtube`에 binding/player lifecycle 검증을 연결했다. `test:youtube`, `test:audio`, `test:game`, `build` 통과. Chrome 모의 player에서 입력·메타데이터 독립성, 오류 복구, Reload 중복 방지, 로딩 중 off, 재생 보정·drift, 390/1000/1280/1920px 배치와 개폐를 확인했다.
+- `2.7`, `3.7`, 한글·영어 매뉴얼 갱신. 실제 YouTube 확인은 위 후속 수정 기록의 범위이며 사용자 장치 청감 확인은 별도 필요하다. 커밋·배포 사본 동기화·푸시는 수행하지 않았다. 공개 배포는 아래 9월 20일 기록을 유지한다.
+
+### Previous checkpoint — 2026-09-20
 
 - YouTube Local offset과 후속 UI 보완을 배포 저장소 main `841a422`에 푸시했다. 라벨은 입력 아래에 두고 버튼·입력 높이를 통일하며, 토글 색상을 Edit Mode와 맞췄다. 좁은 창에서는 한 줄을 강제하지 않고 버튼 아래 폭도 줄바꿈에 활용한다. 1280px에서 컨트롤 세 줄을 두 줄로 줄여 영상 포함 높이를 약 32px 낮췄다.
 - 원본 `test:youtube`, `test:game`, `test:audio`, 원본·배포본 `build` 통과. 양쪽 JS/CSS 빌드 결과 일치. 배포본에는 dev 테스트 디렉터리가 없어 단위 테스트는 원본에서 실행했다. 사용자가 기능의 정상 동작을 확인했으며 전체 기기 청감 검증으로 일반화하지 않는다.

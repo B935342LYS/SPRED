@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { runYoutubeLifecycleTests } from "./test_youtube_lifecycle";
 
 import {
   clampYoutubeOffsetMs,
@@ -92,4 +93,5 @@ function runYoutubeTests(): void {
 }
 
 runYoutubeTests();
+await runYoutubeLifecycleTests();
 console.log("test_youtube passed");
