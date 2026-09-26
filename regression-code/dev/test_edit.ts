@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
-import { createInitialState } from "../src/app/app_runtime";
+import { applyReverseRowsOption, buildRuntimeArtifacts, createInitialState } from "../src/app/app_runtime";
 import { applyRawTextBatchToScore } from "../src/app/app_runtime";
 import { buildCanvasScoreLayout } from "../src/renderer/canvas_coordinate";
 import {
   applyScoreCellRawTextBatch,
   getScoreTextEditInvalidationKind,
+  type ScoreTextEdit,
 } from "../src/app/edit/edit_apply";
 import {
   buildCellHistoryPatches,
@@ -916,6 +917,50 @@ if (loadResult.ok && tupletResult.kind === "apply") {
     ),
     "Note-only edit should add renderer items for the edited track.",
   );
+}
+
+// 일반/반전 표시에서 셀 편집 결과가 전체 재빌드와 같고 기존 좌표 입력이 보존되는지 확인한다.
+if (loadResult.ok) {
+  const noteEdit: ScoreTextEdit = {
+    selection: { trackId: "basic", rowId: "s1-note-60", rowKind: "note", col: 2 },
+    rawText: "C4",
+  };
+  const globalEdit: ScoreTextEdit = {
+    selection: { trackId: "basic", rowId: "global-bpm", rowKind: "global", col: 3 },
+    rawText: "90",
+  };
+  for (const reverseRows of [false, true]) {
+    const initialState = createInitialState(loadResult.document);
+    const state = {
+      ...initialState,
+      reverseRows,
+      renderInput: {
+        ...initialState.renderInput,
+        ...applyReverseRowsOption(initialState.renderInput, reverseRows),
+      },
+    };
+    for (const edits of [[noteEdit], [globalEdit], [noteEdit, globalEdit]]) {
+      const nextState = applyRawTextBatchToScore(state, edits);
+      const rebuilt = buildRuntimeArtifacts(nextState.document, state.activeTrackIds, reverseRows);
+      const context = `reverseRows=${reverseRows}, kind=${getScoreTextEditInvalidationKind(edits)}`;
+      assert(
+        JSON.stringify(nextState.renderInput) === JSON.stringify(rebuilt.renderInput),
+        `Cell edit renderer output should match full rebuild (${context}).`,
+      );
+      assert(
+        JSON.stringify(nextState.analysis) === JSON.stringify(rebuilt.analysis),
+        `Cell edit analysis should match full rebuild (${context}).`,
+      );
+      if (edits.length === 1) {
+        assert(
+          nextState.renderInput.rows === state.renderInput.rows &&
+            nextState.renderInput.columnCount === state.renderInput.columnCount &&
+            nextState.renderInput.baseColumnWidthPx === state.renderInput.baseColumnWidthPx,
+          `Partial cell edit should reuse the existing base input (${context}).`,
+        );
+      }
+    }
+  }
 }
 
 console.log("Edit composer test completed.");
