@@ -1,183 +1,104 @@
-import { diffAnalyzedEventsById } from "../src/core/analyze/event_diff";
-import type { AnalyzedEvent, NoteEvent } from "../src/core/analyze/types";
-import { createPartialRebuildPlan } from "../src/orchestration/partial_rebuild/partial_rebuild_plan";
-import { applyPartialRenderInputPatch } from "../src/orchestration/partial_rebuild/partial_rebuild_render_patch";
-import type { CanvasAnalyzedRenderInput } from "../src/renderer/canvas_types";
-import {
-  filterVisibleMarkerItems,
-  filterVisibleMuteItems,
-  filterVisibleNoteItems,
-} from "../src/renderer/canvas_visible_range";
+import { readFileSync } from "node:fs";
+import { strict as assert } from "node:assert";
+import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
+import type { ScoreFile } from "../src/core/score/types";
+import { createInitialState, applyRawTextBatchEditToState, buildRuntimeArtifacts, applyReverseRowsToState } from "../src/app/app_runtime";
+import { buildCellHistoryPatches, createScoreTextEditsFromHistoryPatches } from "../src/app/edit/edit_history";
+import { getScoreTextEditInvalidationKind, type ScoreTextEdit } from "../src/app/edit/edit_apply";
+import { filterVisibleMarkerItems, filterVisibleMuteItems, filterVisibleNoteItems } from "../src/renderer/canvas_visible_range";
 
 /**
- * 테스트 조건이 거짓이면 프로세스를 실패 상태로 만든다.
- * - 인수 : condition : 통과 여부
- * - 인수 : message : 실패 시 출력할 설명
- * - 반환값 : 없음
+ * 실제 편집과 이력 복원 산출물을 독립 전체 재생성과 비교한다.
+ * - 인수 : 없음
+ * - 반환값 : 없음 (불일치 시 예외)
  */
-function assert(condition: boolean, message: string): void {
-  if (!condition) {
-    console.error(message);
-    process.exitCode = 1;
+function testArtifactEdits(): void {
+  const fixtureScore = JSON.parse(readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8")) as ScoreFile;
+  fixtureScore.globalLines.columnCount = 100;
+  fixtureScore.globalLines.cells = [
+    { rowId: "global-bpm", col: 0, rawText: "120" }, { rowId: "global-bpb", col: 0, rawText: "4" },
+    { rowId: "global-spb", col: 0, rawText: "4" }, { rowId: "global-dyn", col: 0, rawText: "100" },
+  ];
+  for (const track of fixtureScore.tracks) track.cells = [
+    { rowId: "s1-note-60", col: 8, rawText: "C@g(a,S)" },
+    { rowId: "s1-note-64", col: 12, rawText: "E@g(a,E)" },
+    { rowId: "s1-note-60", col: 17, rawText: "/3(C@n(60)|D@n(62)|E@n(64))" },
+    { rowId: "s1-note-60", col: 21, rawText: "//memo" },
+    { rowId: "s1-note-60", col: 25, rawText: "C" },
+    { rowId: "s1-note-60", col: 26, rawText: "-" },
+  ];
+  /**
+   * 검증용 편집 명령을 만든다.
+   * - 인수 : rowId : 대상 행
+   * - 인수 : col : 대상 열
+   * - 인수 : rawText : 새 문자열
+   * - 인수 : trackId : 대상 track
+   * - 반환값 : 편집 API 입력
+   */
+  const edit = (rowId: string, col: number, rawText: string, trackId: "basic" | "extra" = "extra"): ScoreTextEdit => ({
+    selection: { rowId, col, trackId, rowKind: rowId.startsWith("global-") ? "global" : "note" }, rawText,
+  });
+  const batches = [
+    [edit("s1-note-60", 8, "D@g(a,S)@t(3)")],
+    [edit("s1-note-64", 12, "")],
+    [edit("s1-note-64", 12, "E@g(a,E)")],
+    [edit("s1-note-60", 17, "/3(C@g(b,S)@n(60)|D@g(b,M)@n(62)|E@g(b,E)@n(64))"), edit("s1-note-60", 18, "/&")],
+    [edit("s1-note-60", 21, "//변경된 긴 메모 0123456789")],
+    [edit("s1-note-60", 26, "~"), edit("s1-note-60", 27, "-")],
+    [edit("s1-note-60", 25, "C@p(64)@m(-50)@t(3)")],
+    [edit("global-bpm", 10, "180<")],
+    [edit("global-bpb", 16, "3"), edit("global-spb", 16, "2")],
+    [edit("global-dyn", 8, "50<"), edit("global-dyn", 20, "120")],
+    [edit("s1-note-67", 3, "G"), edit("s1-note-64", 32, "E", "basic")],
+    [edit("global-bpm", 0, "140"), edit("s1-note-60", 8, "E")],
+  ];
+  // 정방향/역방향 행에서 겹친 track과 복합 이벤트를 편집하고 이력을 되돌린다.
+  for (const reverse of [false, true]) {
+    let state = createInitialState(createRuntimeDocument(structuredClone(fixtureScore)));
+    if (reverse) state = applyReverseRowsToState(state, true);
+    for (const batch of batches) {
+      const trial = applyRawTextBatchEditToState(state, batch);
+      const history = buildCellHistoryPatches(state.document.score, trial.document.score, batch);
+      for (const commands of [batch, createScoreTextEditsFromHistoryPatches(history, "before"), createScoreTextEditsFromHistoryPatches(history, "after")]) {
+        const previous = state;
+        const snapshot = JSON.stringify(previous.renderInput);
+        state = applyRawTextBatchEditToState(previous, commands);
+        const fresh = buildRuntimeArtifacts(state.document, state.activeTrackIds, state.reverseRows);
+        assert.deepEqual(state.renderInput, fresh.renderInput, "Direct artifact must match full rebuild, including draw order.");
+        assert.equal(JSON.stringify(previous.renderInput), snapshot, "Previous input must not be mutated.");
+        const events = state.analysis.trackResults.flatMap(track => track.events);
+        assert.equal(new Set(events.map(event => event.eventId)).size, events.length, "Analyzer event IDs must remain unique.");
+        const kind = getScoreTextEditInvalidationKind(commands);
+        if (kind === "noteCell") {
+          assert.equal(state.parsed.globalCellsByKindAndCol, previous.parsed.globalCellsByKindAndCol);
+          assert.equal(state.analysis.timingTimeline, previous.analysis.timingTimeline);
+          assert.equal(state.renderInput.globalMarkerItems, previous.renderInput.globalMarkerItems);
+          const edited = new Set(commands.map(command => command.selection.trackId));
+          for (const track of previous.analysis.trackResults) {
+            if (!edited.has(track.trackId)) {
+              assert.equal(state.analysis.trackResults.find(next => next.trackId === track.trackId), track);
+              assert.equal(state.parsed.noteCellsByTrackAndCol.get(track.trackId), previous.parsed.noteCellsByTrackAndCol.get(track.trackId));
+              for (const item of previous.renderInput.noteItems.filter(item => item.trackId === track.trackId)) {
+                assert(state.renderInput.noteItems.includes(item), "Unedited track items must retain identity.");
+              }
+            }
+          }
+        } else if (kind === "globalCell") {
+          assert.equal(state.analysis.trackResults, previous.analysis.trackResults);
+          assert.equal(state.renderInput.noteItems, previous.renderInput.noteItems);
+          assert.equal(state.renderInput.muteItems, previous.renderInput.muteItems);
+          assert.equal(state.renderInput.noteMarkerItems, previous.renderInput.noteMarkerItems);
+        }
+      }
+    }
+    const unchanged = applyRawTextBatchEditToState(state, []);
+    assert.equal(unchanged.document, state.document);
+    const invalid = applyRawTextBatchEditToState(state, [edit("global-bpm", 0, "")]);
+    assert.equal(invalid.document, state.document);
   }
 }
 
-const baseNoteEvent: NoteEvent = {
-  eventKind: "note",
-  eventId: "basic:note:s1-note-60:0",
-  trackId: "basic",
-  time: {
-    startTick: { numerator: 0, denominator: 1 },
-    endTick: { numerator: 1, denominator: 1 },
-  },
-  sourceCells: [{ rowId: "s1-note-60", col: 0 }],
-  text: "C4",
-  displayTextAnchors: [
-    {
-      source: { rowId: "s1-note-60", col: 0 },
-      time: {
-        startTick: { numerator: 0, denominator: 1 },
-        endTick: { numerator: 1, denominator: 1 },
-      },
-      text: "C4",
-    },
-  ],
-  display: { rowId: "s1-note-60", centOffset: 0 },
-  sound: { midi: 60, centOffset: 0 },
-  effects: [
-    {
-      time: {
-        startTick: { numerator: 0, denominator: 1 },
-        endTick: { numerator: 1, denominator: 1 },
-      },
-      vib: false,
-      trem: null,
-    },
-  ],
-  glissAnchors: [],
-  tuplet: null,
-};
-
-const nextNoteEvent: NoteEvent = {
-  ...baseNoteEvent,
-  text: "D4",
-  displayTextAnchors: [
-    {
-      ...baseNoteEvent.displayTextAnchors[0],
-      text: "D4",
-    },
-  ],
-};
-const addedNoteEvent: NoteEvent = {
-  ...baseNoteEvent,
-  eventId: "basic:note:s1-note-62:1",
-  sourceCells: [{ rowId: "s1-note-62", col: 1 }],
-  display: { rowId: "s1-note-62", centOffset: 0 },
-  sound: { midi: 62, centOffset: 0 },
-};
-const noteDiff = diffAnalyzedEventsById([baseNoteEvent], [nextNoteEvent, addedNoteEvent]);
-const notePlan = createPartialRebuildPlan({
-  editKind: "noteCell",
-  eventDiff: noteDiff,
-});
-
-assert(notePlan.fallback === "none", "Note plan should not require fallback.");
-assert(notePlan.renderer.redrawScope === "note", "Note plan should redraw note scope.");
-assert(notePlan.renderer.groups.includes("noteItems"), "Note plan should invalidate note items.");
-assert(notePlan.renderer.groups.includes("noteMarkers"), "Note plan should invalidate note-derived markers.");
-assert(
-  notePlan.renderer.dirtyTickRange?.startTick === 0 &&
-    notePlan.renderer.dirtyTickRange.endTick === 1,
-  "Note plan should expose a dirty tick range for note redraw.",
-);
-assert(notePlan.audio.scope === "eventSet", "Note plan should allow event-set audio invalidation.");
-assert(
-  notePlan.audio.changedEventIds.join(",") === "basic:note:s1-note-60:0,basic:note:s1-note-62:1",
-  "Note plan should report changed eventIds.",
-);
-
-const globalPlan = createPartialRebuildPlan({
-  editKind: "globalCell",
-  eventDiff: diffAnalyzedEventsById([], []),
-});
-
-assert(globalPlan.fallback === "none", "Global plan should not require fallback.");
-assert(globalPlan.renderer.redrawScope === "global", "Global plan should redraw global scope.");
-assert(
-  globalPlan.renderer.groups.join(",") === "globalTextItems,globalMarkers",
-  "Global plan should invalidate global text and marker items.",
-);
-assert(globalPlan.audio.scope === "fullSchedule", "Global timing/dynamics edits should rebuild audio schedule.");
-
-const duplicateDiff = diffAnalyzedEventsById(
-  [baseNoteEvent],
-  [baseNoteEvent, { ...baseNoteEvent } as AnalyzedEvent],
-);
-const duplicatePlan = createPartialRebuildPlan({
-  editKind: "noteCell",
-  eventDiff: duplicateDiff,
-});
-
-assert(duplicatePlan.fallback === "fullRuntime", "Duplicate eventId should force full runtime fallback.");
-assert(duplicatePlan.renderer.redrawScope === "all", "Duplicate eventId fallback should redraw all dynamic scopes.");
-
-const structurePlan = createPartialRebuildPlan({
-  editKind: "structure",
-  eventDiff: diffAnalyzedEventsById([], []),
-});
-
-assert(structurePlan.fallback === "fullRuntime", "Structure changes should force full runtime fallback.");
-assert(structurePlan.renderer.groups.includes("layoutBase"), "Structure changes should invalidate layout/base.");
-
-const previousRenderInput = createRenderInputFixture("C4", "memo", "old-global");
-const nextRenderInput = createRenderInputFixture("D4", "memo", "new-global");
-previousRenderInput.noteMarkerItems = [
-  {
-    kind: "glissOrphanAnchor",
-    sourceEventId: "basic:note:s1-note-67:9",
-    rowId: "s1-note-60",
-    centOffset: 0,
-    tick: 0,
-    role: "start",
-    trackId: "basic",
-    renderAlpha: 1,
-  },
-];
-nextRenderInput.noteMarkerItems = [
-  {
-    kind: "gliss",
-    sourceEventId: "basic:gliss:a:s1-note-60:0",
-    startRowId: "s1-note-60",
-    startCentOffset: 0,
-    startTick: 0,
-    endRowId: "s1-note-60",
-    endCentOffset: 0,
-    endTick: 1,
-    hasTrem: false,
-    trackId: "basic",
-    renderAlpha: 1,
-  },
-];
-const patchedNoteInput = applyPartialRenderInputPatch(previousRenderInput, nextRenderInput, notePlan);
-const patchedGlobalInput = applyPartialRenderInputPatch(previousRenderInput, nextRenderInput, globalPlan);
-
-assert(patchedNoteInput.noteItems[0]?.text === "D4", "Note patch should replace changed note item.");
-assert(patchedNoteInput.muteItems[0]?.text === "memo", "Note patch should preserve unchanged mute item.");
-assert(
-  patchedNoteInput.globalTextItems[0]?.text === "old-global",
-  "Note patch should preserve global text items.",
-);
-assert(
-  patchedNoteInput.noteMarkerItems === nextRenderInput.noteMarkerItems &&
-    patchedNoteInput.noteMarkerItems[0]?.kind === "gliss",
-  "Note patch should replace the full note marker group because orphan gliss state can change through neighboring events.",
-);
-assert(
-  patchedGlobalInput.noteItems[0]?.text === "C4" &&
-    patchedGlobalInput.globalTextItems[0]?.text === "new-global",
-  "Global patch should preserve note items and replace global text items.",
-);
-
+testArtifactEdits();
 const visibleRange = {
   startTick: 10,
   endTick: 20,
@@ -284,63 +205,5 @@ assert(
   "Visible marker filter should include loop boundaries inside the viewport range.",
 );
 
-console.log("Partial rebuild plan test completed.");
 
-/**
- * partial render patch 테스트용 renderer 입력을 만든다.
- * - 인수 : noteText : note item 표시 텍스트
- * - 인수 : muteText : mute item 표시 텍스트
- * - 인수 : globalText : global text item 표시 텍스트
- * - 반환값 : CanvasAnalyzedRenderInput
- */
-function createRenderInputFixture(
-  noteText: string,
-  muteText: string,
-  globalText: string,
-): CanvasAnalyzedRenderInput {
-  return {
-    rows: [
-      { rowId: "global-bpm", kind: "global", label: "BPM", height: 21 },
-      { rowId: "s1-note-60", kind: "note", label: "C4", height: 21, midi: 60 },
-    ],
-    columnCount: 4,
-    baseColumnWidthPx: 21,
-    noteItems: [
-      {
-        sourceEventId: "basic:note:s1-note-60:0",
-        rowId: "s1-note-60",
-        displayCentOffset: 0,
-        startTick: 0,
-        endTick: 1,
-        midi: 60,
-        text: noteText,
-        displayShape: "rect",
-        displayTextAnchors: [],
-        effects: [],
-        trackId: "basic",
-        renderAlpha: 1,
-      },
-    ],
-    muteItems: [
-      {
-        sourceEventId: "basic:mute:s1-note-60:2",
-        rowId: "s1-note-60",
-        startTick: 2,
-        endTick: 3,
-        text: muteText,
-        trackId: "basic",
-        renderAlpha: 1,
-      },
-    ],
-    globalTextItems: [
-      {
-        rowId: "global-bpm",
-        col: 0,
-        text: globalText,
-      },
-    ],
-    globalMarkerItems: [],
-    noteMarkerItems: [],
-    markerItems: [],
-  };
-}
+console.log("Partial artifact and viewport filter tests completed.");

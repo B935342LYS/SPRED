@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 
 import { analyzeDocument } from "../src/core/analyze/analyze_full";
-import { diffAnalyzedEventsById } from "../src/core/analyze/event_diff";
 import type {
   GlissEvent,
   AnalysisResult,
@@ -1020,65 +1019,6 @@ function testTupletGlissAnalysis(sourceText: string): void {
 }
 
 /**
- * eventId 기반 analyzer event diff가 추가/삭제/변경/유지를 분류하는지 검증한다.
- * - 인수 : analysis : 기본 fixture 분석 결과
- * - 반환값 : 없음
- */
-function testAnalyzedEventDiff(analysis: AnalysisResult): void {
-  const previousEvents = analysis.trackResults.flatMap((trackResult) => trackResult.events);
-  const changedEvent = previousEvents.find((event) => event.eventKind === "note");
-  const removedEvent = previousEvents.find(
-    (event) => event.eventKind === "note" && event.eventId !== changedEvent?.eventId,
-  );
-  const unchangedEvent = previousEvents.find(
-    (event) => event.eventId !== changedEvent?.eventId && event.eventId !== removedEvent?.eventId,
-  );
-
-  assert(unchangedEvent !== undefined, "Diff fixture should have at least one event.");
-  assert(changedEvent !== undefined, "Diff fixture should have a note event to modify.");
-  assert(removedEvent !== undefined, "Diff fixture should have a note event to remove.");
-
-  if (unchangedEvent === undefined || changedEvent === undefined || removedEvent === undefined) {
-    return;
-  }
-
-  const changedNextEvent: NoteEvent = {
-    ...(changedEvent as NoteEvent),
-    text: `${(changedEvent as NoteEvent).text}!`,
-  };
-  const addedNextEvent: NoteEvent = {
-    ...changedNextEvent,
-    eventId: "basic:note:s1-note-60:999",
-    sourceCells: [
-      {
-        rowId: "s1-note-60",
-        col: 999,
-      },
-    ],
-  };
-  const nextEvents = previousEvents
-    .filter((event) => event.eventId !== removedEvent.eventId)
-    .map((event) => event.eventId === changedEvent.eventId ? changedNextEvent : event);
-
-  nextEvents.push(addedNextEvent);
-
-  const diff = diffAnalyzedEventsById(previousEvents, nextEvents);
-  const duplicateDiff = diffAnalyzedEventsById(previousEvents, [
-    ...previousEvents,
-    unchangedEvent,
-  ]);
-
-  assert(diff.added.some((entry) => entry.eventId === addedNextEvent.eventId), "Diff should report added event.");
-  assert(diff.removed.some((entry) => entry.eventId === removedEvent.eventId), "Diff should report removed event.");
-  assert(diff.changed.some((entry) => entry.eventId === changedEvent.eventId), "Diff should report changed event.");
-  assert(diff.unchanged.some((entry) => entry.eventId === unchangedEvent.eventId), "Diff should report unchanged event.");
-  assert(
-    duplicateDiff.duplicateEventIds.includes(unchangedEvent.eventId),
-    "Diff should report duplicate eventId for fallback handling.",
-  );
-}
-
-/**
  * 전역 행의 instant/ramp token이 timing/dynamics timeline segment로 정규화되는지 검증한다.
  * - 인수 : sourceText : 기본 fixture JSON 문자열
  * - 반환값 : 없음
@@ -1465,5 +1405,4 @@ if (!result.ok) {
   testTupletGlissAnalysis(jsonText);
   testGlobalTimelineAnalysis(jsonText);
   testBpmMarkerConversion();
-  testAnalyzedEventDiff(analysis);
 }

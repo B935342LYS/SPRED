@@ -288,7 +288,8 @@ YouTube sync:
 - `docs/2.7-youtube-sync-ui-spec.md`
 
 Edit invalidation / partial rebuild:
-- `docs/3.8-viewport-partial-redraw-spec.md` — active spec; viewport dirty 영역 삭제·복원, partialRenderInput, 검증 및 완료 기준
+- `docs/3.9-artifact-direct-render-implementation-plan.md` — 구현 해설·검증 기록; eventDiff/plan/patch 제거 완료, artifact 유지 및 병합 순서 보완
+- `docs/3.8-viewport-partial-redraw-spec.md` — 미채택 부분 draw 실험/보고서 기록; active 구현 기준 아님
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 
 Range selection / bulk edit:
@@ -393,6 +394,12 @@ If memo content is explicitly adopted by the user for implementation order or st
 - still resolve rule conflicts in favor of the active specification documents
 
 ## 9. Current Working Mode
+
+2026-10-01 구현 완료: [3.9 구현 결과](3.9-artifact-direct-render-implementation-plan.md#9-구현-결과와-검증-기록-2026-10-01). eventDiff 및 plan/patch 5개 파일을 삭제하고 artifact 직접 렌더로 전환했다. track/global별 산출물 재사용과 가상화를 유지하며 공용 정렬로 통합 marker까지 전체 builder 순서를 보장한다. build 및 관련 테스트 통과, 브라우저 편집/이력 144단계·실제 앱 15개 검사 통과. test:view의 기존 Fit Height 실패는 남아 있다. 성능 대조군과 현재 경로의 측정 범위·한계는 3.9 9절 참조. 다음 확인은 실제 악보와 재생 청감이며 커밋·배포는 하지 않았다. 아래는 이전 진행 이력이다.
+
+2026-10-01 구현 계획 정리: [artifact 직접 렌더 구현 계획 해설](3.9-artifact-direct-render-implementation-plan.md)에 삭제 예정 5개 파일, 유지·이동할 기능, 순서 보완, 검증 절차와 명세 충돌을 정리했다. 사용자 검토용이며 제품 파일 삭제·변경은 아직 실행하지 않았다. 다음 구현은 이 문서의 파일별 조치와 완료 기준을 확인한 뒤 진행한다.
+
+2026-10-01 후속 검토: [artifact 직접 렌더 검토](report-prep/3.8-partial-redraw-review/1.2-artifact-direct-review.md)를 수행했다. eventDiff/plan/patch를 생략하고 정렬 보정한 artifact를 기존 viewport 경로로 그린 결과, 편집 72단계와 앱 연결 12개 검사를 통과했다. 9,000개 실제 노트 산출물의 후속 처리 중앙값은 기존 17.80ms / 직접 경로 0.50ms였다. 범위와 한계는 검토 문서를 따른다. 제품 코드는 아직 변경하지 않았고 제거도 실행하지 않았다.
 
 2026-09-30 재개 지점: 원격 SPRED `origin/main`을 fetch하여 최신 커밋이 로컬 HEAD와 같은 `aac9969546f91715c9d7ab7f4ced079af4f0cd49`임을 확인하고, `regression-code/`의 추적 파일을 해당 커밋과 완전히 일치하도록 복원했다. 신규 실험/검증 파일 9개는 보고서 보관 폴더로 옮겼다. `build`, `test:partial`, `test:edit`, `test:layout`, `test:track` 통과. `npm ci`는 기준 커밋 lock의 `@emnapi/wasi-threads` 1.2.2/1.2.3 불일치로 실패하여 기존 설치 환경에서 검증했으며 lock은 수정하지 않았다. 외부 ZIP과 [보고서 수정 자료](report-prep/3.8-partial-redraw-review/1.0-report-revision-guide.md)는 보존했다. 3.8은 active가 아닌 실패 실험 기록이다. 그리기 순서 보완도 함께 되돌렸으며 다음 독립 검토 대상이다. eventDiff/plan 제거 및 추가 최적화는 하지 않았다. 커밋·배포도 미수행이다.
 
