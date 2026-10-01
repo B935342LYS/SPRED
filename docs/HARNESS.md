@@ -217,6 +217,8 @@ Read in this order for implementation work:
 
 Interpretation rules:
 
+- `docs/3.8-viewport-partial-redraw-spec.md`는 미채택 실험/보고서 기록이다. 2026-09-30 코드 복원 후 active 구현 기준에서 제외한다. 기록에 있는 구현·정렬 보완을 자동 재적용하지 않는다. 사용자 결정에 따라 아이템 내부 텍스트/주법별 세분화도 후속 계획에 다시 넣지 않는다.
+
 - runtime types and function signatures follow `1.8` first
 - first analyzer / renderer / UI MVP implementation scope follows `1.9` first
 - first UI layout, state, and event-action scope follows `2.0` first
@@ -286,6 +288,7 @@ YouTube sync:
 - `docs/2.7-youtube-sync-ui-spec.md`
 
 Edit invalidation / partial rebuild:
+- `docs/3.8-viewport-partial-redraw-spec.md` — active spec; viewport dirty 영역 삭제·복원, partialRenderInput, 검증 및 완료 기준
 - `docs/2.8-edit-invalidation-and-partial-rebuild-spec.md`
 
 Range selection / bulk edit:
@@ -391,6 +394,10 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+2026-09-30 재개 지점: 원격 SPRED `origin/main`을 fetch하여 최신 커밋이 로컬 HEAD와 같은 `aac9969546f91715c9d7ab7f4ced079af4f0cd49`임을 확인하고, `regression-code/`의 추적 파일을 해당 커밋과 완전히 일치하도록 복원했다. 신규 실험/검증 파일 9개는 보고서 보관 폴더로 옮겼다. `build`, `test:partial`, `test:edit`, `test:layout`, `test:track` 통과. `npm ci`는 기준 커밋 lock의 `@emnapi/wasi-threads` 1.2.2/1.2.3 불일치로 실패하여 기존 설치 환경에서 검증했으며 lock은 수정하지 않았다. 외부 ZIP과 [보고서 수정 자료](report-prep/3.8-partial-redraw-review/1.0-report-revision-guide.md)는 보존했다. 3.8은 active가 아닌 실패 실험 기록이다. 그리기 순서 보완도 함께 되돌렸으며 다음 독립 검토 대상이다. eventDiff/plan 제거 및 추가 최적화는 하지 않았다. 커밋·배포도 미수행이다.
+
+2026-09-28 우선 작업 당시 기록: `9월 5주차 보고서` 작성을 사용자 결정에 따라 보류하고 [3.8 viewport 내부 부분 재그리기 명세](3.8-viewport-partial-redraw-spec.md)를 최우선 구현 기준으로 삼는다. 현재 eventId 기반 item patch는 구현되어 있으나 viewport 내부의 unchanged 픽셀 보존은 미구현이다. `app_runtime.ts → partial_rebuild_artifacts.ts`의 전체 renderInput 생성은 유지하고 plan 이후에 `partialRenderInput`과 dirty 영역 삭제·복원을 연결한다. 아래 보고서 우선/구현 보류/DB 다음 구현 설명은 이전 시점의 기록이며 이번 작업 순서를 대체하지 않는다.
+
 2026-09-16 현재 `9월 2주차 보고서` 작성 및 제출은 사용자 확인 기준으로 완료되었다. [9월 3주차 DB 확장·CREPE 실험·MIDI 변환 계획](3.5-september-third-week-implementation-plan.md)의 DB 접근 유지 기준(DB-A1~6)이 확정되었으며 다음 구현 대상은 해당 기능이다. 재생 시간 자동 등록은 보류하고 CREPE·MIDI는 후속 논의 대상으로 유지한다. 미결정 제안은 active 명세를 대체하지 않는다. 아래의 이전 구현·보고서·회의 준비 기록은 누적 이력이며, 최신 작업 재개 지점은 10장의 날짜별 현황을 우선한다.
 
 - `regression-code/` is the stable SPRED working root for `B935342LYS/SPRED`
@@ -413,6 +420,56 @@ If memo content is explicitly adopted by the user for implementation order or st
 - gliss, mute, trem/vib, tuplet analyzer/render connections, basic Web Audio playback, pause/seek state, metadata/details editing, and edit UX helpers have first-pass implementations
 
 ## 10. Current Progress Summary
+
+### 2026-09-30: SPRED 최신 커밋으로 코드 복원 완료
+
+- 복원 기준: fetch로 확인한 `origin/main` = 로컬 HEAD = `aac9969`. 활성 코드/패키지의 diff 및 미추적 추가 파일이 없음을 확인했다.
+- 외부 백업 278개 파일의 SHA-256과 복원 직전 변경 코드의 일치를 확인했다. 신규 9개 파일은 `docs/report-prep/3.8-partial-redraw-review/archived-working-files/`로 이동했다. 배포 사본과 PDF는 수정하지 않았다.
+- 기존 설치 환경의 build 및 partial/edit/layout/track 검사 통과. 깨끗한 의존성 설치는 원본 lock 불일치로 실패했으며 별도 문제로 기록한다. Fit Height 기존 보류는 유지한다.
+- 소스 복원은 완료했고, 그리기 순서 보완 등 후속 개선은 시작하지 않았다. 보고서 및 실험 기록을 보존하므로 저장소 전체가 clean인 것은 아니다.
+
+### 2026-09-30: 미채택 실험과 보고서 수정 자료 보존
+
+- 보고서 10쪽 연결 문단 및 11~14쪽 3.1.3 이후의 draw 축소 성공 서술을 검토했다. 입력 patch와 실제 픽셀 부분 복원의 혼동을 정정하는 [교체 본문](report-prep/3.8-partial-redraw-review/1.1-replacement-text.md)을 작성했다.
+- draw 73→3개, 초기 구현 지연 증가, plan 재사용 후 기존과 비슷한 시간, 규모별 계산 비용을 각각 다른 측정 조건으로 구분해 인용했다. 단일 필터 함수만의 비용으로 단정하지 않는다.
+- 보고서 원본 PDF·측정 로그·실험/검증 스크립트·현재/배포 소스·Git diff를 작업공간 밖 ZIP에 보관하고 모든 파일 hash를 검증했다. 원본 PDF 편집과 코드 rollback은 미수행이다.
+
+### 2026-09-29: eventDiff 단순화 격리 실험
+
+- 제품 수정 없이 참조 우선/JSON 캐시/구조 직접 비교를 비교했다. 9,000개 전체 재생성에서 diff 중앙값은 기존 10.80 / 참조 10.55 / 캐시 8.70 / 구조 비교 13.40ms였다. 1/3 재생성에서는 기존 9.90 / 참조 4.40ms로 줄었다.
+- 기존 diff와 동일성 검증 1,036개 통과. 객체 재사용/재생성 조건과 캐시 mutation 반례를 함께 기록했다. 캐시는 불변 산출물 계약 검토 전 적용하지 않는다.
+- 가장 작은 참조 우선 개선은 구/현재 renderer 양쪽에 적용 가능한 별도 후보다. 유지/제거를 아직 결정하지 않았으며 상세·재현 방법은 [3.8](3.8-viewport-partial-redraw-spec.md) 16장에 모았다.
+
+### 2026-09-29: 부분 갱신 계산 복잡도 계측
+
+- 가상화를 유지하고 구 배포본/현재의 eventDiff → plan → patch 및 draw 전 renderer 준비를 규모별로 비교했다. 제품·배포 코드는 변경하지 않았다.
+- N=900/3,000/9,000/27,000, 단일 변경에서 계산 합계 중앙값은 구 1.00/3.40/10.90/34.55ms, 현재 1.00/3.50/11.30/35.25ms였다. 전체 편집 시간은 아니며 parser/analyzer/artifact/audio/UI는 제외했다.
+- 큰 공통 비용은 기존 eventDiff의 전체 이벤트 fingerprint 비교다. draw 대상은 줄었으나 전체 계산 복잡도/시간 개선은 확인하지 못했다. 상세 범위·정적 복잡도·재현 명령·한계는 [3.8](3.8-viewport-partial-redraw-spec.md) 15장에 모았다.
+
+### 2026-09-29: plan 재사용 후속 구현
+
+- 기존 plan의 변경 ID로 노트·뮤트 전후 경계를 조회하고, 지정 그룹의 전역·파생 표시만 비교한다. 전체 fingerprint 재비교와 편집마다 공간 index 재정렬하는 비용을 줄였다. ID 조회표는 유지하며 변경 ID만 갱신한다.
+- 전체 목록 구성·교차 조회 순회는 남는다. 동일 조건의 반복 renderer 중앙값은 기존 배포본 0.3~0.4ms / 새 부분 0.3~0.4ms로, 이전 구현보다 개선했지만 배포본을 앞섰다고 단정하지 않는다. 첫 편집/초기 준비 비용과 한계는 3.8의 14장에 기록했다.
+- Canvas 480개 사례, 실제 plan 편집 66단계, 앱 연결 6개 및 fallback 전환, `test:partial`, TypeScript 검사·build 통과. 배포 사본은 변경하지 않았다. 아래 최초 구현 수치는 이전 단계 기록이다.
+
+### 2026-09-29: viewport 부분 재그리기 로컬 구현·검증 완료
+
+- renderer가 실제 화면 기준과 표시 경계를 관리하고, 변경 영역만 삭제한 뒤 교차 아이템을 원래 순서로 복원한다. 화면 밖 변경은 draw 없이 입력 기준만 갱신한다.
+- artifact track 병합과 event patch의 순서를 공통 정렬로 보완했다. 전체 renderInput 및 parser/analyzer/audio/storage 계약은 유지했다.
+- `test:canvas`의 Canvas 240개 사례, 실제 편집 66단계, 앱 연결 6개 및 fallback 전환 검증 통과. `test:partial`, `test:edit`, `test:layout`, `test:track`, `typecheck`, `build` 통과.
+- 9,000개 아이템 사례: draw 대상 73 → 3개, clear 면적 243,000 → 810 CSS px². renderer 중앙값은 partial 약 1.2~1.5ms / full 약 1.0ms로, draw 절감이 전체 처리 시간 향상을 보장하지 않았다.
+- 사용자 정상 작동 확인 후 배포 사본 `c866fe7`과 직접 비교했다. 같은 단순 노트 조건의 renderer 중앙값은 기존 0.3~0.4ms / 새 전체 0.8~0.9ms / 새 부분 0.9~1.2ms였다. 처리 시간 개선으로 해석하지 않는다. 재현 스크립트와 측정 한계는 3.8의 13장에 기록했다. plan 변경 후보 재사용 및 목록/index 비용은 후속 검토 대상이다.
+- 상세 모듈 위치·픽셀 허용 오차·계측 한계는 [3.8](3.8-viewport-partial-redraw-spec.md) 13장에만 유지한다. 다음 단계는 실제 악보 확인과 별도 배포다. 커밋·배포 사본 동기화·푸시는 수행하지 않았다.
+
+### 2026-09-28: viewport 내부 부분 재그리기 우선 착수
+
+- [3.8](3.8-viewport-partial-redraw-spec.md)을 active 명세로 고정했다. 현재는 명세 작성 완료 / 제품 구현 미착수다.
+- 데이터 부분 갱신과 실제 draw를 구분한다. 현재 기본 viewport 분기는 unchanged 아이템도 가시 범위에 있으면 다시 그리므로 목표 미달이다.
+- 다음 순서: DTO와 화면 기준/fallback → 일반 노트 → 텍스트·주법·연결 마커 → 전역 셀 → 픽셀 비교·호출 계측·회귀 검사 → 배포 검증.
+- 변경 밖 픽셀은 유지한다. 삭제 영역과 겹치는 unchanged는 복원한다. 전체 renderInput은 스크롤/전체 렌더용 상태로 유지한다.
+- 보고서 작성은 보류한다. 오디오 부분 갱신, parser/analyzer 범위 변경은 이번 범위 밖이다.
+- 선행 base 입력 재사용 수정은 원본 `aac9969`, 배포 저장소 `c866fe7`에 커밋되었고 배포 main 푸시 및 로컬 build 통과까지 확인했다. 해당 푸시의 Pages 완료 상태는 별도 확인하지 않았다.
+- `test:view`의 기존 Fit Height 기대값 불일치는 진단 완료이며 사용자 결정에 따라 수정 보류한다. 본 작업의 새로운 실패와 구분한다.
 
 ### Latest checkpoint — 2026-09-21
 
