@@ -395,6 +395,8 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+2026-10-01 배포 완료: 사용자가 개발 서버에서 정상 동작을 확인한 후 배포를 요청했다. 구현 커밋 `6a73f90`은 SPRED origin/main에 반영되어 있으며, 배포 저장소 spredtest의 `318205c`에 동일한 src 106개 파일을 동기화했다. 배포용 build 및 [GitHub Pages 실행 36869395215](https://github.com/B935342LYS/spredtest/actions/runs/36869395215)이 성공했다. 공개 페이지 HTTP 200, Canvas 5개 생성, 브라우저 pageerror 없음과 새 bundle의 plan/patch 호출 제거를 확인했다. 기존 Fit Height 테스트 실패와 추가 실사용·청감 검증 필요성은 유지한다.
+
 2026-10-01 구현 완료: [3.9 구현 결과](3.9-artifact-direct-render-implementation-plan.md#9-구현-결과와-검증-기록-2026-10-01). eventDiff 및 plan/patch 5개 파일을 삭제하고 artifact 직접 렌더로 전환했다. track/global별 산출물 재사용과 가상화를 유지하며 공용 정렬로 통합 marker까지 전체 builder 순서를 보장한다. build 및 관련 테스트 통과, 브라우저 편집/이력 144단계·실제 앱 15개 검사 통과. test:view의 기존 Fit Height 실패는 남아 있다. 성능 대조군과 현재 경로의 측정 범위·한계는 3.9 9절 참조. 다음 확인은 실제 악보와 재생 청감이며 커밋·배포는 하지 않았다. 아래는 이전 진행 이력이다.
 
 2026-10-01 구현 계획 정리: [artifact 직접 렌더 구현 계획 해설](3.9-artifact-direct-render-implementation-plan.md)에 삭제 예정 5개 파일, 유지·이동할 기능, 순서 보완, 검증 절차와 명세 충돌을 정리했다. 사용자 검토용이며 제품 파일 삭제·변경은 아직 실행하지 않았다. 다음 구현은 이 문서의 파일별 조치와 완료 기준을 확인한 뒤 진행한다.
