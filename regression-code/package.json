@@ -21,7 +21,8 @@
     "test:game": "tsx ./dev/test_game.ts",
     "test:partial": "tsx ./dev/test_partial_rebuild.ts",
     "test:examples": "tsx ./dev/test_examples.ts",
-    "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts"
+    "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts",
+    "bench:edit-noop": "tsx ./dev/benchmark_noop_edit.ts"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",

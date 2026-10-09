@@ -712,23 +712,24 @@ export function applyRawTextToScore(
   };
 }
 
-/** 편집 후보와 거절 사유를 구분하여 상위 계층의 상태 확정을 제어한다. */
+/** 변경·무변경 후보와 거절 사유를 구분하여 상위 계층의 상태 확정을 제어한다. */
 export type ScoreTextEditResult =
   | { kind: "applied"; state: AppState }
+  | { kind: "unchanged"; state: AppState }
   | { kind: "rejected"; message: AppState["statusMessage"] };
 
 /**
  * 여러 score cell rawText 편집의 부분 산출물 또는 전체 fallback 후보를 만든다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : 상태 확정 전 편집 후보 또는 적용 거절 사유
+ * - 반환값 : 변경·무변경 상태 후보 또는 적용 거절 사유
  */
 export function applyRawTextBatchToScore(
   state: AppState,
   edits: ScoreTextEdit[],
 ): ScoreTextEditResult {
   if (edits.length === 0) {
-    return { kind: "applied", state };
+    return { kind: "unchanged", state };
   }
 
   const applyResult = measurePerf("runtime.applyScoreCellRawTextBatch", () =>
@@ -744,6 +745,15 @@ export function applyRawTextBatchToScore(
         text: applyResult.message,
       },
     };
+  }
+
+  // 하위 계층의 원본 참조 계약에 따라 무변경이면 인덱스·분석 재생성을 생략한다.
+  if (applyResult.score === state.document.score) {
+    return { kind: "unchanged", state: {
+      ...state,
+      selection: lastSelection,
+      statusMessage: { level: "info", text: "No score changes." },
+    } };
   }
 
   const nextDocument = measurePerf("runtime.createRuntimeDocument", () =>
@@ -819,7 +829,7 @@ export function applyRawTextEditToState(
  * batch 편집과 산출물 계산을 시도하고 성공 여부를 명시적으로 반환한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : 새 상태 후보 또는 거절 사유. 전달된 상태는 확정하거나 변경하지 않는다.
+ * - 반환값 : 변경·무변경 상태 후보 또는 거절 사유. 전달된 상태는 확정하거나 변경하지 않는다.
  */
 export function applyRawTextBatchEditToState(
   state: AppState,

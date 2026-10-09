@@ -1,3 +1,4 @@
+import { buildScoreIndexes } from "../src/core/score/build_score_indexes";
 import { strict as nodeAssert } from "node:assert";
 import { readFileSync } from "node:fs";
 
@@ -451,9 +452,7 @@ if (loadResult.ok && tupletResult.kind === "apply") {
   assert(createdCellApplyResult.ok, "History setup should create a new note cell.");
 
   if (createdCellApplyResult.ok) {
-    const createPatches = buildCellHistoryPatches(
-      loadResult.document.score,
-      createdCellApplyResult.score,
+    const createPatches = buildCellHistoryPatches(loadResult.document.indexes, buildScoreIndexes(createdCellApplyResult.score),
       [createdCellEdit],
     );
     const undoCreateEdits = createScoreTextEditsFromHistoryPatches(createPatches, "before");
@@ -489,9 +488,7 @@ if (loadResult.ok && tupletResult.kind === "apply") {
   assert(deletedCellApplyResult.ok, "History setup should delete an existing note cell.");
 
   if (deletedCellApplyResult.ok) {
-    const deletePatches = buildCellHistoryPatches(
-      loadResult.document.score,
-      deletedCellApplyResult.score,
+    const deletePatches = buildCellHistoryPatches(loadResult.document.indexes, buildScoreIndexes(deletedCellApplyResult.score),
       [deletedCellEdit],
     );
     const undoDeleteEdits = createScoreTextEditsFromHistoryPatches(deletePatches, "before");
@@ -535,9 +532,7 @@ if (loadResult.ok && tupletResult.kind === "apply") {
   assert(overwriteApplyResult.ok, "History setup should overwrite an existing cell.");
 
   if (overwriteApplyResult.ok) {
-    const overwritePatches = buildCellHistoryPatches(
-      loadResult.document.score,
-      overwriteApplyResult.score,
+    const overwritePatches = buildCellHistoryPatches(loadResult.document.indexes, buildScoreIndexes(overwriteApplyResult.score),
       overwriteEdits,
     );
 
@@ -553,14 +548,14 @@ if (loadResult.ok && tupletResult.kind === "apply") {
     id: "history-a",
     label: "History A",
     patches: createdCellApplyResult.ok
-      ? buildCellHistoryPatches(loadResult.document.score, createdCellApplyResult.score, [createdCellEdit])
+      ? buildCellHistoryPatches(loadResult.document.indexes, buildScoreIndexes(createdCellApplyResult.score), [createdCellEdit])
       : [],
   };
   const secondEntry = {
     id: "history-b",
     label: "History B",
     patches: deletedCellApplyResult.ok
-      ? buildCellHistoryPatches(loadResult.document.score, deletedCellApplyResult.score, [deletedCellEdit])
+      ? buildCellHistoryPatches(loadResult.document.indexes, buildScoreIndexes(deletedCellApplyResult.score), [deletedCellEdit])
       : [],
   };
   const oneEntryHistory = pushUndoHistoryEntry(createUndoHistoryState(1), firstEntry);
@@ -968,6 +963,67 @@ if (loadResult.ok) {
       }
     }
   }
+}
+
+// 최종 값 비교는 입력 검증을 생략하지 않으며 원본 악보를 변경하지 않는다.
+{
+  const loaded = loadRuntimeDocument(readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8"));
+  nodeAssert(loaded.ok);
+  const score = loaded.document.score;
+  const originalJson = JSON.stringify(score);
+  const note: ScoreTextEdit = { selection: { trackId: "basic", rowId: "s1-note-52", rowKind: "note", col: 0 }, rawText: "E3" };
+  const absent: ScoreTextEdit = { ...note, selection: { ...note.selection, col: 12 }, rawText: "" };
+  const global: ScoreTextEdit = { selection: { trackId: "basic", rowId: "global-bpm", rowKind: "global", col: 0 }, rawText: score.globalLines.cells.find(cell => cell.rowId === "global-bpm" && cell.col === 0)!.rawText };
+  for (const edits of [
+    [note], [absent], [global],
+    [{ ...note, rawText: "F3" }, note],
+    [{ ...absent, rawText: "E3" }, absent],
+    [{ ...global, rawText: "140" }, global],
+    [note, global, absent],
+  ]) {
+    const result = applyScoreCellRawTextBatch(score, edits);
+    nodeAssert(result.ok);
+    nodeAssert.equal(result.score, score, "Net-zero batch must preserve score identity");
+  }
+  for (const edits of [
+    [{ ...note, rawText: "x".repeat(201) }, note],
+    [{ ...global, rawText: "" }, global],
+    [{ ...absent, selection: { ...absent.selection, rowKind: "gap" as const } }],
+  ]) nodeAssert.equal(applyScoreCellRawTextBatch(score, edits).ok, false);
+  nodeAssert.equal(applyScoreCellRawTextBatch({ ...score, tracks: [] }, [note]).ok, false);
+  const mixed = applyScoreCellRawTextBatch(score, [note, { ...global, rawText: global.rawText + " " }]);
+  nodeAssert(mixed.ok);
+  nodeAssert.notEqual(mixed.score, score, "rawText difference is a real edit even if parsed meaning is the same");
+  nodeAssert.equal(mixed.score.globalLines.cells.find(cell => cell.rowId === "global-bpm" && cell.col === 0)!.rawText, global.rawText + " ");
+  nodeAssert.equal(JSON.stringify(score), originalJson);
+}
+
+// 트랙별 같은 좌표와 global 중복 좌표의 이력 순서·null 의미를 보존한다.
+{
+  const loaded = loadRuntimeDocument(readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8"));
+  nodeAssert(loaded.ok);
+  const score = loaded.document.score;
+  const basic: ScoreTextEdit = { selection: { trackId: "basic", rowId: "s1-note-52", col: 0, rowKind: "note" }, rawText: "F3" };
+  const optional: ScoreTextEdit = { ...basic, selection: { ...basic.selection, trackId: "optional" }, rawText: "G3" };
+  const global: ScoreTextEdit = { selection: { trackId: "basic", rowId: "global-bpm", col: 0, rowKind: "global" }, rawText: "145" };
+  const globalLast: ScoreTextEdit = { ...global, selection: { ...global.selection, trackId: "extra" }, rawText: "150" };
+  const edits = [optional, global, basic, globalLast, basic];
+  const result = applyScoreCellRawTextBatch(score, edits);
+  nodeAssert(result.ok);
+  const before = loaded.document.indexes;
+  const after = buildScoreIndexes(result.score);
+  const patches = buildCellHistoryPatches(before, after, edits);
+  nodeAssert.equal(patches.length, 3);
+  nodeAssert.equal(patches[0].selection, optional.selection);
+  nodeAssert.equal(patches[0].beforeRawText, null);
+  nodeAssert.equal(patches[0].afterRawText, "G3");
+  nodeAssert.equal(patches[1].selection, globalLast.selection);
+  nodeAssert.equal(patches[1].afterRawText, "150");
+  nodeAssert.equal(patches[2].beforeRawText, "E3");
+  nodeAssert.equal(patches[2].afterRawText, "F3");
+  const reverse = buildCellHistoryPatches(after, before, edits);
+  nodeAssert.equal(reverse[0].afterRawText, null);
+  nodeAssert.deepEqual(buildCellHistoryPatches(before, before, edits), []);
 }
 
 console.log("Edit composer test completed.");

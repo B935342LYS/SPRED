@@ -19,7 +19,7 @@ const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true)
 const boot = ast.statements.find((node): node is ts.FunctionDeclaration =>
   ts.isFunctionDeclaration(node) && node.name?.text === "boot");
 assert(boot?.body);
-const names = ["applyScoreTextEdits", "beginScoreEditHistoryTransaction", "endScoreEditHistoryTransaction", "applyUndo", "applyRedo"];
+const names = ["applyScoreTextEdits", "beginScoreEditHistoryTransaction", "endScoreEditHistoryTransaction", "cancelScoreEditHistoryTransaction", "applyUndo", "applyRedo"];
 const declarations = names.map((name) => {
   const node = boot.body!.statements.find((statement) => ts.isVariableStatement(statement) &&
     statement.declarationList.declarations.some((declaration) => declaration.name.getText(ast) === name));
@@ -30,7 +30,7 @@ const program = ts.transpileModule(`(function () {
   let state = initialState;
   let activeHistoryTransaction = null;
   ${declarations.join("\n")}
-  return { ${names.join(", ")}, getState: () => state };
+  return { ${names.join(", ")}, getState: () => state, getTransaction: () => activeHistoryTransaction };
 })()`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
 const fixture = readFileSync(new URL("./test_cases/minimal-valid-score.json", import.meta.url), "utf8");
 const loaded = loadRuntimeDocument(fixture);
@@ -52,7 +52,7 @@ function harness(initialState: AppState = base) {
   const control = { reject: false, historyThrows: false, refreshThrows: false, refreshes: 0, stops: 0, syncThrows: false, renderThrows: false, renders: 0, resets: 0 };
   const api = runInNewContext(program, {
     initialState, ...history, isGameModeLocked, applyEditEffects, dom: {},
-    syncEditOutcomeUi: () => {},
+    syncEditOutcomeUi: () => {}, syncPlaybackUi: () => {}, playbackRuntime: {},
     stopPlaybackAfterEditFailure: () => { control.stops += 1; },
     render: () => { control.refreshes += 1; if (control.refreshThrows) throw new Error("refresh failed"); },
     buildCellHistoryPatches: (...args: Parameters<typeof history.buildCellHistoryPatches>) => {
@@ -73,12 +73,14 @@ function harness(initialState: AppState = base) {
     },
     resetPlaybackForCurrentStatePreservingPosition: () => { control.resets += 1; },
   }) as {
-    applyScoreTextEdits(edits: ScoreTextEdit[]): void;
+    applyScoreTextEdits(edits: ScoreTextEdit[], options?: { uiAfter?: Pick<AppState, "rangeSelection" | "rangeClipboard" | "pastePreview"> }): void;
     applyUndo(): void;
     applyRedo(): void;
     beginScoreEditHistoryTransaction(label: string): void;
     endScoreEditHistoryTransaction(): void;
     getState(): AppState;
+    cancelScoreEditHistoryTransaction(): void;
+    getTransaction(): { beforeLookup: history.HistoryCellLookup } | null;
   };
   return { api, control };
 }
@@ -143,9 +145,55 @@ function run(): void {
   const first = noOp.api.getState();
   noOp.api.applyScoreTextEdits([edit]);
   assert.equal(noOp.api.getState().history.undoStack.length, 1);
-  assert.notEqual(noOp.api.getState().document, first.document);
-  assert.equal(noOp.control.resets, 2);
-  console.log(++cases, "same-value edit creates no history but rebuilds document and resets playback");
+  assert.equal(noOp.api.getState().document, first.document);
+  assert.equal(noOp.api.getState().parsed, first.parsed);
+  assert.equal(noOp.api.getState().analysis, first.analysis);
+  assert.equal(noOp.api.getState().renderInput, first.renderInput);
+  assert.equal(noOp.control.resets, 1);
+  assert.equal(noOp.control.renders, 1);
+  console.log(++cases, "same-value edit preserves artifacts/history and skips score draw/playback reset");
+
+  const noOpUi = harness(first);
+  const uiAfter = { rangeSelection: null, rangeClipboard: null, pastePreview: { anchorCol: null } };
+  noOpUi.api.applyScoreTextEdits([edit], { uiAfter });
+  assert.equal(noOpUi.api.getState().pastePreview, uiAfter.pastePreview);
+  assert.equal(noOpUi.api.getState().document, first.document);
+  assert.equal(noOpUi.control.resets, 0);
+  console.log(++cases, "unchanged range command still commits UI candidates");
+
+  const retry = harness({ ...first, outputSyncError: "render: previous failure" });
+  retry.api.applyScoreTextEdits([edit]);
+  assert.equal(retry.api.getState().document, first.document);
+  assert.equal(retry.api.getState().history, first.history);
+  assert.equal(retry.api.getState().outputSyncError, undefined);
+  assert.equal(retry.control.refreshes, 1);
+  assert.equal(retry.control.resets, 1);
+  console.log(++cases, "unchanged edit retries existing output failure without rebuilding artifacts");
+
+  const redoNoOp = harness();
+  redoNoOp.api.applyScoreTextEdits([edit]);
+  redoNoOp.api.applyUndo();
+  const beforeNoOp = redoNoOp.api.getState();
+  redoNoOp.api.applyScoreTextEdits([{ ...edit, rawText: "" }]);
+  assert.equal(redoNoOp.api.getState().history, beforeNoOp.history);
+  assert.equal(redoNoOp.control.resets, 2);
+  redoNoOp.api.applyRedo();
+  assert.equal(redoNoOp.api.getState().history.undoStack.length, 1);
+  console.log(++cases, "absent-cell delete preserves redo and redo remains usable");
+
+  const unchangedDrag = harness();
+  unchangedDrag.api.beginScoreEditHistoryTransaction("No change");
+  unchangedDrag.api.applyScoreTextEdits([edit, { ...edit, rawText: "" }]);
+  unchangedDrag.api.endScoreEditHistoryTransaction();
+  assert.equal(unchangedDrag.api.getState().history, base.history);
+  assert.equal(unchangedDrag.control.resets, 0);
+  unchangedDrag.api.beginScoreEditHistoryTransaction("Net zero across frames");
+  unchangedDrag.api.applyScoreTextEdits([edit]);
+  unchangedDrag.api.applyScoreTextEdits([{ ...edit, rawText: "" }]);
+  unchangedDrag.api.endScoreEditHistoryTransaction();
+  assert.equal(unchangedDrag.api.getState().history, base.history);
+  assert.equal(unchangedDrag.control.resets, 2);
+  console.log(++cases, "net-zero batch skips effects; separate drag changes still draw without final history");
 
   const drag = harness();
   drag.api.beginScoreEditHistoryTransaction("Probe drag");
@@ -156,6 +204,34 @@ function run(): void {
   assert.equal(drag.api.getState().history.undoStack.length, 1);
   assert.equal(drag.api.getState().history.undoStack[0].patches.length, 1);
   console.log(++cases, "drag groups successful net changes; rejected target creates no patch");
+
+  const snapshot = harness();
+  snapshot.api.beginScoreEditHistoryTransaction("Snapshot lifetime");
+  const captured = snapshot.api.getTransaction()!.beforeLookup;
+  assert.deepEqual(Object.keys(captured).sort(), ["cellMapByTrackId", "globalCellMapByCoord"]);
+  assert.equal(captured.cellMapByTrackId, base.document.indexes.cellMapByTrackId);
+  snapshot.api.applyScoreTextEdits([edit]);
+  assert.equal(captured.cellMapByTrackId.get("basic")?.get(`${edit.selection.rowId}|8`), undefined);
+  snapshot.api.applyScoreTextEdits([{ ...edit, rawText: "final" }]);
+  snapshot.api.endScoreEditHistoryTransaction();
+  assert.equal(snapshot.api.getTransaction(), null);
+  const entry = snapshot.api.getState().history.undoStack[0];
+  assert.equal(entry.patches.length, 1);
+  assert.equal(entry.patches[0].beforeRawText, null);
+  assert.equal(entry.patches[0].afterRawText, "final");
+  snapshot.api.applyUndo();
+  assert.equal(JSON.stringify(snapshot.api.getState().document.score), JSON.stringify(base.document.score));
+  snapshot.api.applyRedo();
+  assert.equal(snapshot.api.getState().document.indexes.cellMapByTrackId.get("basic")?.get(`${edit.selection.rowId}|8`)?.rawText, "final");
+  console.log(++cases, "drag keeps original lookup through multiple batches, releases it, and supports undo/redo");
+
+  snapshot.api.beginScoreEditHistoryTransaction("Cancelled snapshot");
+  snapshot.api.cancelScoreEditHistoryTransaction();
+  assert.equal(snapshot.api.getTransaction(), null);
+  snapshot.api.beginScoreEditHistoryTransaction("Empty snapshot");
+  snapshot.api.endScoreEditHistoryTransaction();
+  assert.equal(snapshot.api.getTransaction(), null);
+  console.log(++cases, "cancelled and empty transactions release snapshot references");
 
   const sync = harness();
   sync.control.syncThrows = true;

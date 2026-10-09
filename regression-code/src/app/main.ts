@@ -16,6 +16,8 @@ import type { AppState, UndoHistoryState } from "./app_types";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import {
   buildCellHistoryPatches,
+  captureHistoryCellLookup,
+  type HistoryCellLookup,
   createScoreTextEditsFromHistoryPatches,
   createUndoHistoryEntryId,
   popRedoHistoryEntry,
@@ -57,7 +59,6 @@ import {
 } from "./youtube/youtube_binding";
 import { bindGameModeControls } from "./game/game_binding";
 import { isGameModeLocked } from "./game/game_types";
-import type { ScoreFile } from "../core/score/types";
 import {
   beginPerfSession,
   endPerfSession,
@@ -69,7 +70,7 @@ import templateScoreJson from "../assets/templates/default-score.json?raw";
 /** 드래그 중 성공한 편집을 하나의 이력으로 묶기 위한 시작 상태. */
 type ScoreEditHistoryTransaction = {
   label: string;
-  beforeScore: ScoreFile;
+  beforeLookup: HistoryCellLookup;
   edits: ScoreTextEdit[];
 };
 
@@ -242,7 +243,7 @@ async function boot(): Promise<void> {
    * 편집 후보와 이력을 함께 확정한 뒤 화면과 재생을 갱신한다.
    * - 인수 : edits : 적용할 cell 편집 batch
    * - 인수 : options : 이력 기록 여부와 Undo/Redo 성공 시 확정할 history 후보
-   * - 반환값 : 편집 거절 또는 편집 확정과 외부 효과의 반영 결과
+   * - 반환값 : 편집 거절 또는 변경·무변경 확정과 외부 효과의 반영 결과
    */
   const applyScoreTextEdits = (
     edits: ScoreTextEdit[],
@@ -253,7 +254,7 @@ async function boot(): Promise<void> {
       historyAfter?: UndoHistoryState;
       uiAfter?: Pick<AppState, "rangeSelection" | "rangeClipboard" | "pastePreview">;
     } = {},
-  ): { kind: "rejected" } | { kind: "applied"; output: EditEffectsResult } => {
+  ): { kind: "rejected" } | { kind: "applied" | "unchanged"; output: EditEffectsResult } => {
     if (edits.length === 0) return { kind: "rejected" };
 
     const perfSession = beginPerfSession(`app.applyScoreTextEdits ${edits.length} edit(s)`);
@@ -263,6 +264,7 @@ async function boot(): Promise<void> {
 
     try {
       let nextState: AppState;
+      let changed = false;
       try {
         state = {
           ...previousState,
@@ -283,11 +285,12 @@ async function boot(): Promise<void> {
           return { kind: "rejected" };
         }
         nextState = result.state;
+        changed = result.kind === "applied";
 
         // history 생성까지 후보 상태에서 끝내어 계산 실패가 악보만 확정하지 않게 한다.
-        if (shouldRecordHistory) {
+        if (shouldRecordHistory && changed) {
           const patches = measurePerf("app.edit.buildCellHistoryPatches", () =>
-            buildCellHistoryPatches(previousState.document.score, nextState.document.score, edits)
+            buildCellHistoryPatches(previousState.document.indexes, nextState.document.indexes, edits)
           );
           nextState = {
             ...nextState,
@@ -330,15 +333,25 @@ async function boot(): Promise<void> {
       }
 
       state = { ...nextState, busy: { kind: "idle" } };
-      if (activeHistoryTransaction !== null && options.recordHistory !== false &&
+      if (changed && activeHistoryTransaction !== null && options.recordHistory !== false &&
           options.historyAfter === undefined) {
         activeHistoryTransaction.edits.push(...edits);
       }
       // 저장된 편집은 유지하고 화면·재생의 반영 결과만 별도로 판단한다.
+      let requiresPlaybackUpdate = changed || previousState.outputSyncError !== undefined;
       const output = applyEditEffects({
-        render: () => previousState.outputSyncError !== undefined ? render() : renderAfterScoreTextEdit(edits),
-        refresh: render,
-        updatePlayback: resetPlaybackForCurrentStatePreservingPosition,
+        render: () => {
+          if (previousState.outputSyncError !== undefined) render();
+          else if (changed) renderAfterScoreTextEdit(edits);
+          else {
+            // 악보는 같아도 선택·범위·미리보기와 busy 표시는 성공 상태로 반영한다.
+            syncLeftStatus(dom, state);
+            syncUiControls(dom, state);
+            syncPlaybackUi(dom, state, playbackRuntime);
+          }
+        },
+        refresh: () => { requiresPlaybackUpdate = true; render(); },
+        updatePlayback: () => { if (requiresPlaybackUpdate) resetPlaybackForCurrentStatePreservingPosition(); },
         stopPlayback: stopPlaybackAfterEditFailure,
       });
       state = {
@@ -351,12 +364,17 @@ async function boot(): Promise<void> {
             : state.statusMessage,
       };
       if (output.kind === "failed" || output.recovered || previousState.outputSyncError !== undefined) syncEditOutcomeUi();
-      return { kind: "applied", output };
+      return { kind: changed ? "applied" : "unchanged", output };
     } finally {
       endPerfSession(perfSession);
     }
   };
 
+  /**
+   * 드래그 시작 시 두 좌표 Map만 참조하여 순변경 비교의 기준을 보관한다.
+   * - 인수 : label : 완료 이력의 이름
+   * - 반환값 : 없음. 진행 중인 transaction이 있으면 유지한다.
+   */
   const beginScoreEditHistoryTransaction = (label: string): void => {
     if (activeHistoryTransaction !== null) {
       return;
@@ -364,11 +382,16 @@ async function boot(): Promise<void> {
 
     activeHistoryTransaction = {
       label,
-      beforeScore: state.document.score,
+      beforeLookup: captureHistoryCellLookup(state.document.indexes),
       edits: [],
     };
   };
 
+  /**
+   * 시작/종료 인덱스로 드래그의 순변경을 기록하고 시작 snapshot을 해제한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
   const endScoreEditHistoryTransaction = (): void => {
     if (activeHistoryTransaction === null) {
       return;
@@ -383,8 +406,8 @@ async function boot(): Promise<void> {
     }
 
     const patches = buildCellHistoryPatches(
-      transaction.beforeScore,
-      state.document.score,
+      transaction.beforeLookup,
+      state.document.indexes,
       transaction.edits,
     );
 
@@ -400,6 +423,11 @@ async function boot(): Promise<void> {
     syncUiControls(dom, state);
   };
 
+  /**
+   * 이력 transaction과 시작 snapshot 참조를 해제한다. 적용된 악보를 되돌리지는 않는다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
   const cancelScoreEditHistoryTransaction = (): void => {
     activeHistoryTransaction = null;
   };

@@ -60,7 +60,7 @@ function testArtifactEdits(): void {
       const trialResult = applyRawTextBatchEditToState(state, batch);
       assert.equal(trialResult.kind, "applied");
       const trial = trialResult.state;
-      const history = buildCellHistoryPatches(state.document.score, trial.document.score, batch);
+      const history = buildCellHistoryPatches(state.document.indexes, trial.document.indexes, batch);
       for (const commands of [batch, createScoreTextEditsFromHistoryPatches(history, "before"), createScoreTextEditsFromHistoryPatches(history, "after")]) {
         const previous = state;
         const snapshot = JSON.stringify(previous.renderInput);
@@ -96,7 +96,7 @@ function testArtifactEdits(): void {
       }
     }
     const unchanged = applyRawTextBatchEditToState(state, []);
-    assert.equal(unchanged.kind, "applied");
+    assert.equal(unchanged.kind, "unchanged");
     assert.equal(unchanged.state.document, state.document);
     const invalid = applyRawTextBatchEditToState(state, [edit("global-bpm", 0, "")]);
     assert.equal(invalid.kind, "rejected");
