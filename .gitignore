@@ -40,6 +40,7 @@ coverage/
 
 # Local report preparation artifacts
 docs/report-prep/
+docs/review-support/
 tools/
 regression-code-report-commentary/
 

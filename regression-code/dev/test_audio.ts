@@ -1607,4 +1607,44 @@ if (loadResult.ok) {
   controller.stop();
 }
 
-console.log("Audio timing mapper test completed.");
+// 준비 중 stop/pause/새 play/dispose가 발생하면 늦은 성공과 실패 모두 무효화한다.
+for (const cancelKind of ["stop", "pause", "pauseAtSeconds", "newPlay", "dispose"] as const) {
+  for (const outcome of ["resolve", "reject"] as const) {
+    const pending: Array<{ resolve(): void; reject(error: Error): void }> = [];
+    let scheduledCount = 0;
+    const backend: AudioBackend = {
+      ensureStarted: () => new Promise<void>((resolve, reject) => pending.push({ resolve, reject })),
+      scheduleEvent: () => { scheduledCount += 1; },
+      getCurrentTime: () => 0,
+      setMasterVolume: () => {},
+      stopAll: () => {},
+      dispose: () => {},
+    };
+    const controller = createPlaybackController({
+      schedule: { events: [], durationSeconds: 2 },
+      scheduler: createAudioLookaheadScheduler({
+        queue: createAudioEventQueue({ events: [], durationSeconds: 2 }), backend, lookaheadSeconds: 0.2,
+      }),
+      backend,
+      schedulerIntervalMs: 25,
+    });
+    const oldPlay = controller.playFromSeconds(0);
+    let newPlay: Promise<void> | undefined;
+    if (cancelKind === "newPlay") newPlay = controller.playFromSeconds(1);
+    else if (cancelKind === "pauseAtSeconds") controller.pauseAtSeconds(0.5);
+    else controller[cancelKind]();
+    if (outcome === "resolve") pending[0].resolve();
+    else pending[0].reject(new Error("obsolete preparation failure"));
+    await oldPlay;
+    assert(!controller.isPlaying() && scheduledCount === 0, `${cancelKind}/${outcome}: obsolete request must not start audio.`);
+    if (newPlay !== undefined) {
+      pending[1].resolve();
+      await newPlay;
+      assert(controller.isPlaying(), "Newest play must still start.");
+      assertNear(controller.getCurrentScoreSeconds(), 1, "Newest play origin must be preserved.");
+    }
+    controller.dispose();
+  }
+}
+
+console.log("Audio timing mapper and request lifecycle tests completed.");

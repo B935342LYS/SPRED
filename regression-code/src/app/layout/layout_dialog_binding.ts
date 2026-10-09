@@ -74,6 +74,17 @@ type LayoutPreviewDragState = {
 };
 
 let activeLayoutDraft: LayoutDraftBundle | null = null;
+let layoutFileRequestId = 0;
+
+/**
+ * 대기 중인 프리셋 파일 읽기를 무효화하고 같은 파일의 재선택을 허용한다.
+ * - 인수 : dom : layout 파일 입력을 가진 DOM
+ * - 반환값 : 없음
+ */
+function invalidateLayoutFileRead(dom: AppDom): void {
+  layoutFileRequestId += 1;
+  dom.layoutFileLoadInput.value = "";
+}
 let activeLayoutPreviewDrag: LayoutPreviewDragState | null = null;
 
 /**
@@ -840,6 +851,7 @@ function applyLayoutDialogDraft(
 
   handleLayoutPreviewResizeEnd();
   activeLayoutDraft = null;
+  invalidateLayoutFileRead(dom);
   dom.layoutDialog.close();
   session.render();
   session.resetPlaybackForCurrentState();
@@ -871,6 +883,7 @@ export function openLayoutDialog(
   dom: AppDom,
   session: Pick<LayoutDialogBindingSession, "getState">,
 ): void {
+  invalidateLayoutFileRead(dom);
   const score = session.getState().document.score;
 
   activeLayoutDraft = createLayoutDraftBundle(score);
@@ -1231,8 +1244,11 @@ function loadLayoutDraftFromPresetFile(
   session: Pick<LayoutDialogBindingSession, "getState">,
   file: File,
 ): void {
-  readTextFile(file)
+  const requestId = ++layoutFileRequestId;
+  Promise.resolve().then(() => readTextFile(file))
     .then((jsonText) => {
+      // 새 파일·초기화·닫기 이후 도착한 내용은 현재 draft에 반영하지 않는다.
+      if (requestId !== layoutFileRequestId || !dom.layoutDialog.open) return;
       const presetResult = parseUserLayoutPresetJson(jsonText);
 
       if (!presetResult.ok) {
@@ -1266,12 +1282,13 @@ function loadLayoutDraftFromPresetFile(
       syncLayoutToolbarPresetSelectForCurrentScore(dom, session);
     })
     .catch((error: unknown) => {
+      if (requestId !== layoutFileRequestId || !dom.layoutDialog.open) return;
       const message = error instanceof Error ? error.message : "Unknown layout preset file load error.";
 
       setLayoutDialogNotice(dom, message, "error");
     })
     .finally(() => {
-      dom.layoutFileLoadInput.value = "";
+      if (requestId === layoutFileRequestId) dom.layoutFileLoadInput.value = "";
     });
 }
 
@@ -1320,6 +1337,18 @@ export function bindLayoutDialogControls(
   dom: AppDom,
   session: LayoutDialogBindingSession,
 ): void {
+  dom.layoutDialog.addEventListener("cancel", () => {
+    invalidateLayoutFileRead(dom);
+    handleLayoutPreviewResizeEnd();
+    activeLayoutDraft = null;
+  });
+  dom.layoutDialog.addEventListener("close", () => {
+    // 같은 이벤트 주기에 다시 열린 창의 draft는 이전 close 이벤트로 지우지 않는다.
+    if (dom.layoutDialog.open) return;
+    invalidateLayoutFileRead(dom);
+    handleLayoutPreviewResizeEnd();
+    activeLayoutDraft = null;
+  });
   dom.layoutModifyButton.addEventListener("click", () => {
     if (isGameModeLocked(session.getState().gameMode)) {
       return;
@@ -1332,11 +1361,13 @@ export function bindLayoutDialogControls(
   });
 
   dom.layoutCloseButton.addEventListener("click", () => {
+    invalidateLayoutFileRead(dom);
     handleLayoutPreviewResizeEnd();
     dom.layoutDialog.close();
     activeLayoutDraft = null;
   });
   dom.layoutCancelButton.addEventListener("click", () => {
+    invalidateLayoutFileRead(dom);
     handleLayoutPreviewResizeEnd();
     dom.layoutDialog.close();
     activeLayoutDraft = null;
@@ -1362,6 +1393,7 @@ export function bindLayoutDialogControls(
     );
   });
   dom.layoutResetButton.addEventListener("click", () => {
+    invalidateLayoutFileRead(dom);
     const score = session.getState().document.score;
 
     handleLayoutPreviewResizeEnd();
@@ -1373,6 +1405,7 @@ export function bindLayoutDialogControls(
     );
   });
   dom.layoutNewPresetButton.addEventListener("click", () => {
+    invalidateLayoutFileRead(dom);
     const instrumentPresetId = getCurrentInstrumentPresetId(session);
     const slots = loadLayoutPresetSlotsForDialog(dom, instrumentPresetId);
     const emptySlot = slots.find((slot) => slot.preset === null);
@@ -1399,7 +1432,11 @@ export function bindLayoutDialogControls(
     saveLayoutDraftToLocalPreset(dom, session);
   });
   dom.layoutLocalLoadButton.addEventListener("click", () => {
+    invalidateLayoutFileRead(dom);
     loadLayoutDraftFromLocalPreset(dom, session);
+  });
+  dom.layoutPresetSelect.addEventListener("change", () => {
+    invalidateLayoutFileRead(dom);
   });
   dom.layoutFileSaveButton.addEventListener("click", () => {
     saveLayoutDraftToPresetFile(dom, session);

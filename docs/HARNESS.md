@@ -395,6 +395,109 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-09 L1–L4 비동기 수명 개선 완료
+
+- 사용자 확정: 파일 읽기 동안 다른 조작 잠금, Examples Escape 취소, Layout 이전 요청 무효화, 폐기된 재생 실패 무시. 상세는 3.10 24절.
+- File.text 이전에 busy 진입, 성공/실패 뒤 해제. Examples 목록/악보 요청은 requestId와 AbortController 공유. Layout 파일 요청은 닫기·재개방·새 파일·Reset·슬롯 선택/Load·New Preset에 무효화. 오디오는 controller 세대와 binding runtime/Sync 검사를 적용했다.
+- 검증: test:audio(추가 10개 수명 조건), test:examples, test:layout, test:youtube, test:game, 타입 검사 포함 build 통과. Chrome 비동기 회귀 검사 및 기존 Examples 14개/Layout 9개 검사 통과, pageerror 0개. 네트워크·오디오·마이크는 지연 대역이며 실제 서비스/장치 측정이 아니다.
+- 보고서: `docs/report-prep/implementation-records/2026-10-09-async-request-lifecycle.md`. 검증 도구/결과는 `docs/review-support/verify-async-lifecycle.cjs`, `async-lifecycle-browser-results.json`.
+- 설정 공용화 보류 유지. Practice countdown 재진입과 seek 후속 callback은 추가 재현 후보로 남는다. A7 대형 파일 일괄 분리, 커밋·푸시·배포는 수행하지 않았다.
+
+### 2026-10-09 4단계 비동기 수명 1차 검토 완료·미구현
+
+- 3.10 23절에 File/Examples/Layout 파일 읽기, 재생 준비, Practice 마이크와 countdown, YouTube의 수명 경계를 조사했다. 제품 수정은 하지 않았다.
+- 지연 API 대역을 연결한 실제 Chrome에서 이전 File A가 새 B를 덮는 현상, Examples score fetch 중 Escape 이후 busy 유지·응답 적용, 취소한 Layout 파일 읽기의 재개방 draft 덮어쓰기, 폐기된 재생 준비 오류의 새 상태 표시를 관측했다. 이는 실제 네트워크/장치 장애 빈도나 수정 완료 증거가 아니다.
+- Practice 종료 후 늦은 microphone stream은 stop됨을 확인했다. 기존 test:audio/test:youtube 통과. countdown의 종료·재진입 경합과 seek callback은 정적 추가 후보이며 이번 재현 완료 범위와 구분한다.
+- 다음은 네 발견의 정책/최소 구현안 검토. Examples Escape를 취소로 볼지, 파일 요청 중 중복 입력을 막을지/최신 요청을 우선할지 확정이 필요하다. 거대한 공용 async manager나 대형 파일 일괄 분리는 제안하지 않는다. 도구/결과: review-async-lifecycle.cjs, async-lifecycle-observations.json.
+
+### 2026-10-09 A4/A6 중복 생성·metadata 인덱스 재사용 완료
+
+- **최신 구현:** app_runtime의 전체 렌더 입력은 기존 global/note marker 목록을 새 배열로 병합·공용 정렬한다. Details metadata 수정은 새 score/document를 만들고 기존 indexes를 재사용한다. 상세 3.10 22절. 부분 draw·오디오·timestamp·Details 전체 render 정책은 유지한다.
+- **검증:** 보강 test:partial(활성 트랙/정역방향·이전 builder 비교·metadata 후 기존 72단계 편집 복원), test:edit, test:track, test:analyze, 타입 검사 포함 build 통과. Chrome 7개 관측 조건·pageerror 0개.
+- **계측:** Node v24.12.0 Windows, 10쌍 워밍업·51회 교대 비교. 9000열/10125셀의 조밀한 gliss·tuplet 합성 악보에서 marker 그룹 계산 중앙값 642.85→318.55ms, metadata helper 1.121→0.0003ms. 후자는 매우 짧은 호출로 정밀한 배율 해석을 피한다. UI·draw·오디오·실사용 개선 수치가 아니다. 원본 runtime-reuse-benchmark.json.
+- **기록/다음:** 로컬 보고서 `docs/report-prep/implementation-records/2026-10-09-runtime-artifact-reuse.md`. 기존 미커밋 변경 보존, 이번 커밋·푸시·배포 미수행. 설정 공용화는 보류 유지. 다음은 4단계 비동기 수명 검토의 작은 범위 선정이며 해설부터 진행한다.
+
+### 2026-10-09 설정 공용화 보류·3단계 검토 시작
+
+- 사용자 결정으로 게임 보정 정책 이동과 광범위한 공용 사용자 설정 모듈 도입을 보류한다. 남은 `infra/game_preferences → app/game/game_types` 참조는 인지한 상태로 유지하며 역참조 0개를 목적으로 재개하지 않는다.
+- 다음은 3.10의 3단계 중복 연산·재생성 범위다. A4 전체 renderInput의 marker 중복 생성과 A6 Details metadata 인덱스 재생성을 정적으로 재확인했다. 상세는 3.10 21절.
+- 현재는 해설/계획 단계이며 제품 변경·성능 측정·테스트 재실행은 하지 않았다. 권장 첫 구현은 A4의 기존 marker 목록 정렬 병합이며, A6는 별도 작은 변경으로 진행한다. 기존 문서·제품 미커밋 변경 보존.
+
+### 2026-10-09 S3 프리셋 공용 계약 분리 완료
+
+- **최신 작업:** 사용자 결정에 따라 신규 파일을 `core/score/layout_preset.ts`에 배치했다. 저장 타입·제한·JSON parse/검증/직렬화를 분리하고, app에는 draft 변환·선택 복원·ID/파일명 생성을 유지했다. 상세는 3.10 20절.
+- **동작 유지:** JSON 포맷·실패 조건·슬롯 key/ID·기본 프리셋 복사·손상 슬롯 정리 유지. dialog Load는 draft만, toolbar 선택은 기존 즉시 Apply 경로를 유지한다. 2.4/2.5의 모듈 책임 설명 갱신.
+- **검증:** test:layout(왕복 문자열·복사 독립성·선택 복원·손상 슬롯 후속 조회 보강), test:score, 타입 검사 포함 build 통과. Chrome의 실제 Local/File 경로 9개 검사·pageerror 0개. 107개 TS 정적 조사에서 app 외부→app 4→1개, core 상위 의존·실행 import 순환 0개 유지.
+- **다음 후보:** 남은 `infra/game_preferences → app/game/game_types`의 보정 기본값·정규화 공용화 검토. 저장 키·정밀도·보정 범위 변경 없이 작은 범위로 진행한다. 전 기능 session 개편과 비동기 수명은 별도 범위다.
+- **Git/기록:** 선행 미커밋 작업 보존, 이번 커밋·푸시·배포 미수행. 로컬 보고서는 `docs/report-prep/implementation-records/2026-10-09-layout-preset-contract.md`. 아래 S3 미착수 표기는 이전 상태다.
+
+### 2026-10-09 S2 Examples session 권한 축소 완료
+
+- **최신 작업:** [3.10 19절](3.10-code-structure-review.md#19-s2-examples-session-권한-축소--2026-10-09). Examples에 전체 AppState get/set 대신 Practice 잠금 조회, 로딩 시작, busy 해제·결과 표시, 악보 로드 결과만 전달한다. 상태 확정과 공통 UI 동기화는 main의 전용 session이 담당한다.
+- **동작 보존:** 기존 manifest requestId/open/finally, 접근 단어 보관, 악보 로드 pipeline과 dialog 닫기 조건 유지. AppDom 축소와 score fetch 경합 정책 변경은 하지 않았다. 제품 변경은 example_binding.ts와 main.ts에 한정한다.
+- **검증:** test:examples, test:edit, test:edit-transaction 15개, 타입 검사 포함 build 통과. 실제 Chrome + 모의 HTTP의 Examples 14개 검사 및 pageerror 0개 확인. 실서비스 Supabase·청감·성능 측정은 미수행. 정적 조사에서 기존 app 외부→app 4개와 실행 import 순환 0개 유지.
+- **다음 범위:** S3 프리셋 데이터/검증과 UI draft의 경계 상세 검토. 게임 보정 정책 공용화도 별도 후보다. S2를 모든 기능에 일괄 확대하지 않는다.
+- **Git/기록:** HEAD bec32f2와 선행 미커밋 변경 보존. 이번 커밋·푸시·배포 미수행. 작업 보고서는 로컬 `docs/report-prep/implementation-records/2026-10-09-example-session-contract.md`. 아래 인계의 S2 미확정 표기는 이번 작업 이전 상태다.
+
+### 2026-10-09 대화 종료·다음 대화 재개 체크포인트
+
+- **현재 작업:** 2차 구현 이후 책임 분리·캡슐화·모듈화의 단계적 개선. 먼저 설명·검토하고 작은 범위를 구현·검증한 뒤 주간보고서용 기록을 남긴다. 최신 인계는 [3.10 18절](3.10-code-structure-review.md#18-대화-인계-체크포인트--2026-10-09)을 우선한다. 아래 날짜별 기록의 미완료 표기는 당시 상태일 수 있다.
+- **완료:** E1~E6 편집/이력/실패 복구/무변경/조회 비용 개선, S1 부분 산출물 입력 축소, 편집 공용 계약 분리. 최신 코드에서는 orchestration → app import가 없다. active 구현은 `regression-code/`이며 설명·배포·확장 사본은 수정 대상이 아니다.
+- **다음 기본 범위:** 3.10 14절 S2의 작은 기능 session 계약 상세 검토. Examples는 직접 상태 변경이 busy/status 두 영역이라 첫 후보지만 최종 API는 아직 미확정이다. 프리셋 데이터 경계와 게임 보정 정책 공용화도 남아 있다. 일괄 store 교체나 여러 기능의 동시 개편은 피한다.
+- **Git:** 현재 HEAD `bec32f2 E6 구현 및 검증`. 그 이후 S1과 편집 공용 계약의 제품 변경, 기존 명세/검토 문서 변경 및 미추적 조사 도구·결과가 남아 있다. 다음 대화에서 status를 다시 확인하고 기존 변경을 보존한다. 최신 신규 제품 파일 `regression-code/src/core/score/score_text_edit.ts`도 미추적 상태다. 에이전트는 이후 커밋·푸시·배포하지 않았다.
+- **최신 검증:** test:edit, test:partial(72단계), test:edit-transaction(15개), 타입 검사 포함 build 통과. 마지막 두 구조 작업에서 성능/브라우저 검사를 재실행하지 않았다. E6 시점의 Chrome 24개 통과와 구분한다.
+- **보고서:** `docs/report-prep/implementation-records/`의 작업별 기록 6개가 존재한다. 이 경로는 Git 제외 로컬 자료다. 원본 주간보고서는 변경하지 않았다. 형식 기준은 4.0 9절이다.
+- **Change 표시:** 사용자는 VS Code에서 코드 변경이 보이지만 Codex Change에는 보고서만 보인다고 알렸다. Git에서 기존 제품 파일 10개 수정과 신규 공용 파일을 확인했다. Python 파일 수정과 apply_patch 기록 수집 차이가 원인일 가능성은 가설이며 확정된 제품 버그/해결책은 아니다. 앞으로 가능한 한 코드도 apply_patch로 수정하고 실제 git diff/status를 대조한다. UI 표시를 맞추려고 기존 변경을 되돌렸다 다시 적용하지 않는다.
+
+### 2026-10-09 편집 공용 계약 분리 완료
+
+- [3.10 17절](3.10-code-structure-review.md#17-편집-공용-계약-분리--2026-10-09). core/score/score_text_edit.ts로 셀 편집 명령 타입과 영역 분류를 분리하고 모든 소비자가 직접 참조한다. 셀 적용·입력 검증은 app/edit에 유지한다.
+- orchestration → app import가 0개가 됐다. 남은 외부→app 선언은 프리셋·게임 보정 정책의 4개이며, core 상위 의존·실행 import 순환은 없다.
+- test:edit, test:partial, test:edit-transaction(15개), 타입 검사 포함 build 통과. 성능 개선 주장 없음. 선행 S1 및 기존 미커밋 문서·도구 변경 보존.
+- 보고서: `docs/report-prep/implementation-records/2026-10-09-shared-score-edit-contract.md`. 이번 커밋·푸시·배포 미수행. 기능 session 권한과 프리셋/게임 정책 소속 정리는 후속 범위다.
+
+
+### 2026-10-09 S1 부분 산출물 입력 계약 축소 완료
+
+- [3.10 16절](3.10-code-structure-review.md#16-s1-부분-산출물-입력-계약-축소-구현--2026-10-09). 부분 산출물 생성기에 전체 AppState 대신 previousArtifacts(parsed/analysis/renderInput)·activeTrackIds를 전달한다. nextDocument·edits 및 계산/재사용 정책은 유지한다.
+- AppState 역참조 제거. 편집 타입·분류 함수 등 나머지 app 역참조는 후속 범위다. 정적 근거 `module-dependency-review-after-s1.json`에 저장했다.
+- test:partial, test:edit, test:edit-transaction(15개), 타입 검사 포함 build 통과. 성능 개선을 주장하지 않으며 이번 브라우저 재검사는 미수행이다.
+- 보고서: `docs/report-prep/implementation-records/2026-10-09-partial-artifact-input-contract.md`. 시작 HEAD bec32f2, 이번 커밋·푸시·배포 미수행. 다음 기본 범위는 작은 기능 session 계약 검토다.
+
+
+### 2026-10-09 2단계 상태 소유권·모듈 계약 검토
+
+- 사용자 요청에 따른 역참조 재확인은 [3.10 15절](3.10-code-structure-review.md#15-상위-계층-역참조-재확인--2026-10-09). 활성 TS 105개 기준 core의 상위 의존과 실행 import 순환은 없지만, orchestration/infra/assets → app의 타입 4개·실행 3개 import 선언이 남아 있다. S1만으로 모든 app 역참조가 해소되지는 않는다.
+
+
+- [3.10 14절](3.10-code-structure-review.md#14-2단계-상태-소유권모듈-입출력-검토--2026-10-09). 제품 수정 없이 10개 전체 AppState setter session과 88개 직접 setState 호출 지점 및 helper 경로를 조사했다. 정적 집계는 간접 변경과 실제 호출 횟수를 뜻하지 않는다.
+- 첫 권장 범위는 partial artifact builder의 AppState 입력을 실제 사용하는 이전 parsed/analysis/renderInput과 activeTrackIds로 좁히는 것이다. 이후 Examples 등 작은 기능의 제한된 session 계약, 프리셋 데이터/저장 경계를 검토한다.
+- AppDom 및 전체 setter의 일괄 교체는 권장하지 않는다. async 요청 수명 비대칭은 4단계, metadata 재생성 차이는 3단계 후속으로 분리했다. 모두 제품 미구현 제안이며 앞선 E2/E6 작업을 보존했다.
+
+
+### 2026-10-09 E6 이력 인덱스 재사용 완료
+
+- [3.10 13절](3.10-code-structure-review.md#13-e6-기존-인덱스-재사용-구현--2026-10-09). 이력 helper는 기존 좌표 Map을 읽고, drag 시작 시 두 Map 참조만 보관하여 종료/취소 시 해제한다. 문자열 patch 저장 계약은 유지한다.
+- E2를 공통으로 유지한 Chrome 비교에서 9,000셀의 뒤쪽 1,000셀 편집 22.8→13.1ms, drag 종료 10.0→0.4ms. 단일 셀 편집 일부는 0.2~0.3ms 증가 관측. 전체 결과와 한계는 3.10 및 raw JSON 참조.
+- 편집 transaction 15개, 복구 10개, 편집/부분 검사, 타입 검사 포함 build 통과. Node 동등성 25조건, Chrome 회귀 24조건 통과. 제품 변경은 main/edit_history에 한정하고 앞선 E2 작업은 보존했다.
+- 보고서: `docs/report-prep/implementation-records/2026-10-09-history-index-reuse.md`. 이번 커밋·푸시·배포 미수행. 다음 범위는 2단계 상태 소유권·모듈 계약 상세 검토다.
+
+
+### 2026-10-09 E6 이력 조회 검토 완료·제품 미구현
+
+- [3.10 12절](3.10-code-structure-review.md#12-e6-이력-조회-상세-검토--2026-10-09)에 현재 find 반복과 두 대안의 측정을 기록했다. 앞선 E2 작업 변경은 유지했다.
+- 큰 뒤쪽 범위에서 기존 runtime 좌표 인덱스 재사용이 유력하다. 매번 Map 생성은 작은 편집을 악화시키므로 권장하지 않는다. 조회 helper 단독 측정이며 전체 앱 개선은 아직 확인하지 않았다.
+- 후속 구현은 이력 helper의 좁은 조회 계약, 일반 편집의 기존 전후 인덱스 전달, drag 시작 조회 snapshot 보관으로 한정하는 안이다. 제품 코드는 변경하지 않았으며 설명·검토 단계다.
+
+
+### 2026-10-09 무변경 편집 생략·성능 비교 완료
+
+- 사용자 백업 `7d758f8` 기준으로 E2의 무변경 편집을 구현·측정했다. 결과를 unchanged로 구분하여 산출물·이력·재생을 유지하고 UI만 반영한다. 기존 출력 오류의 복구는 계속 수행한다.
+- 브라우저 교대 측정에서 무변경 명령 87~94% 감소. 변경 작업 일부에서는 0.1~0.4ms 증가도 관측되어 모든 입력의 성능 향상을 주장하지 않는다. 최소 구현은 유지하며 실제 작업에서 불리하면 복원을 고려한다.
+- [3.10 11절](3.10-code-structure-review.md#11-e2-무변경-batch-생략-및-비교-측정--2026-10-09), [측정 근거](review-support/noop-performance-summary.md). 편집 transaction 13개, 복구 10개, 기존 편집/부분/오디오 검사 및 타입 검사 포함 build 통과. Chrome 24개 조건 통과.
+- 보고서: `docs/report-prep/implementation-records/2026-10-09-noop-edit-measurement.md`. 이번 변경은 로컬 미커밋·미배포. 다음 후보는 E6 이력 lookup 계측이다.
+
+
 ### 2026-10-05 범위 편집 UI·외부 효과 복구 완료
 
 - 사용자 채택 정책에 따라 E4/E5를 구현했다. 상세는 [3.10 10절](3.10-code-structure-review.md#10-단계별-복구범위-편집-ui-확정--2026-10-05). 범위 Delete/Cut/Paste의 선택·clipboard·preview는 편집 성공 시에만 확정한다.

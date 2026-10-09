@@ -1085,6 +1085,8 @@ export function bindPlaybackControls(
         })
         .catch((error: unknown) => {
         const currentState = session.getState();
+        // 이전 runtime 또는 Sync 진입 이전의 요청은 현재 화면에 오류를 표시하지 않는다.
+        if (session.getPlaybackRuntime() !== playbackRuntime || playGeneration !== syncPauseGeneration) return;
         const message = error instanceof Error ? error.message : "Unknown playback error.";
 
         session.setState({
@@ -1120,6 +1122,7 @@ export function bindPlaybackControls(
 
   dom.stopButton.addEventListener("click", () => {
     const state = session.getState();
+    if (state.busy.kind !== "idle") return;
     const playbackRuntime = session.getPlaybackRuntime();
 
     stopPlaybackAnimation();
@@ -1147,7 +1150,7 @@ export function bindPlaybackControls(
 
   dom.seekInput.addEventListener("input", () => {
     const state = session.getState();
-    if (state.outputSyncError !== undefined) return;
+    if (state.busy.kind !== "idle" || state.outputSyncError !== undefined) return;
     const playbackRuntime = session.getPlaybackRuntime();
     const scoreSeconds = Number(dom.seekInput.value);
 
@@ -1163,6 +1166,7 @@ export function bindPlaybackControls(
   });
 
   dom.seekInput.addEventListener("change", () => {
+    if (session.getState().busy.kind !== "idle") return;
     if (session.getState().outputSyncError !== undefined) return;
     if (isGameModeLocked(session.getState().gameMode)) {
       syncPlaybackUi(dom, session.getState(), session.getPlaybackRuntime());

@@ -77,9 +77,15 @@ export function createPlaybackController(
       measurePerf("playbackController.play.resetScheduledEvents", () =>
         input.scheduler.resetScheduledEvents()
       );
-      await measurePerfAsync("playbackController.play.ensureStarted", () =>
-        input.backend.ensureStarted()
-      );
+      try {
+        await measurePerfAsync("playbackController.play.ensureStarted", () =>
+          input.backend.ensureStarted()
+        );
+      } catch (error: unknown) {
+        // 이미 취소·교체한 준비 요청의 실패는 현재 재생 요청에 전파하지 않는다.
+        if (disposed || requestGeneration !== playGeneration) return;
+        throw error;
+      }
 
       // stop/pause/dispose 또는 새 play 요청 뒤 완료된 비동기 준비는 재생을 시작하지 않는다.
       if (disposed || requestGeneration !== playGeneration) return;

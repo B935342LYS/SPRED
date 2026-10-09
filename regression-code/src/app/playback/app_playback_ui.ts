@@ -235,6 +235,7 @@ export function syncPlaybackUi(
   syncPlaybackStatus(dom, state.outputSyncError === undefined ? playbackState.kind : "Playback blocked: display/audio update failed.");
   dom.playButton.textContent = playbackState.kind === "playing" ? "❚❚" : "▶";
   dom.playButton.disabled = state.outputSyncError !== undefined || state.busy.kind !== "idle" || state.activeTrackIds.length === 0;
+  dom.stopButton.disabled = state.busy.kind !== "idle";
   dom.seekInput.disabled = state.outputSyncError !== undefined || state.busy.kind !== "idle" || isGameModeLocked(state.gameMode);
   syncTrackToggleButtons(dom, state, playbackState.kind === "playing");
 }

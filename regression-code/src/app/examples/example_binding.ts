@@ -47,11 +47,12 @@ export type ExampleBindingSession = {
   loadScoreJsonText(jsonText: string, sourceLabel: string): boolean;
 };
 
-/** 현재 페이지의 검증된 접근 단어와 최신 목록 요청을 보관하는 임시 상태. */
+/** 현재 페이지의 검증된 접근 단어와 최신 목록/악보 요청을 보관하는 임시 상태. */
 type ExampleAccessSession = {
   rememberedAccessWord: string;
   requestId: number;
   loading: boolean;
+  controller: AbortController | null;
 };
 
 /**
@@ -70,6 +71,7 @@ export function bindExampleControls(
     rememberedAccessWord: "",
     requestId: 0,
     loading: false,
+    controller: null,
   };
 
   dom.examplesButton.addEventListener("click", () => {
@@ -87,9 +89,11 @@ export function bindExampleControls(
       if (action.kind === "close") {
         // 닫힌 창의 응답은 무효화하되 검증된 단어는 다음 재진입을 위해 유지한다.
         accessSession.requestId += 1;
+        accessSession.controller?.abort();
+        accessSession.controller = null;
         if (accessSession.loading) {
           accessSession.loading = false;
-          session.reportIdleStatus("Example list loading cancelled.", "info");
+          session.reportIdleStatus("Example loading cancelled.", "info");
         }
         return;
       }
@@ -109,7 +113,7 @@ export function bindExampleControls(
         return;
       }
 
-      void loadExampleScore(dom, session, provider, action.item);
+      void loadExampleScore(dom, session, provider, action.item, accessSession);
     },
   });
 }
@@ -133,6 +137,9 @@ async function loadManifest(
   const trimmedAccessWord = accessWord.trim();
   const scopeLabel = trimmedAccessWord.length === 0 ? "public examples" : "examples";
   const requestId = ++accessSession.requestId;
+  accessSession.controller?.abort();
+  const controller = new AbortController();
+  accessSession.controller = controller;
   accessSession.loading = true;
 
   setExampleDialogBusy(dom, true);
@@ -140,7 +147,7 @@ async function loadManifest(
   session.beginLoading(`Loading ${scopeLabel}...`);
 
   try {
-    const manifest = await provider.loadManifest(trimmedAccessWord);
+    const manifest = await provider.loadManifest(trimmedAccessWord, controller.signal);
 
     // 재개방·새 요청 이후 도착한 이전 응답은 목록과 보관값을 덮어쓰지 않는다.
     if (requestId !== accessSession.requestId || !dom.examplesDialog.open) {
@@ -174,10 +181,11 @@ async function loadManifest(
     // 이전 요청의 finally가 새 요청의 입력 잠금을 해제하지 않도록 최신 요청만 정리한다.
     if (requestId === accessSession.requestId) {
       accessSession.loading = false;
+      accessSession.controller = null;
       setExampleDialogBusy(dom, false);
       // close 이벤트보다 응답이 먼저 정리되는 경우에도 앱의 로딩 상태가 남지 않게 한다.
       if (!dom.examplesDialog.open) {
-        session.reportIdleStatus("Example list loading cancelled.", "info");
+        session.reportIdleStatus("Example loading cancelled.", "info");
       }
     }
   }
@@ -189,6 +197,7 @@ async function loadManifest(
  * - 인수 : session : 잠금 조회·진행 보고와 악보 로드 계약
  * - 인수 : provider : Examples provider
  * - 인수 : item : 사용자가 선택한 manifest item
+ * - 인수 : accessSession : 목록/악보 요청의 수명과 취소 상태
  * - 반환값 : 없음
  */
 async function loadExampleScore(
@@ -196,28 +205,48 @@ async function loadExampleScore(
   session: ExampleBindingSession,
   provider: ReturnType<typeof createSupabaseExampleProvider>,
   item: Parameters<ReturnType<typeof createSupabaseExampleProvider>["loadScoreText"]>[0],
+  accessSession: ExampleAccessSession,
 ): Promise<void> {
   if (!window.confirm(`Replace the current score with "${item.title}"?`)) {
     return;
   }
 
+  const requestId = ++accessSession.requestId;
+  accessSession.controller?.abort();
+  const controller = new AbortController();
+  accessSession.controller = controller;
+  accessSession.loading = true;
   setExampleDialogBusy(dom, true);
   setExampleDialogNotice(dom, `Loading ${item.title}...`, "info");
   session.beginLoading(`Loading ${item.title}...`);
+  let scoreApplied = false;
 
   try {
-    const jsonText = await provider.loadScoreText(item);
+    const jsonText = await provider.loadScoreText(item, controller.signal);
 
-    if (session.loadScoreJsonText(jsonText, `example: ${item.title}`)) {
+    // 취소·재개방 이후의 응답은 기존 악보와 새 요청의 상태에 영향을 주지 않는다.
+    if (requestId !== accessSession.requestId || !dom.examplesDialog.open) return;
+
+    scoreApplied = session.loadScoreJsonText(jsonText, `example: ${item.title}`);
+    if (scoreApplied) {
       dom.examplesDialog.close();
     }
   } catch (error: unknown) {
+    if (requestId !== accessSession.requestId || !dom.examplesDialog.open) return;
     const message = formatExampleError(error);
 
     setExampleDialogNotice(dom, message, "error");
     session.reportIdleStatus(message, "error");
   } finally {
-    setExampleDialogBusy(dom, false);
+    if (requestId === accessSession.requestId) {
+      accessSession.loading = false;
+      accessSession.controller = null;
+      setExampleDialogBusy(dom, false);
+      // close 이벤트보다 완료가 먼저 도착해도 취소 busy를 정리하되 정상 로드 안내는 보존한다.
+      if (!dom.examplesDialog.open && !scoreApplied) {
+        session.reportIdleStatus("Example loading cancelled.", "info");
+      }
+    }
   }
 }
 
