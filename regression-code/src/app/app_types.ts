@@ -141,6 +141,8 @@ export type UndoHistoryState = {
 
 /** 문서, 파생 산출물, UI 모드를 함께 보관하는 앱 상태. */
 export type AppState = {
+  /** 확정된 악보의 화면·재생 반영 실패. 성공한 편집 재동기화나 새 악보 로드로 해제한다. */
+  outputSyncError?: string;
   document: RuntimeDocument;
   scoreOrigin: ScoreOrigin;
   parsed: ParsedScoreDocument;

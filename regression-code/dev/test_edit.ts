@@ -1,3 +1,4 @@
+import { strict as nodeAssert } from "node:assert";
 import { readFileSync } from "node:fs";
 
 import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
@@ -842,7 +843,7 @@ if (loadResult.ok && tupletResult.kind === "apply") {
     assert(localSaveRejected, "Local score save should reject JSON larger than the local limit.");
   }
 
-  const globalOnlyState = applyRawTextBatchToScore(placementState, [
+  const globalOnlyStateResult = applyRawTextBatchToScore(placementState, [
     {
       selection: {
         trackId: "basic",
@@ -853,6 +854,8 @@ if (loadResult.ok && tupletResult.kind === "apply") {
       rawText: "90",
     },
   ]);
+  nodeAssert.equal(globalOnlyStateResult.kind, "applied");
+  const globalOnlyState = globalOnlyStateResult.state;
 
   assert(
     globalOnlyState.analysis.trackResults === placementState.analysis.trackResults,
@@ -869,7 +872,7 @@ if (loadResult.ok && tupletResult.kind === "apply") {
     "Global-only edit should rebuild global renderer item groups.",
   );
 
-  const optionalOnlyState = applyRawTextBatchToScore(placementState, [
+  const optionalOnlyStateResult = applyRawTextBatchToScore(placementState, [
     {
       selection: {
         trackId: "optional",
@@ -880,6 +883,8 @@ if (loadResult.ok && tupletResult.kind === "apply") {
       rawText: "C4",
     },
   ]);
+  nodeAssert.equal(optionalOnlyStateResult.kind, "applied");
+  const optionalOnlyState = optionalOnlyStateResult.state;
   const previousBasicTrackResult = placementState.analysis.trackResults.find(
     (trackResult) => trackResult.trackId === "basic",
   );
@@ -940,7 +945,9 @@ if (loadResult.ok) {
       },
     };
     for (const edits of [[noteEdit], [globalEdit], [noteEdit, globalEdit]]) {
-      const nextState = applyRawTextBatchToScore(state, edits);
+      const nextStateResult = applyRawTextBatchToScore(state, edits);
+      nodeAssert.equal(nextStateResult.kind, "applied");
+      const nextState = nextStateResult.state;
       const rebuilt = buildRuntimeArtifacts(nextState.document, state.activeTrackIds, reverseRows);
       const context = `reverseRows=${reverseRows}, kind=${getScoreTextEditInvalidationKind(edits)}`;
       assert(

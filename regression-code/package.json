@@ -10,6 +10,8 @@
     "test:score": "tsx ./dev/test_score.ts",
     "test:parse": "tsx ./dev/test_parse.ts",
     "test:edit": "tsx ./dev/test_edit.ts",
+    "test:edit-transaction": "tsx ./dev/test_edit_transaction.ts",
+    "test:edit-effects": "tsx ./dev/test_edit_effects.ts",
     "test:layout": "tsx ./dev/test_layout_apply.ts",
     "test:analyze": "tsx ./dev/test_analyze.ts",
     "test:track": "tsx ./dev/test_track.ts",

@@ -3,6 +3,7 @@
  * sample RuntimeDocument를 로드하고 DOM event를 app 상태 갱신 흐름에 연결한다.
  */
 
+import { applyEditEffects, type EditEffectsResult } from "./edit/edit_commit_effects";
 import { collectAppDom } from "./app_dom";
 import {
   applyRawTextBatchEditToState,
@@ -11,6 +12,7 @@ import {
 import { bindFileControls } from "./app_file_binding";
 import { bindExampleControls } from "./examples/example_binding";
 import { bindViewControls } from "./app_view_binding";
+import type { AppState, UndoHistoryState } from "./app_types";
 import type { ScoreTextEdit } from "./edit/edit_apply";
 import {
   buildCellHistoryPatches,
@@ -64,6 +66,7 @@ import {
 } from "../infra/perf_profiler";
 import templateScoreJson from "../assets/templates/default-score.json?raw";
 
+/** 드래그 중 성공한 편집을 하나의 이력으로 묶기 위한 시작 상태. */
 type ScoreEditHistoryTransaction = {
   label: string;
   beforeScore: ScoreFile;
@@ -171,30 +174,63 @@ async function boot(): Promise<void> {
     syncPlaybackUi(dom, state, playbackRuntime);
   };
 
+  /**
+   * 새 재생 후보를 준비한 뒤 기존 runtime을 교체하고 현재 tick을 일시정지 위치로 보존한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음. 실패 시 후보 자원을 정리하고 상위 복구 경계로 예외 전달
+   */
   const resetPlaybackForCurrentStatePreservingPosition = (): void => {
-    const playbackState = playbackRuntime.controller.getState();
-
-    if (playbackState.kind === "stopped") {
-      resetPlaybackForCurrentState();
-      return;
+    const previous = playbackRuntime;
+    const wasStopped = previous.controller.getState().kind === "stopped";
+    const currentTick = previous.timeMapper.secondsToTick(previous.controller.getCurrentScoreSeconds());
+    const candidate = createAppPlaybackRuntime(dom, state);
+    try {
+      if (!wasStopped) {
+        candidate.controller.pauseAtSeconds(
+          candidate.timeMapper.tickToSeconds(currentTick),
+          createPlaybackLoopStateFromApp(state, candidate),
+        );
+      }
+      stopPlaybackAnimation();
+      previous.controller.dispose();
+    } catch (error: unknown) {
+      candidate.controller.dispose();
+      throw error;
     }
+    playbackRuntime = candidate;
+    syncPlaybackUi(dom, state, playbackRuntime);
+  };
 
-    const currentTick = playbackRuntime.timeMapper.secondsToTick(
-      playbackRuntime.controller.getCurrentScoreSeconds(),
-    );
+  /**
+   * 하나의 정리 실패가 나머지 오디오·영상 중단을 가로막지 않게 각각 실행한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음. 정리 실패가 있으면 모두 시도한 뒤 예외 전달
+   */
+  const stopPlaybackAfterEditFailure = (): void => {
+    const errors: unknown[] = [];
+    for (const stop of [stopPlaybackAnimation, () => playbackRuntime.controller.stop(),
+      () => playbackRuntime.backend.stopAll(), () => youtubeControl.pause(), () => notePreviewRuntime.dispose()]) {
+      try { stop(); } catch (error: unknown) { errors.push(error); }
+    }
+    if (errors.length > 0) throw new AggregateError(errors, "Playback cleanup failed.");
+  };
 
-    measurePerf("playback.preserve.stopAnimation", () => stopPlaybackAnimation());
-    measurePerf("playback.preserve.disposeController", () => playbackRuntime.controller.dispose());
-    playbackRuntime = measurePerf("playback.preserve.createRuntime", () =>
-      createAppPlaybackRuntime(dom, state)
-    );
-    measurePerf("playback.preserve.pauseAtSeconds", () =>
-      playbackRuntime.controller.pauseAtSeconds(
-        playbackRuntime.timeMapper.tickToSeconds(currentTick),
-        createPlaybackLoopStateFromApp(state, playbackRuntime),
-      )
-    );
-    measurePerf("playback.preserve.syncPlaybackUi", () => syncPlaybackUi(dom, state, playbackRuntime));
+  /**
+   * 오류 상태를 UI에 반영하되 UI 자체의 예외로 편집 확정 여부를 바꾸지 않는다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
+  const syncEditOutcomeUi = (): void => {
+    for (const sync of [() => syncLeftStatus(dom, state), () => syncUiControls(dom, state),
+      () => syncPlaybackUi(dom, state, playbackRuntime)]) {
+      try { sync(); } catch (error: unknown) { console.error("Edit UI sync failed", error); }
+    }
+    // 공용 UI 동기화가 실패해도 재생 진입 버튼은 독립적으로 잠근다.
+    if (state.outputSyncError !== undefined) {
+      dom.playButton.disabled = true;
+      dom.seekInput.disabled = true;
+      dom.practiceModeButton.disabled = true;
+    }
   };
 
   const resetNotePreviewForCurrentDom = (): void => {
@@ -202,79 +238,120 @@ async function boot(): Promise<void> {
     notePreviewRuntime = createAppNotePreviewRuntime(dom);
   };
 
+  /**
+   * 편집 후보와 이력을 함께 확정한 뒤 화면과 재생을 갱신한다.
+   * - 인수 : edits : 적용할 cell 편집 batch
+   * - 인수 : options : 이력 기록 여부와 Undo/Redo 성공 시 확정할 history 후보
+   * - 반환값 : 편집 거절 또는 편집 확정과 외부 효과의 반영 결과
+   */
   const applyScoreTextEdits = (
     edits: ScoreTextEdit[],
     options: {
       label?: string;
       recordHistory?: boolean;
       statusText?: string;
+      historyAfter?: UndoHistoryState;
+      uiAfter?: Pick<AppState, "rangeSelection" | "rangeClipboard" | "pastePreview">;
     } = {},
-  ): void => {
-    if (edits.length === 0) {
-      return;
-    }
+  ): { kind: "rejected" } | { kind: "applied"; output: EditEffectsResult } => {
+    if (edits.length === 0) return { kind: "rejected" };
 
     const perfSession = beginPerfSession(`app.applyScoreTextEdits ${edits.length} edit(s)`);
-    const shouldRecordHistory = options.recordHistory !== false &&
-      activeHistoryTransaction === null;
     const previousState = state;
+    const shouldRecordHistory = options.recordHistory !== false &&
+      options.historyAfter === undefined && activeHistoryTransaction === null;
 
     try {
-      state = {
-        ...state,
-        busy: { kind: "applyingEdit", message: "Applying edit..." },
-      };
-      measurePerf("app.edit.syncBusyStatus", () => {
-        syncLeftStatus(dom, state);
-        syncUiControls(dom, state);
-      });
-
-      // 모아둔 rawText 편집을 하나의 full rebuild 경로로 넘겨 드래그 입력 중 rebuild 반복을 피한다.
-      state = measurePerf("app.edit.applyRawTextBatchEditToState", () =>
-        applyRawTextBatchEditToState(state, edits)
-      );
-
-      if (activeHistoryTransaction !== null && options.recordHistory !== false) {
-        activeHistoryTransaction.edits.push(...edits);
-      }
-
-      if (shouldRecordHistory) {
-        const patches = measurePerf("app.edit.buildCellHistoryPatches", () =>
-          buildCellHistoryPatches(
-            previousState.document.score,
-            state.document.score,
-            edits,
-          )
-        );
-
+      let nextState: AppState;
+      try {
         state = {
-          ...state,
-          history: measurePerf("app.edit.pushUndoHistoryEntry", () =>
-            pushUndoHistoryEntry(state.history, {
-              id: createUndoHistoryEntryId(),
-              label: options.label ?? createDefaultHistoryLabel(edits),
-              patches,
-            })
-          ),
+          ...previousState,
+          busy: { kind: "applyingEdit", message: "Applying edit..." },
         };
-      }
+        measurePerf("app.edit.syncBusyStatus", () => {
+          syncLeftStatus(dom, state);
+          syncUiControls(dom, state);
+        });
 
-      if (options.statusText !== undefined) {
+        // 부분 산출물 계산은 이전 정상 상태로 수행하고 성공 여부를 먼저 확인한다.
+        const result = measurePerf("app.edit.applyRawTextBatchEditToState", () =>
+          applyRawTextBatchEditToState(previousState, edits)
+        );
+        if (result.kind === "rejected") {
+          state = { ...previousState, busy: { kind: "idle" }, statusMessage: result.message };
+          syncEditOutcomeUi();
+          return { kind: "rejected" };
+        }
+        nextState = result.state;
+
+        // history 생성까지 후보 상태에서 끝내어 계산 실패가 악보만 확정하지 않게 한다.
+        if (shouldRecordHistory) {
+          const patches = measurePerf("app.edit.buildCellHistoryPatches", () =>
+            buildCellHistoryPatches(previousState.document.score, nextState.document.score, edits)
+          );
+          nextState = {
+            ...nextState,
+            history: measurePerf("app.edit.pushUndoHistoryEntry", () =>
+              pushUndoHistoryEntry(previousState.history, {
+                id: createUndoHistoryEntryId(),
+                label: options.label ?? createDefaultHistoryLabel(edits),
+                patches,
+              })
+            ),
+          };
+        }
+        if (options.uiAfter !== undefined) nextState = { ...nextState, ...options.uiAfter };
+        if (options.historyAfter !== undefined) {
+          // Undo/Redo의 스택 이동과 선택 해제는 실제 복원에 성공한 경우에만 확정한다.
+          nextState = {
+            ...nextState,
+            history: options.historyAfter,
+            selection: null,
+            rangeSelection: null,
+            rangeClipboard: null,
+            pastePreview: { anchorCol: null },
+          };
+        }
+        if (options.statusText !== undefined) {
+          nextState = { ...nextState, statusMessage: { level: "info", text: options.statusText } };
+        }
+      } catch (error: unknown) {
+        // 상태 확정 이전의 계산/UI 준비 오류는 기존 악보·산출물·이력을 보존한다.
         state = {
-          ...state,
+          ...previousState,
+          busy: { kind: "idle" },
           statusMessage: {
-            level: "info",
-            text: options.statusText,
+            level: "error",
+            text: error instanceof Error ? error.message : "Unknown edit error.",
           },
         };
+        syncEditOutcomeUi();
+        return { kind: "rejected" };
       }
 
-      measurePerf("app.edit.renderAfterScoreTextEdit", () =>
-        renderAfterScoreTextEdit(edits)
-      );
-      measurePerf("app.edit.resetPlaybackPreservingPosition", () =>
-        resetPlaybackForCurrentStatePreservingPosition()
-      );
+      state = { ...nextState, busy: { kind: "idle" } };
+      if (activeHistoryTransaction !== null && options.recordHistory !== false &&
+          options.historyAfter === undefined) {
+        activeHistoryTransaction.edits.push(...edits);
+      }
+      // 저장된 편집은 유지하고 화면·재생의 반영 결과만 별도로 판단한다.
+      const output = applyEditEffects({
+        render: () => previousState.outputSyncError !== undefined ? render() : renderAfterScoreTextEdit(edits),
+        refresh: render,
+        updatePlayback: resetPlaybackForCurrentStatePreservingPosition,
+        stopPlayback: stopPlaybackAfterEditFailure,
+      });
+      state = {
+        ...state,
+        outputSyncError: output.kind === "failed" ? `${output.stage}: ${output.message}` : undefined,
+        statusMessage: output.kind === "failed"
+          ? { level: "error", text: `Edit applied, but ${output.stage} update failed. Playback blocked; retry an edit or save and reload. ${output.message}` }
+          : output.recovered
+            ? { level: "warning", text: "Edit applied. Display recovered; playback is stopped." }
+            : state.statusMessage,
+      };
+      if (output.kind === "failed" || output.recovered || previousState.outputSyncError !== undefined) syncEditOutcomeUi();
+      return { kind: "applied", output };
     } finally {
       endPerfSession(perfSession);
     }
@@ -327,6 +404,11 @@ async function boot(): Promise<void> {
     activeHistoryTransaction = null;
   };
 
+  /**
+   * 최근 이력의 이전 값을 적용하고 성공한 경우에만 redo로 이동한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
   const applyUndo = (): void => {
     if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
@@ -338,25 +420,21 @@ async function boot(): Promise<void> {
       return;
     }
 
-    state = {
-      ...state,
-      history: result.history,
-      selection: null,
-      rangeSelection: null,
-      rangeClipboard: null,
-      pastePreview: {
-        anchorCol: null,
-      },
-    };
     applyScoreTextEdits(
       createScoreTextEditsFromHistoryPatches(result.entry.patches, "before"),
       {
         recordHistory: false,
+        historyAfter: result.history,
         statusText: `Undid: ${result.entry.label}`,
       },
     );
   };
 
+  /**
+   * redo 이력의 이후 값을 적용하고 성공한 경우에만 undo로 이동한다.
+   * - 인수 : 없음
+   * - 반환값 : 없음
+   */
   const applyRedo = (): void => {
     if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
       return;
@@ -368,20 +446,11 @@ async function boot(): Promise<void> {
       return;
     }
 
-    state = {
-      ...state,
-      history: result.history,
-      selection: null,
-      rangeSelection: null,
-      rangeClipboard: null,
-      pastePreview: {
-        anchorCol: null,
-      },
-    };
     applyScoreTextEdits(
       createScoreTextEditsFromHistoryPatches(result.entry.patches, "after"),
       {
         recordHistory: false,
+        historyAfter: result.history,
         statusText: `Redid: ${result.entry.label}`,
       },
     );

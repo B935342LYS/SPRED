@@ -58,6 +58,8 @@ export function createPlaybackController(
     seekScoreSeconds: 0,
     loop: LOOP_OFF,
   };
+  let playGeneration = 0;
+  let disposed = false;
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
   return {
@@ -68,6 +70,8 @@ export function createPlaybackController(
       scoreSeconds: number,
       loop: PlaybackLoopState = LOOP_OFF,
     ): Promise<void> {
+      if (disposed) return;
+      const requestGeneration = ++playGeneration;
       measurePerf("playbackController.play.stopInterval", () => stopInterval());
       measurePerf("playbackController.play.backendStopAll", () => input.backend.stopAll());
       measurePerf("playbackController.play.resetScheduledEvents", () =>
@@ -77,6 +81,8 @@ export function createPlaybackController(
         input.backend.ensureStarted()
       );
 
+      // stop/pause/dispose 또는 새 play 요청 뒤 완료된 비동기 준비는 재생을 시작하지 않는다.
+      if (disposed || requestGeneration !== playGeneration) return;
       const normalizedLoop = measurePerf("playbackController.play.normalizeLoop", () =>
         normalizeLoop(loop, input.schedule.durationSeconds)
       );
@@ -99,6 +105,7 @@ export function createPlaybackController(
       );
     },
     pause(): void {
+      playGeneration += 1;
       if (state.kind !== "playing") {
         return;
       }
@@ -118,6 +125,7 @@ export function createPlaybackController(
       scoreSeconds: number,
       loop: PlaybackLoopState = LOOP_OFF,
     ): void {
+      playGeneration += 1;
       measurePerf("playbackController.pauseAt.stopInterval", () => stopInterval());
       measurePerf("playbackController.pauseAt.backendStopAll", () => input.backend.stopAll());
       measurePerf("playbackController.pauseAt.resetScheduledEvents", () =>
@@ -179,6 +187,7 @@ export function createPlaybackController(
           };
     },
     stop(): void {
+      playGeneration += 1;
       stopInterval();
       input.backend.stopAll();
       input.scheduler.resetScheduledEvents();
@@ -202,6 +211,8 @@ export function createPlaybackController(
       return state.kind === "playing";
     },
     dispose(): void {
+      disposed = true;
+      playGeneration += 1;
       stopInterval();
       input.backend.dispose();
       state = {

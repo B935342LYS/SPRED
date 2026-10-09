@@ -57,12 +57,16 @@ function testArtifactEdits(): void {
     let state = createInitialState(createRuntimeDocument(structuredClone(fixtureScore)));
     if (reverse) state = applyReverseRowsToState(state, true);
     for (const batch of batches) {
-      const trial = applyRawTextBatchEditToState(state, batch);
+      const trialResult = applyRawTextBatchEditToState(state, batch);
+      assert.equal(trialResult.kind, "applied");
+      const trial = trialResult.state;
       const history = buildCellHistoryPatches(state.document.score, trial.document.score, batch);
       for (const commands of [batch, createScoreTextEditsFromHistoryPatches(history, "before"), createScoreTextEditsFromHistoryPatches(history, "after")]) {
         const previous = state;
         const snapshot = JSON.stringify(previous.renderInput);
-        state = applyRawTextBatchEditToState(previous, commands);
+        const result = applyRawTextBatchEditToState(previous, commands);
+        assert.equal(result.kind, "applied");
+        state = result.state;
         const fresh = buildRuntimeArtifacts(state.document, state.activeTrackIds, state.reverseRows);
         assert.deepEqual(state.renderInput, fresh.renderInput, "Direct artifact must match full rebuild, including draw order.");
         assert.equal(JSON.stringify(previous.renderInput), snapshot, "Previous input must not be mutated.");
@@ -92,9 +96,11 @@ function testArtifactEdits(): void {
       }
     }
     const unchanged = applyRawTextBatchEditToState(state, []);
-    assert.equal(unchanged.document, state.document);
+    assert.equal(unchanged.kind, "applied");
+    assert.equal(unchanged.state.document, state.document);
     const invalid = applyRawTextBatchEditToState(state, [edit("global-bpm", 0, "")]);
-    assert.equal(invalid.document, state.document);
+    assert.equal(invalid.kind, "rejected");
+    assert.equal(invalid.message.level, "warning");
   }
 }
 

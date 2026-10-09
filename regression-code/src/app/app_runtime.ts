@@ -712,18 +712,23 @@ export function applyRawTextToScore(
   };
 }
 
+/** 편집 후보와 거절 사유를 구분하여 상위 계층의 상태 확정을 제어한다. */
+export type ScoreTextEditResult =
+  | { kind: "applied"; state: AppState }
+  | { kind: "rejected"; message: AppState["statusMessage"] };
+
 /**
- * 여러 score cell rawText 편집을 한 번의 full rebuild로 적용한다.
+ * 여러 score cell rawText 편집의 부분 산출물 또는 전체 fallback 후보를 만든다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : full rebuild가 반영된 앱 상태
+ * - 반환값 : 상태 확정 전 편집 후보 또는 적용 거절 사유
  */
 export function applyRawTextBatchToScore(
   state: AppState,
   edits: ScoreTextEdit[],
-): AppState {
+): ScoreTextEditResult {
   if (edits.length === 0) {
-    return state;
+    return { kind: "applied", state };
   }
 
   const applyResult = measurePerf("runtime.applyScoreCellRawTextBatch", () =>
@@ -733,9 +738,8 @@ export function applyRawTextBatchToScore(
 
   if (!applyResult.ok) {
     return {
-      ...state,
-      selection: lastSelection,
-      statusMessage: {
+      kind: "rejected",
+      message: {
         level: applyResult.level,
         text: applyResult.message,
       },
@@ -757,17 +761,20 @@ export function applyRawTextBatchToScore(
   );
 
   return {
-    ...state,
-    document: nextDocument,
-    parsed: artifacts.parsed,
-    analysis: artifacts.analysis,
-    renderInput: artifacts.renderInput,
-    selection: lastSelection,
-    statusMessage: {
-      level: "info",
-      text: applyResult.isDelete
-        ? `Cleared ${applyResult.updated} cells.`
-        : `Applied ${applyResult.updated} cells.`,
+    kind: "applied",
+    state: {
+      ...state,
+      document: nextDocument,
+      parsed: artifacts.parsed,
+      analysis: artifacts.analysis,
+      renderInput: artifacts.renderInput,
+      selection: lastSelection,
+      statusMessage: {
+        level: "info",
+        text: applyResult.isDelete
+          ? `Cleared ${applyResult.updated} cells.`
+          : `Applied ${applyResult.updated} cells.`,
+      },
     },
   };
 }
@@ -809,34 +816,25 @@ export function applyRawTextEditToState(
 }
 
 /**
- * edit 적용 전후 busy/status 전환을 포함해 여러 rawText 편집을 한 번에 적용한다.
+ * batch 편집과 산출물 계산을 시도하고 성공 여부를 명시적으로 반환한다.
  * - 인수 : state : 현재 앱 상태
  * - 인수 : edits : 적용할 score cell 편집 목록
- * - 반환값 : 성공/실패 상태 메시지가 반영된 앱 상태
+ * - 반환값 : 새 상태 후보 또는 거절 사유. 전달된 상태는 확정하거나 변경하지 않는다.
  */
 export function applyRawTextBatchEditToState(
   state: AppState,
   edits: ScoreTextEdit[],
-): AppState {
-  const actionState: AppState = {
-    ...state,
-    busy: { kind: "idle" },
-  };
-
+): ScoreTextEditResult {
   try {
-    return {
-      ...measurePerf("runtime.applyRawTextBatchToScore", () =>
-        applyRawTextBatchToScore(actionState, edits)
-      ),
-      busy: { kind: "idle" },
-    };
+    return measurePerf("runtime.applyRawTextBatchToScore", () =>
+      applyRawTextBatchToScore(state, edits)
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown edit error.";
 
     return {
-      ...state,
-      busy: { kind: "idle" },
-      statusMessage: {
+      kind: "rejected",
+      message: {
         level: "error",
         text: message,
       },

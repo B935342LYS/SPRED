@@ -682,7 +682,7 @@ export function bindPlaybackControls(
     const state = session.getState();
     const playbackRuntime = session.getPlaybackRuntime();
 
-    if (state.busy.kind !== "idle" || isGameModeLocked(state.gameMode)) {
+    if (state.busy.kind !== "idle" || state.outputSyncError !== undefined || isGameModeLocked(state.gameMode)) {
       return;
     }
 
@@ -825,7 +825,7 @@ export function bindPlaybackControls(
 
     if (
       suppressScrollSeek ||
-      state.busy.kind !== "idle" ||
+      state.busy.kind !== "idle" || state.outputSyncError !== undefined ||
       isGameModeLocked(state.gameMode) ||
       state.layout === null
     ) {
@@ -844,7 +844,7 @@ export function bindPlaybackControls(
 
       if (
         suppressScrollSeek ||
-        nextState.busy.kind !== "idle" ||
+        nextState.busy.kind !== "idle" || nextState.outputSyncError !== undefined ||
         isGameModeLocked(nextState.gameMode) ||
         nextState.layout === null
       ) {
@@ -956,7 +956,7 @@ export function bindPlaybackControls(
     const playbackRuntime = session.getPlaybackRuntime();
 
     try {
-      if (state.busy.kind !== "idle") {
+      if (state.busy.kind !== "idle" || state.outputSyncError !== undefined) {
         return;
       }
 
@@ -1043,10 +1043,16 @@ export function bindPlaybackControls(
       playRequest
         .then(() => {
           // 비동기 오디오 준비 중 Sync를 열었다 닫아도 이전 play 요청이 뒤늦게 재생되지 않게 한다.
-          if (playGeneration !== syncPauseGeneration || dom.practiceSyncDialog.open) {
+          if (session.getPlaybackRuntime() !== playbackRuntime) {
+            playbackRuntime.controller.stop();
+            return;
+          }
+          if (playGeneration !== syncPauseGeneration || dom.practiceSyncDialog.open ||
+              session.getState().outputSyncError !== undefined) {
             pausePlaybackForSync();
             return;
           }
+          if (!playbackRuntime.controller.isPlaying()) return;
           const thenPerfSession = beginPerfSession("playback.toggle.afterPlay");
 
           try {
@@ -1141,6 +1147,7 @@ export function bindPlaybackControls(
 
   dom.seekInput.addEventListener("input", () => {
     const state = session.getState();
+    if (state.outputSyncError !== undefined) return;
     const playbackRuntime = session.getPlaybackRuntime();
     const scoreSeconds = Number(dom.seekInput.value);
 
@@ -1156,6 +1163,7 @@ export function bindPlaybackControls(
   });
 
   dom.seekInput.addEventListener("change", () => {
+    if (session.getState().outputSyncError !== undefined) return;
     if (isGameModeLocked(session.getState().gameMode)) {
       syncPlaybackUi(dom, session.getState(), session.getPlaybackRuntime());
       return;

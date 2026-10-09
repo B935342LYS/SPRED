@@ -395,6 +395,61 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-05 범위 편집 UI·외부 효과 복구 완료
+
+- 사용자 채택 정책에 따라 E4/E5를 구현했다. 상세는 [3.10 10절](3.10-code-structure-review.md#10-단계별-복구범위-편집-ui-확정--2026-10-05). 범위 Delete/Cut/Paste의 선택·clipboard·preview는 편집 성공 시에만 확정한다.
+- 확정 후 화면 오류는 재생 중단 후 전체 표시를 한 번 복구한다. 지속 실패 또는 오디오 준비 실패는 새 악보·이력을 유지하고 runtime `outputSyncError`로 Play/Seek/Practice를 차단한다. 다음 편집/Undo/Redo의 전체 표시·오디오 준비 성공 또는 정상 새 악보 로드가 복구 경로다.
+- playback 후보 자원 정리와 controller의 대기 중 play 취소를 보완했다. 오디오 schedule/분석/렌더 알고리즘은 유지한다. 명세 2.2/2.3/2.9에 정책을 기록했다.
+- typecheck, edit, edit-transaction(9), edit-effects(10), partial, audio, game, youtube, build 통과. Chrome 앱 21개 관측 조건·pageerror 0개 확인. 장애 주입과 실제 장치 청감·외부 영상 검증을 구분한다.
+- 보고서: `docs/report-prep/implementation-records/2026-10-05-edit-failure-recovery.md`. 로컬 구현 완료이며 커밋·배포 미수행. 다음 후보는 동일 값 편집 생략/이력 조회 비용 또는 상태 소유권 상세 검토다.
+
+### 2026-10-04 편집 결과·이력 확정 개선 완료
+
+- [3.10 9절](3.10-code-structure-review.md#9-첫-개선-구현-결과--2026-10-04)에 첫 개선 구현과 검증을 기록했다. `app_runtime.ts`의 batch API는 applied/rejected를 반환하고, `main.ts`는 후보 산출물·history 계산 성공 후 상태를 함께 확정한다.
+- 실패한 Undo/Redo는 기존 문서·산출물·history·선택을 유지하며 성공 메시지로 덮지 않는다. 실패 시 편집 draw/playback 교체를 생략하고, 성공한 Undo/Redo는 선택을 해제한다. 기존 partial artifact·오디오 내부 알고리즘은 유지한다.
+- typecheck, test:edit, test:partial, test:audio, build 및 새 test:edit-transaction 9개 사례 통과. 실제 Chrome 앱 연결 7개 검사와 pageerror 0개 확인. 실패는 장애 주입이며 drag grouping은 session 호출 검사다. 장치 청감 검증은 별도다.
+- 로컬 구현 완료이며 커밋·배포는 하지 않았다. 보고서 형식의 작업 기록은 `docs/report-prep/implementation-records/2026-10-04-edit-history-commit.md`에 있다.
+- 남은 범위: 동일 값 편집 생략, range binding의 선행 선택/clipboard 변경, history lookup 비용, commit 후 렌더/오디오 실패 복구 정책. 후속 정책이 필요한 항목을 이번에 임의로 확정하지 않았다.
+
+### 2026-10-02 구조 검토 1단계 완료
+
+사용자 요청으로 [3.10 코드 구조 검토](3.10-code-structure-review.md)를 작성해 단계별 작업 기준으로 삼았다. 분류는 `review / task-plan`이며 기존 active 명세를 대체하지 않는다. 전체 정적 모듈 조사와 편집·Undo/Redo의 상태 확정 경계 상세 검토를 완료했고, 제품 코드는 수정하지 않았다.
+
+- 첫 수정 후보는 편집 성공/실패의 명시적 전달과 성공 후 document/artifacts/history 확정이다. 실패한 Undo/Redo의 stack 이동·오류 은폐, 성공 후 selection 해제 불일치를 확인했다.
+- 실제 main 함수 본문 추출과 DOM/재생 대역을 사용한 격리 검사 8개로 현재 동작을 관측했다. 실패 반환·UI/렌더 예외 주입은 브라우저 자연 발생 오류 재현과 구분한다. `test:edit`, `test:partial`은 통과했다.
+- 검토용 스크립트와 검증 범위는 3.10 7절에 있다. 기존 결함의 관측 assertion 통과를 제품 수정 완료로 해석하지 않는다.
+- 후속 순서는 편집 결과·이력 확정 → 상태 소유권·입출력 계약 → 중복 연산·갱신 범위 → 재생/YouTube/Practice의 비동기 수명이다. commit 후 렌더/오디오 실패 복구 정책은 별도 확정이 필요하다.
+- 아래 마감 기록의 배포 완료·미채택 실험·기존 검증 제약은 유지한다. 보고서 교정과 폐기한 plan/patch 경로는 자동 재개하지 않는다.
+
+### 2026-10-02 작업 마감 및 다음 대화 재개 지점
+
+사용자는 현재 작업을 한 단락 마무리하고, 다음 작업을 **코드 구조 점검 및 소프트웨어 공학적 개편(캡슐화, 모듈 점검, 패턴 적용 등)**으로 지정했다. 이번 대화에서는 현황 기록만 수행하며 구조 변경에는 착수하지 않는다. 아래 날짜별 설명 중 미착수/미배포 상태는 과거 이력이며 현재 상태는 이 항목을 우선한다.
+
+현재 완료 상태:
+
+- 부분 redraw 실험은 draw 대상 감소에 성공했지만 가상화 환경에서 뚜렷한 시간 개선을 확인하지 못해 미채택했다. `3.8`은 실패 실험/보고서 기록이며 재구현 기준이 아니다.
+- 최종 구현은 eventDiff 및 plan/patch 관련 5개 파일을 제거하고 `partial_rebuild_artifacts.ts`의 완성된 입력을 직접 렌더한다. track/global별 산출물 재사용, note/global/all 분기, 가상화와 기존 오디오 전체 갱신은 유지한다. 공용 `canvas_item_order.ts`로 병합 시 전체 builder와 같은 순서를 보장한다.
+- 구현 커밋 `6a73f90`, 배포 기록 커밋 `0f13db8`은 SPRED origin/main에 반영되어 있다. spredtest의 배포 커밋은 `318205c`이며 Pages 배포 성공과 공개 페이지 초기 실행을 확인했다. 현황 기록 시작 시 두 저장소 작업 트리는 깨끗했다.
+- 사용자가 개발 서버에서 정상 동작을 확인했다. build와 관련 자동 테스트, 브라우저 편집/이력 144단계 및 실제 앱 15개 검사가 통과했다. 상세 조건·측정 한계는 [3.9 9절](3.9-artifact-direct-render-implementation-plan.md#9-구현-결과와-검증-기록-2026-10-01)에 있다.
+- `9월 5주차 보고서.pdf` 최신 12쪽을 검토하고 문단별 교체안을 대화에 제시했다. 결과 중심 구성을 유지하면서 renderer 함수 시간과 draw 단독 시간을 구분하고, 합성 이벤트 시험과 실제 artifact 시험의 조건 차이, 오디오 plan 미사용, 최종 단순화 성과를 명시하도록 권장했다. PDF 원본은 에이전트가 수정하지 않았으며 교체안의 최종 반영·제출 여부는 확인하지 않았다. 사용자 요청에 따라 보고서 교정을 자동 재개하지 않는다.
+
+다음 대화의 시작 순서:
+
+1. AGENTS와 이 항목, 현재 Git 상태를 확인한다. 실제 구현은 `regression-code/`를 기준으로 읽고 설명용 사본·배포 사본은 구조 개편 대상으로 삼지 않는다.
+2. 관련 active 명세와 실제 코드의 모듈 책임·의존 방향·공개 API·상태 소유권·부수효과 경계를 대조한다. app/orchestration, parser/analyzer, renderer, audio, storage/import/validation 사이의 책임 누출과 결합도를 먼저 점검한다.
+3. 발견 사항마다 코드 근거, 실제 유지보수 문제, 최소 변경안, 영향 범위, 검증 방법을 정리하고 우선순위를 제시한다. 아직 특정 모듈의 결함이나 도입할 패턴은 확정하지 않았다.
+4. 패턴은 확인된 문제를 해결할 때만 적용한다. 불필요한 추상화·캐시·새 계층을 추가하거나 전역 재설계를 전제하지 않는다. 작은 단위로 기존 동작과 성능을 보존하며 개편한다. 텍스트/주법별 draw 세분화와 폐기한 plan 경로를 다시 도입하지 않는다.
+
+남은 검증·주의 사항:
+
+- `test:view`의 기존 Fit Height/footer 경계 기대값 실패가 남아 있다. 새 구조 변경의 회귀와 구분한다.
+- 복원된 개발용 lock에서 `npm ci`의 `@emnapi/wasi-threads` 1.2.2/1.2.3 불일치가 관측되었다. 배포는 별도 lock 및 기존 `npm install` workflow로 성공했다. 환경 재현 문제와 구조 개편을 구분한다.
+- 내부 편집 API가 음수 열·미등록 rowId를 항상 거부하는 것은 아니다. 기존 제약이며 UI 방어·검증 책임을 점검할 후보이지 이번 작업에서 수정 완료한 사항이 아니다.
+- 추가 실사용·재생 청감 검증은 남아 있다. 자동 테스트 통과를 모든 악보·브라우저의 검증 완료로 해석하지 않는다.
+- 보고서 근거와 실험 원본은 로컬 `docs/report-prep/3.8-partial-redraw-review/`에 보존되어 있으며 Git 추적 대상이 아니다. 기존 자료를 삭제하거나 미채택 실험을 현재 구현으로 해석하지 않는다.
+
+### 이전 진행 이력
+
 2026-10-01 배포 완료: 사용자가 개발 서버에서 정상 동작을 확인한 후 배포를 요청했다. 구현 커밋 `6a73f90`은 SPRED origin/main에 반영되어 있으며, 배포 저장소 spredtest의 `318205c`에 동일한 src 106개 파일을 동기화했다. 배포용 build 및 [GitHub Pages 실행 36869395215](https://github.com/B935342LYS/spredtest/actions/runs/36869395215)이 성공했다. 공개 페이지 HTTP 200, Canvas 5개 생성, 브라우저 pageerror 없음과 새 bundle의 plan/patch 호출 제거를 확인했다. 기존 Fit Height 테스트 실패와 추가 실사용·청감 검증 필요성은 유지한다.
 
 2026-10-01 구현 완료: [3.9 구현 결과](3.9-artifact-direct-render-implementation-plan.md#9-구현-결과와-검증-기록-2026-10-01). eventDiff 및 plan/patch 5개 파일을 삭제하고 artifact 직접 렌더로 전환했다. track/global별 산출물 재사용과 가상화를 유지하며 공용 정렬로 통합 marker까지 전체 builder 순서를 보장한다. build 및 관련 테스트 통과, 브라우저 편집/이력 144단계·실제 앱 15개 검사 통과. test:view의 기존 Fit Height 실패는 남아 있다. 성능 대조군과 현재 경로의 측정 범위·한계는 3.9 9절 참조. 다음 확인은 실제 악보와 재생 청감이며 커밋·배포는 하지 않았다. 아래는 이전 진행 이력이다.
