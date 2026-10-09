@@ -6,11 +6,8 @@ import { resolveTupletHeadPlacementHit } from "../src/app/edit/edit_controller";
 import { applyReverseRowsOption, buildRuntimeArtifacts, createInitialState } from "../src/app/app_runtime";
 import { applyRawTextBatchToScore } from "../src/app/app_runtime";
 import { buildCanvasScoreLayout } from "../src/renderer/canvas_coordinate";
-import {
-  applyScoreCellRawTextBatch,
-  getScoreTextEditInvalidationKind,
-  type ScoreTextEdit,
-} from "../src/app/edit/edit_apply";
+import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
+import { getScoreTextEditInvalidationKind, type ScoreTextEdit } from "../src/core/score/score_text_edit";
 import {
   buildCellHistoryPatches,
   createScoreTextEditsFromHistoryPatches,

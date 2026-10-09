@@ -12,7 +12,7 @@ import { loadRuntimeDocument } from "../src/core/score/create_runtime_document";
 import * as history from "../src/app/edit/edit_history";
 import { isGameModeLocked } from "../src/app/game/game_types";
 import type { AppState } from "../src/app/app_types";
-import type { ScoreTextEdit } from "../src/app/edit/edit_apply";
+import type { ScoreTextEdit } from "../src/core/score/score_text_edit";
 
 const source = readFileSync(new URL("../src/app/main.ts", import.meta.url), "utf8");
 const ast = ts.createSourceFile("main.ts", source, ts.ScriptTarget.Latest, true);

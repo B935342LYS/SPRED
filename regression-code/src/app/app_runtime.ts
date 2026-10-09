@@ -21,11 +21,11 @@ import type {
 import {
   buildCanvasGlobalTextRenderItems,
   buildCanvasGlobalMarkerItems,
-  buildCanvasMarkerItems,
   buildCanvasMuteRenderItems,
   buildCanvasNoteMarkerItems,
   buildCanvasNoteRenderItems,
 } from "../renderer/canvas_item_builder";
+import { sortCanvasMarkerItems } from "../renderer/canvas_item_order";
 import type { CanvasAnalyzedRenderInput } from "../renderer/canvas_types";
 import type { CanvasRenderInput } from "../renderer/canvas_types";
 import { buildScoreTextEditPartialArtifacts } from "../orchestration/partial_rebuild/partial_rebuild_artifacts";
@@ -34,7 +34,7 @@ import {
   applyNoteCellRawText,
   applyScoreCellRawTextBatch,
 } from "./edit/edit_apply";
-import type { ScoreTextEdit } from "./edit/edit_apply";
+import type { ScoreTextEdit } from "../core/score/score_text_edit";
 import { createUndoHistoryState } from "./edit/edit_history";
 import { measurePerf } from "../infra/perf_profiler";
 import type {
@@ -161,7 +161,8 @@ export function buildAnalyzedCanvasRenderInput(
     muteItems: buildCanvasMuteRenderItems(analysis, activeTrackIds),
     globalMarkerItems,
     noteMarkerItems,
-    markerItems: buildCanvasMarkerItems(analysis, activeTrackIds),
+    // 분리 목록의 객체를 재사용하되 새 배열만 정렬하여 각 그룹의 순서를 보존한다.
+    markerItems: sortCanvasMarkerItems([...globalMarkerItems, ...noteMarkerItems]),
   };
 }
 
@@ -563,11 +564,11 @@ export function applyMusicDataEditToState(
     ...state.document.score,
     musicData,
   };
-  const nextDocument = createRuntimeDocument(nextScore);
 
   return {
     ...state,
-    document: nextDocument,
+    // metadata만 교체하므로 행·트랙·셀 참조를 조회하는 기존 인덱스는 유효하다.
+    document: { ...state.document, score: nextScore },
     statusMessage: {
       level: "info",
       text: "Score details updated.",
@@ -760,8 +761,14 @@ export function applyRawTextBatchToScore(
     createRuntimeDocument(applyResult.score)
   );
   const partialArtifacts = measurePerf("runtime.buildScoreTextEditPartialArtifacts", () =>
+    // 앱 UI 상태를 넘기지 않고 이전 산출물의 참조와 활성 트랙만 전달한다.
     buildScoreTextEditPartialArtifacts({
-      state,
+      previousArtifacts: {
+        parsed: state.parsed,
+        analysis: state.analysis,
+        renderInput: state.renderInput,
+      },
+      activeTrackIds: state.activeTrackIds,
       nextDocument,
       edits,
     })

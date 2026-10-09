@@ -4,8 +4,11 @@ import { createRuntimeDocument } from "../src/core/score/create_runtime_document
 import type { ScoreFile } from "../src/core/score/types";
 import { createInitialState, applyRawTextBatchEditToState, buildRuntimeArtifacts, applyReverseRowsToState } from "../src/app/app_runtime";
 import { buildCellHistoryPatches, createScoreTextEditsFromHistoryPatches } from "../src/app/edit/edit_history";
-import { getScoreTextEditInvalidationKind, type ScoreTextEdit } from "../src/app/edit/edit_apply";
+import { getScoreTextEditInvalidationKind, type ScoreTextEdit } from "../src/core/score/score_text_edit";
 import { filterVisibleMarkerItems, filterVisibleMuteItems, filterVisibleNoteItems } from "../src/renderer/canvas_visible_range";
+import { buildCanvasMarkerItems, buildCanvasGlobalMarkerItems, buildCanvasNoteMarkerItems } from "../src/renderer/canvas_item_builder";
+import { sortCanvasMarkerItems } from "../src/renderer/canvas_item_order";
+import { applyMusicDataEditToState, buildAnalyzedCanvasRenderInput } from "../src/app/app_runtime";
 
 /**
  * 실제 편집과 이력 복원 산출물을 독립 전체 재생성과 비교한다.
@@ -56,6 +59,40 @@ function testArtifactEdits(): void {
   for (const reverse of [false, true]) {
     let state = createInitialState(createRuntimeDocument(structuredClone(fixtureScore)));
     if (reverse) state = applyReverseRowsToState(state, true);
+    // 활성 track 조합별로 이전 통합 builder와 값·순서가 같고 그룹 객체만 공유하는지 검사한다.
+    for (const active of [[], ["basic"], ["basic", "optional", "extra"]] as const) {
+      const input = buildAnalyzedCanvasRenderInput(state.document, state.analysis, active, reverse);
+      assert.deepEqual(input.markerItems, buildCanvasMarkerItems(state.analysis, active));
+      assert.deepEqual(input.globalMarkerItems, buildCanvasGlobalMarkerItems(state.analysis));
+      assert.deepEqual(input.noteMarkerItems, buildCanvasNoteMarkerItems(state.analysis, active));
+      const groups = new Set([...input.globalMarkerItems, ...input.noteMarkerItems]);
+      assert(input.markerItems.every(item => groups.has(item)), "Merged markers must reuse group objects.");
+      const snapshot = JSON.stringify(input);
+      input.globalMarkerItems.forEach(Object.freeze);
+      input.noteMarkerItems.forEach(Object.freeze);
+      assert.deepEqual(sortCanvasMarkerItems([...input.globalMarkerItems, ...input.noteMarkerItems]), input.markerItems);
+      filterVisibleMarkerItems(input.markerItems, { startTick: 0, endTick: 100, startX: 0, endX: 2100 });
+      assert.equal(JSON.stringify(input), snapshot, "Merge/filter must not mutate group order or objects.");
+    }
+    // metadata만 교체한 문서의 인덱스는 새로 생성한 인덱스와 같아야 한다.
+    const beforeMetadata = state;
+    const oldScore = JSON.stringify(state.document.score);
+    state = applyMusicDataEditToState(state, {
+      ...state.document.score.musicData,
+      musicTitle: "Metadata reuse", musicArtist: "Artist", musicGenre: "Test",
+      scoreWriter: "Writer", comment: "Changed details",
+      scoreDifficulty: { basic: 2, optional: 3, extra: 4 },
+    });
+    assert.notEqual(state.document, beforeMetadata.document);
+    assert.notEqual(state.document.score, beforeMetadata.document.score);
+    assert.equal(state.document.score.musicData.musicTitle, "Metadata reuse");
+    assert.equal(JSON.stringify(beforeMetadata.document.score), oldScore);
+    assert.equal(state.document.indexes, beforeMetadata.document.indexes);
+    assert.deepEqual(state.document.indexes, createRuntimeDocument(state.document.score).indexes);
+    for (const key of ["parsed", "analysis", "renderInput", "history"] as const) {
+      assert.equal(state[key], beforeMetadata[key]);
+    }
+    // 아래 72단계 편집/이력 복원 검사를 metadata 교체 직후 문서에서 계속 수행한다.
     for (const batch of batches) {
       const trialResult = applyRawTextBatchEditToState(state, batch);
       assert.equal(trialResult.kind, "applied");
@@ -68,6 +105,7 @@ function testArtifactEdits(): void {
         assert.equal(result.kind, "applied");
         state = result.state;
         const fresh = buildRuntimeArtifacts(state.document, state.activeTrackIds, state.reverseRows);
+        assert.deepEqual(fresh.renderInput.markerItems, buildCanvasMarkerItems(fresh.analysis, state.activeTrackIds));
         assert.deepEqual(state.renderInput, fresh.renderInput, "Direct artifact must match full rebuild, including draw order.");
         assert.equal(JSON.stringify(previous.renderInput), snapshot, "Previous input must not be mutated.");
         const events = state.analysis.trackResults.flatMap(track => track.events);

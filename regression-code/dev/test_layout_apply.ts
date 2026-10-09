@@ -14,13 +14,15 @@ import {
   deleteLayoutDraftRow,
 } from "../src/app/layout/layout_draft";
 import {
-  MAX_LAYOUT_PRESET_JSON_BYTES,
   createLayoutDraftFromPreset,
   createLayoutPresetFileName,
   createUserLayoutPresetData,
+} from "../src/app/layout/layout_preset";
+import {
+  MAX_LAYOUT_PRESET_JSON_BYTES,
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
-} from "../src/app/layout/layout_preset";
+} from "../src/core/score/layout_preset";
 import {
   loadLayoutPresetSlotFromLocalStorage,
   loadLayoutPresetSlotsFromLocalStorage,
@@ -171,8 +173,34 @@ if (loadResult.ok) {
     assert(serializedPresetResult.ok, "Layout preset serialization should accept a normal preset.");
     assert(parsedPresetResult.ok, "Layout preset JSON should parse after serialization.");
 
+    // 실제 저장 문자열을 다시 읽어 들인 뒤 들여쓰기와 마지막 개행까지 같은지 확인한다.
+    if (serializedPresetResult.ok) {
+      const roundTrip = parseUserLayoutPresetJson(serializedPresetResult.value);
+      if (roundTrip.ok) {
+        const rewritten = serializeUserLayoutPresetData(roundTrip.value);
+        assert(rewritten.ok && rewritten.value === serializedPresetResult.value,
+          "Preset JSON should survive parse/serialize without changing stored bytes.");
+      } else {
+        assert(false, "Serialized preset should parse successfully.");
+      }
+    }
+
     if (parsedPresetResult.ok) {
       const restoredDraft = createLayoutDraftFromPreset(parsedPresetResult.value, draft);
+      const beforePreset = JSON.stringify(parsedPresetResult.value);
+      const independentlyRestored = createLayoutDraftFromPreset(parsedPresetResult.value, draft);
+      independentlyRestored.instData.strings[0]!.stringName = "Changed in draft";
+      independentlyRestored.rowDefinitions[0]!.height = 99;
+      assert(JSON.stringify(parsedPresetResult.value) === beforePreset,
+        "Editing restored rows or strings must not mutate the source preset.");
+      assert(restoredDraft.selectedStringId === draft.selectedStringId &&
+        restoredDraft.selectedRowId === restoredDraft.rowDefinitions.find(
+          row => row.stringId === draft.selectedStringId)?.rowId,
+        "Restore should retain the selected string and choose its first row.");
+      const missingSelection = createLayoutDraftFromPreset(parsedPresetResult.value,
+        { ...draft, selectedStringId: "missing-string" });
+      assert(missingSelection.selectedStringId === parsedPresetResult.value.instData.strings[0]?.stringId,
+        "Missing selected string should fall back to the preset first string.");
       const emptySlots = loadLayoutPresetSlotsFromLocalStorage(score.instData.presetId);
 
       assert(
@@ -213,6 +241,24 @@ if (loadResult.ok) {
 
   const normalScoreSlots = loadLayoutPresetSlotsFromLocalStorage("otamatone-basic");
   const normalScoreSlot = loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1);
+
+  // 기본 제공 객체의 반환값을 수정해도 다음 조회와 asset 원본은 보존한다.
+  if (normalScoreSlot !== null) {
+    const bundledBefore = JSON.stringify(NORMAL_SCORE_LAYOUT_PRESET);
+    const independent = loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)!;
+    independent.instData.strings[0]!.stringName = "Changed copy";
+    independent.rowDefinitions[0]!.height = 99;
+    assert(JSON.stringify(NORMAL_SCORE_LAYOUT_PRESET) === bundledBefore &&
+      JSON.stringify(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)) === bundledBefore,
+      "Bundled preset must remain independent of returned mutable copies.");
+  }
+  const brokenKey = "layout-slot:otamatone-basic:1";
+  globalThis.localStorage.setItem(brokenKey, "{broken");
+  assert(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1) === null &&
+    globalThis.localStorage.getItem(brokenKey) === null,
+    "Corrupt slot should be removed and return null on the detecting read.");
+  assert(loadLayoutPresetSlotFromLocalStorage("otamatone-basic", 1)?.layoutPresetDisplayName === "Normal Score",
+    "A subsequent absent-slot read should offer the bundled preset.");
 
   assert(
     normalScoreSlots[0]?.layoutPresetDisplayName === "Normal Score",

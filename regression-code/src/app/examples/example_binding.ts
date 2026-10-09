@@ -4,13 +4,8 @@
 
 import type {
   AppDom,
-  AppState,
+  UiStatusLevel,
 } from "../app_types";
-import {
-  syncLeftStatus,
-  syncUiControls,
-} from "../app_ui_sync";
-import { isGameModeLocked } from "../game/game_types";
 import { readExampleProviderConfig } from "./example_config";
 import {
   bindExampleDialog,
@@ -22,11 +17,34 @@ import {
 import { createSupabaseExampleProvider } from "./example_supabase_provider";
 import type { ExampleError } from "./example_types";
 
-/** Examples binding이 app 상태와 score load 흐름을 제어하기 위한 session 입력. */
+/** Examples에 필요한 잠금 조회·진행 보고·악보 로드만 허용하는 앱 계약. */
 export type ExampleBindingSession = {
-  getState(): AppState;
-  setState(nextState: AppState): void;
-  loadScoreJsonText(jsonText: string, sourceLabel: string): void;
+  /**
+   * 현재 Practice 잠금 여부를 조회한다.
+   * - 인수 : 없음
+   * - 반환값 : Examples를 사용할 수 없으면 true
+   */
+  isPracticeLocked(): boolean;
+  /**
+   * 기존 상태 메시지를 유지하며 앱 입력을 잠그고 진행 문구를 표시한다.
+   * - 인수 : message : 로딩 안내
+   * - 반환값 : 없음
+   */
+  beginLoading(message: string): void;
+  /**
+   * 앱 busy를 해제하고 성공·실패·닫기 또는 진입 차단 결과를 표시한다.
+   * - 인수 : text : 결과 문구
+   * - 인수 : level : 상태 중요도
+   * - 반환값 : 없음
+   */
+  reportIdleStatus(text: string, level: UiStatusLevel): void;
+  /**
+   * 기존 검증·악보 교체 경로를 실행한다. 해당 경로가 busy와 결과 표시를 맡는다.
+   * - 인수 : jsonText : 받은 Score JSON
+   * - 인수 : sourceLabel : 로드 출처 표시
+   * - 반환값 : 로드 직후 앱 상태가 오류가 아니면 true
+   */
+  loadScoreJsonText(jsonText: string, sourceLabel: string): boolean;
 };
 
 /** 현재 페이지의 검증된 접근 단어와 최신 목록 요청을 보관하는 임시 상태. */
@@ -39,7 +57,7 @@ type ExampleAccessSession = {
 /**
  * Examples 메뉴, dialog, provider event를 app 상태 변경 흐름에 연결한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회/갱신과 score load callback 묶음
+ * - 인수 : session : 잠금 조회·진행 보고와 score load callback 묶음
  * - 반환값 : 없음
  */
 export function bindExampleControls(
@@ -55,10 +73,8 @@ export function bindExampleControls(
   };
 
   dom.examplesButton.addEventListener("click", () => {
-    const state = session.getState();
-
-    if (isGameModeLocked(state.gameMode)) {
-      setAppStatus(dom, session, "Exit practice mode before loading examples.", "warning");
+    if (session.isPracticeLocked()) {
+      session.reportIdleStatus("Exit practice mode before loading examples.", "warning");
       return;
     }
 
@@ -73,12 +89,12 @@ export function bindExampleControls(
         accessSession.requestId += 1;
         if (accessSession.loading) {
           accessSession.loading = false;
-          setAppStatus(dom, session, "Example list loading cancelled.", "info");
+          session.reportIdleStatus("Example list loading cancelled.", "info");
         }
         return;
       }
 
-      if (isGameModeLocked(session.getState().gameMode)) {
+      if (session.isPracticeLocked()) {
         setExampleDialogNotice(dom, "Exit practice mode before loading examples.", "warning");
         return;
       }
@@ -101,7 +117,7 @@ export function bindExampleControls(
 /**
  * Edge Function에서 manifest를 읽고 dialog에 표시한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회/갱신 callback
+ * - 인수 : session : 잠금 조회·진행 보고와 악보 로드 계약
  * - 인수 : provider : Examples provider
  * - 인수 : accessWord : 사용자가 입력한 임시 암호 단어
  * - 인수 : accessSession : 페이지 수명의 접근 단어와 요청 순서 상태
@@ -121,7 +137,7 @@ async function loadManifest(
 
   setExampleDialogBusy(dom, true);
   setExampleDialogNotice(dom, `Loading ${scopeLabel}...`, "info");
-  setAppBusyStatus(dom, session, `Loading ${scopeLabel}...`);
+  session.beginLoading(`Loading ${scopeLabel}...`);
 
   try {
     const manifest = await provider.loadManifest(trimmedAccessWord);
@@ -135,7 +151,7 @@ async function loadManifest(
     }
     renderExampleManifest(dom, manifest);
     setExampleDialogNotice(dom, `Loaded ${manifest.examples.length} example(s).`, "info");
-    setAppStatus(dom, session, "Example list loaded.", "info");
+    session.reportIdleStatus("Example list loaded.", "info");
   } catch (error: unknown) {
     if (requestId !== accessSession.requestId || !dom.examplesDialog.open) {
       return;
@@ -153,7 +169,7 @@ async function loadManifest(
     const message = formatExampleError(error, trimmedAccessWord.length === 0 ? "public" : "extra");
 
     setExampleDialogNotice(dom, message, "error");
-    setAppStatus(dom, session, message, "error");
+    session.reportIdleStatus(message, "error");
   } finally {
     // 이전 요청의 finally가 새 요청의 입력 잠금을 해제하지 않도록 최신 요청만 정리한다.
     if (requestId === accessSession.requestId) {
@@ -161,7 +177,7 @@ async function loadManifest(
       setExampleDialogBusy(dom, false);
       // close 이벤트보다 응답이 먼저 정리되는 경우에도 앱의 로딩 상태가 남지 않게 한다.
       if (!dom.examplesDialog.open) {
-        setAppStatus(dom, session, "Example list loading cancelled.", "info");
+        session.reportIdleStatus("Example list loading cancelled.", "info");
       }
     }
   }
@@ -170,7 +186,7 @@ async function loadManifest(
 /**
  * 선택한 example Score JSON을 fetch하고 기존 score load pipeline으로 전달한다.
  * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회/갱신 callback
+ * - 인수 : session : 잠금 조회·진행 보고와 악보 로드 계약
  * - 인수 : provider : Examples provider
  * - 인수 : item : 사용자가 선택한 manifest item
  * - 반환값 : 없음
@@ -187,78 +203,22 @@ async function loadExampleScore(
 
   setExampleDialogBusy(dom, true);
   setExampleDialogNotice(dom, `Loading ${item.title}...`, "info");
-  setAppBusyStatus(dom, session, `Loading ${item.title}...`);
+  session.beginLoading(`Loading ${item.title}...`);
 
   try {
     const jsonText = await provider.loadScoreText(item);
 
-    session.loadScoreJsonText(jsonText, `example: ${item.title}`);
-    if (session.getState().statusMessage.level !== "error") {
+    if (session.loadScoreJsonText(jsonText, `example: ${item.title}`)) {
       dom.examplesDialog.close();
     }
   } catch (error: unknown) {
     const message = formatExampleError(error);
 
     setExampleDialogNotice(dom, message, "error");
-    setAppStatus(dom, session, message, "error");
+    session.reportIdleStatus(message, "error");
   } finally {
     setExampleDialogBusy(dom, false);
   }
-}
-
-/**
- * Examples 작업 중 앱 busy 상태를 표시한다.
- * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회/갱신 callback
- * - 인수 : message : busy 메시지
- * - 반환값 : 없음
- */
-function setAppBusyStatus(
-  dom: AppDom,
-  session: ExampleBindingSession,
-  message: string,
-): void {
-  const state = session.getState();
-
-  session.setState({
-    ...state,
-    busy: {
-      kind: "loadingScore",
-      message,
-    },
-  });
-  syncLeftStatus(dom, session.getState());
-  syncUiControls(dom, session.getState());
-}
-
-/**
- * Examples 작업 결과를 앱 status line에 표시한다.
- * - 인수 : dom : 앱에서 제어하는 DOM 요소
- * - 인수 : session : app 상태 조회/갱신 callback
- * - 인수 : text : 표시할 문구
- * - 인수 : level : 상태 중요도
- * - 반환값 : 없음
- */
-function setAppStatus(
-  dom: AppDom,
-  session: ExampleBindingSession,
-  text: string,
-  level: AppState["statusMessage"]["level"],
-): void {
-  const state = session.getState();
-
-  session.setState({
-    ...state,
-    busy: {
-      kind: "idle",
-    },
-    statusMessage: {
-      level,
-      text,
-    },
-  });
-  syncLeftStatus(dom, session.getState());
-  syncUiControls(dom, session.getState());
 }
 
 /**

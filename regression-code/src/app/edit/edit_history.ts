@@ -8,10 +8,7 @@ import type {
   UndoHistoryEntry,
   UndoHistoryState,
 } from "../app_types";
-import type {
-  ScoreEditSelection,
-  ScoreTextEdit,
-} from "./edit_apply";
+import type { ScoreEditSelection, ScoreTextEdit } from "../../core/score/score_text_edit";
 
 /** 이력 생성에 필요한 기존 좌표 인덱스. 함수는 Map과 셀을 변경하지 않는다. */
 export type HistoryCellLookup = {

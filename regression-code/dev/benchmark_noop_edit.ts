@@ -4,7 +4,8 @@ import { cpus } from "node:os";
 import { performance } from "node:perf_hooks";
 import { createRuntimeDocument } from "../src/core/score/create_runtime_document";
 import { createInitialState, applyRawTextBatchEditToState } from "../src/app/app_runtime";
-import { applyScoreCellRawTextBatch, type ScoreTextEdit } from "../src/app/edit/edit_apply";
+import { applyScoreCellRawTextBatch } from "../src/app/edit/edit_apply";
+import { type ScoreTextEdit } from "../src/core/score/score_text_edit";
 import type { ScoreFile } from "../src/core/score/types";
 
 /**

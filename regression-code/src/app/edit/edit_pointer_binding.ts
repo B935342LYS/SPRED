@@ -18,7 +18,7 @@ import {
 import type { AppNotePreviewRuntime } from "../playback/app_note_preview";
 import { hitTestScoreCell } from "../score_hit_test";
 import { xToColumn } from "../../renderer/canvas_coordinate";
-import type { ScoreTextEdit } from "./edit_apply";
+import type { ScoreTextEdit } from "../../core/score/score_text_edit";
 import {
   composeDragRawTextForHit,
   composeSingleEditForHit,

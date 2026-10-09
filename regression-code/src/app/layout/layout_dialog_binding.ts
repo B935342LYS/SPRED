@@ -32,9 +32,11 @@ import {
   createLayoutDraftFromPreset,
   createLayoutPresetFileName,
   createUserLayoutPresetData,
+} from "./layout_preset";
+import {
   parseUserLayoutPresetJson,
   serializeUserLayoutPresetData,
-} from "./layout_preset";
+} from "../../core/score/layout_preset";
 import { isGameModeLocked } from "../game/game_types";
 import { formatPitchName } from "../pitch_label";
 import { colorForLabelMidi } from "../../renderer/canvas_note_colors";

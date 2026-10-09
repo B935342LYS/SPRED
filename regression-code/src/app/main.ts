@@ -11,9 +11,10 @@ import {
 } from "./app_runtime";
 import { bindFileControls } from "./app_file_binding";
 import { bindExampleControls } from "./examples/example_binding";
+import type { ExampleBindingSession } from "./examples/example_binding";
 import { bindViewControls } from "./app_view_binding";
 import type { AppState, UndoHistoryState } from "./app_types";
-import type { ScoreTextEdit } from "./edit/edit_apply";
+import type { ScoreTextEdit } from "../core/score/score_text_edit";
 import {
   buildCellHistoryPatches,
   captureHistoryCellLookup,
@@ -24,7 +25,7 @@ import {
   popUndoHistoryEntry,
   pushUndoHistoryEntry,
 } from "./edit/edit_history";
-import { getScoreTextEditInvalidationKind } from "./edit/edit_apply";
+import { getScoreTextEditInvalidationKind } from "../core/score/score_text_edit";
 import { bindEditPanelControls } from "./edit/edit_panel_binding";
 import { bindScorePointerControls } from "./edit/edit_pointer_binding";
 import { syncLayoutToolbarPresetSelectForCurrentScore } from "./layout/layout_dialog_binding";
@@ -583,7 +584,47 @@ async function boot(): Promise<void> {
   stopPlaybackAnimation = bindPlaybackControls(dom, appSession).stopPlaybackAnimation;
   bindTrackControls(dom, appSession);
   bindFileControls(dom, appSession);
-  bindExampleControls(dom, appSession);
+  // Examples에는 전체 상태 참조/교체 권한 대신 필요한 작업만 전달한다.
+  const exampleSession: ExampleBindingSession = {
+    /**
+     * 실행 시점의 Practice 잠금을 조회한다.
+     * - 인수 : 없음
+     * - 반환값 : Practice 잠금 여부
+     */
+    isPracticeLocked: () => isGameModeLocked(state.gameMode),
+    /**
+     * 최신 앱 상태에 로딩 표시를 반영하고 입력 잠금을 동기화한다.
+     * - 인수 : message : 진행 안내
+     * - 반환값 : 없음
+     */
+    beginLoading(message) {
+      state = { ...state, busy: { kind: "loadingScore", message } };
+      syncLeftStatus(dom, state);
+      syncUiControls(dom, state);
+    },
+    /**
+     * 최신 앱 상태의 busy를 해제하고 결과를 동기화한다.
+     * - 인수 : text : 결과 문구
+     * - 인수 : level : 상태 중요도
+     * - 반환값 : 없음
+     */
+    reportIdleStatus(text, level) {
+      state = { ...state, busy: { kind: "idle" }, statusMessage: { text, level } };
+      syncLeftStatus(dom, state);
+      syncUiControls(dom, state);
+    },
+    /**
+     * 공통 로드 경로의 처리 직후 결과만 Examples에 전달한다.
+     * - 인수 : jsonText : 받은 Score JSON
+     * - 인수 : sourceLabel : 로드 출처
+     * - 반환값 : 기존 dialog 닫기 조건인 오류 상태 아님 여부
+     */
+    loadScoreJsonText(jsonText, sourceLabel) {
+      loadScoreJsonText(jsonText, sourceLabel);
+      return state.statusMessage.level !== "error";
+    },
+  };
+  bindExampleControls(dom, exampleSession);
   dom.manualButton.addEventListener("click", () => {
     window.open("./manual/index.html", "_blank", "noopener");
   });

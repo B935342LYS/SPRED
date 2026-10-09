@@ -16,7 +16,7 @@ import type {
   CanvasScoreLayout,
 } from "../renderer/canvas_types";
 import type { DefaultNoteEditInput } from "./edit/edit_default";
-import type { ScoreEditSelection } from "./edit/edit_apply";
+import type { ScoreEditSelection } from "../core/score/score_text_edit";
 import type { TupletEditDraft } from "./edit/edit_tuplet";
 import type { GameModeState, PracticeJudgeMode } from "./game/game_types";
 import type { LayoutDraftBundle } from "./layout/layout_types";
