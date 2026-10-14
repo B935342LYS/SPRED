@@ -395,6 +395,40 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-14 CREPE 비교용 기존 녹음 확보
+
+- 사용자 제공 `1. 개발문서/피치테스트/`에서 48kHz mono 16-bit PCM WAV 4개(약 124.78초)와 metadata 및 이전 detector 결과를 확인했다. SHA-256/샘플 수/기본 통계는 로컬 `docs/report-prep/crepe-pilot/2026-10-14-corpus-inventory.json`에 기록했다.
+- metadata와 WAV 형식은 일치한다. 원래 track 2채널→저장 mono 변환 규칙과 정답 음정 라벨은 추가 확인 대상이다. 기존 detector·identifiability 결과를 ground truth로 사용하지 않는다.
+- 다음은 확보한 동일 WAV의 현재 Pitchy 기준선 재현과 CREPE 실행 검증이다. 모델 설치·실험 worktree 구성·비교 실행은 아직 하지 않았다. 원본 자료는 보존했다.
+
+### 2026-10-14 구조 개선 묶음 마무리·CREPE 실험 준비
+
+- 사용자 채택에 따라 입력 기록 분리까지를 이번 구조 개선 완료 범위로 정리했다. audio schedule/layout 대형 파일 추가 분리, Practice 전체 상태 전이 개편은 이번 주 선행 작업에서 제외하고 재검토 조건을 3.10 28절에 기록했다.
+- 다음 작업은 3.4/3.6에 따른 동일 PCM/WAV 기반 Pitchy–CREPE 시범 비교다. Strategy/Adapter는 실제 backend 비교에 필요한 최소 계약으로 구현하며 공개 배포·기본 detector 변경은 별도다.
+- 원시 WAV/PCM과 비교 코드의 작업공간 파일명 검색 결과 미발견. 별도 보관 경로를 사용자에게 문의 중이다. 합성 신호로 전후처리를 확인할 수 있지만 실제 악기 품질 결론은 녹음 자료 확보 후 판단한다.
+- main의 기존 미커밋 변경을 보존했다. 실험 branch/worktree·모델 설치·새 비교 runner는 아직 준비 전이며, 제품 테스트는 이번 정적 마무리 검토에서 반복하지 않았다.
+
+### 2026-10-14 A7 Practice 입력 기록 분리 완료
+
+- `app/game/game_input_history.ts`가 중복 프레임 확인, onset 후보 생성, 최근 effect frame 보관과 reset을 소유한다. 입력은 GamePitchFrame과 보정된 score time이며 DOM/AppState/오디오 의존은 없다.
+- playback binding은 playing 확인·Sync 보정·기록 조회·초기화 시점만 연결한다. 점수/주법 규칙, 카운트다운, UI 확정 순서는 유지했다. pause/resume은 기록을 보존하고 Stop 및 카운트다운 완료 직전에는 초기화한다.
+- 3,000단계 기존 코드 대비 목록 동등성, 입력 경계와 판정 연결 검사, Chrome 기록 보존/초기화 및 기존 카운트다운·비동기 검사 통과. test:game/test:audio/test:youtube/build 통과.
+- 상세 3.10 27절과 로컬 보고서 `docs/report-prep/implementation-records/2026-10-14-game-input-history.md`. 전체 판정 추출·audio schedule/layout 분리는 이번 작업 범위가 아니다.
+
+### 2026-10-13 A7 playback binding 책임 검토 — 미구현
+
+- 3.10 26절에 상태·자원·호출 순서와 분리 후보를 정리했다. 권장 첫 대상은 Practice 입력 프레임 기록(onset 후보와 최근 effect frame buffer)을 `app/game/game_input_history.ts`로 분리하는 것이다.
+- 입력은 GamePitchFrame과 Sync 보정된 score time으로 제한하며 AppState/AppDom·오디오·타이머 소유권은 넘기지 않는다. 판정 규칙·현재 reset/pause 정책과 상수를 보존한다.
+- 전체 점수 판정·결과 UI·카운트다운·스크롤 조율은 이번 분리에서 유지한다. audio schedule/layout binding은 예비 확인만 했고 상세 검토 완료가 아니다.
+- 제품 수정·테스트 재실행 없음. 기존 10월 10일 미커밋 변경 보존. 다음은 국소 분리안 해설과 범위 합의 후 구현·검증·보고서다.
+
+### 2026-10-10 카운트다운 수명 보완 및 seek 후보 검토
+
+- 보고서 제출 후 구조 개선을 재개했다. Practice 종료·재진입과 Stop 뒤 이전 타이머가 ready를 countdown으로 바꾸는 현상을 Chrome에서 재현했다. 전용 실행 번호와 runtime 확인, 취소 시 비프음 context 정리로 보완했다.
+- 종료·재진입/Stop/Sync × 첫 대기/마지막 대기 × 새 실행 전/후의 12개 조건과 새 실행의 재생 준비 진입을 검증했다. seek 막대 input/change는 stopped/paused 상태로 controller에 진입하며 추가 오디오 준비 대기가 없음을 확인했다. seek 지연 충돌은 확정하지 않았고 제품 수정하지 않았다.
+- test:audio, test:game, test:youtube, TypeScript 포함 build 통과. 검증은 제어된 타이머 및 장치 대역을 사용하며 실제 장치 청취 검증은 아니다.
+- 상세: 3.10 25절, 로컬 보고서 `docs/report-prep/implementation-records/2026-10-10-countdown-lifecycle.md`. 공용 설정 모듈 보류 유지. 대형 파일 일괄 분리는 이번 범위에 포함하지 않는다.
+
 ### 2026-10-09 L1–L4 비동기 수명 개선 완료
 
 - 사용자 확정: 파일 읽기 동안 다른 조작 잠금, Examples Escape 취소, Layout 이전 요청 무효화, 폐기된 재생 실패 무시. 상세는 3.10 24절.

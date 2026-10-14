@@ -1,3 +1,5 @@
+import "./test_game_input_history";
+import { createGameInputHistory } from "../src/app/game/game_input_history";
 import type { CanvasScoreLayout } from "../src/renderer/canvas_types";
 import { getPracticeDisplaySeconds } from "../src/app/playback/app_playback_ui";
 import { normalizeGameDisplayOffsetMs } from "../src/app/game/game_types";
@@ -2194,3 +2196,13 @@ assert(saveGameDisplayOffsetMsToLocalStorage(300) === 300, "Blocked storage writ
 Object.defineProperty(globalThis, "localStorage", { configurable: true, writable: true, value: usableStorage });
 
 console.log("Game mode pitch math test completed.");
+
+// 실제 입력 기록에서 만든 후보도 기존 후보 fixture와 같은 판정 결과를 반환한다.
+const recordedInput = createGameInputHistory();
+recordedInput.recordFrame(createPerfectTimingFrame(1010), 1.03);
+const recordedSample = judgeGameScoringSample(
+  createPerfectTimingFrame(1010), timingTarget, 1.01, difficulty,
+  { onsetCandidates: recordedInput.getOnsets(), judgedEventIds: new Set(),
+    consumedOnsetIds: new Set(), attackSatisfiedEventIds: new Set() },
+);
+assert(JSON.stringify(recordedSample) === JSON.stringify(onTimeSample), "Recorded onset must preserve scoring result.");
