@@ -21,6 +21,11 @@ Local deployment staging root:
   - sync stable implementation changes here when updating the deployed test build
 
 Local report commentary root:
+- `regression-code-report-commentary-2026-10-15/`
+  - current active implementation copied for a new commentary pass
+  - commentary style is fixed in `docs/4.1-code-commentary-guide.md`: simplified declaration JSDoc plus detailed internal/field `//` comments
+  - 2026-10-15 current task completed the guide only; code commentary has not started, and the next user-specified scope determines where to begin
+  - copy prepared only; previous commentary completion status does not carry over
 - `regression-code-report-commentary/`
   - ignored by the root repository
   - copied from `regression-code/` for report-writing explanation comments
@@ -63,6 +68,10 @@ Memo roots:
 Report writing guide:
 - `docs/4.0-second-extension-report-guide.md`
 
+Code commentary guide:
+- `docs/4.1-code-commentary-guide.md`
+- follow this guide for the new commentary copy; do not inherit the older copy's lower comment density or internal block-comment convention
+
 ## 3. Path Roles
 
 `docs/HARNESS.md` : `hub`
@@ -83,6 +92,11 @@ Report writing guide:
 - 2026-06-19 이후 2차 구현 보고서 목차 구조
 - 보고서 서술 원칙
 - 보고서 원자료와 해설용 코드 스냅샷 사용 기준
+
+`docs/4.1-code-commentary-guide.md` : `commentary-guide`
+- 해설용 복사본의 선언 JSDoc·블록 내부 및 객체 필드 `//` 작성 기준
+- 10월 3주차 4.2.2절과 10월 2주차 2.1.2절을 기준으로 한 상세 설명 밀도
+- 동작 보존·검증·완료 기록 및 다음 대화 재개 절차
 
 `docs/1.3-score-json-format.md` : `spec`
 - score storage format
@@ -394,6 +408,73 @@ If memo content is explicitly adopted by the user for implementation order or st
 - still resolve rule conflicts in favor of the active specification documents
 
 ## 9. Current Working Mode
+
+### 2026-10-15 해설용 주석 작성 가이드 고정 — 코드 주석 미착수
+
+- 사용자 지정 보고서 두 절을 확인하여 `docs/4.1-code-commentary-guide.md`에 작성 기준과 예시를 기록했다. 선언 앞의 간소화된 JSDoc을 유지하고 내부 동작·객체 필드·유니온 각 경우에는 상세한 `//`를 사용한다.
+- 기존 해설본의 낮은 설명 밀도 및 내부 `/* ... */` 방식은 새 작업의 기준으로 삼지 않는다. 기존 파일과 완료 기록은 과거 자료로 보존한다.
+- 대상은 `regression-code-report-commentary-2026-10-15/`이다. 이번에는 가이드와 탐색 링크만 작성했으며 코드 주석을 추가하지 않았다. 다음 사용자 지시에서 작업 범위를 정한다.
+
+### 2026-10-15 주간보고서 보충 및 새 해설용 복사본 준비
+
+- `1. 개발문서/주간보고서/10월 3주차 보고서.pdf` 16쪽 초안 확인. 3.3.1~3.3.5와 5장 보충 원고 및 원본 수정 참고는 `docs/report-prep/2026-10-15-weekly-report-supplement/`에 준비했다. 원본 PDF와 미완 4.4~4.7은 수정하지 않았다.
+- 현재 active에서 `regression-code-report-commentary-2026-10-15/`를 새로 복사하고 원본 hash 목록을 남겼다. 기존 복사본은 참고용이며 새 복사본의 주석 완료 상태를 뜻하지 않는다.
+- 이 단계에서는 사용자의 지시에 따라 주석을 시작하지 않고 가이드를 기다렸다. 이후 작성 기준은 위의 4.1 가이드 고정 기록을 따른다. 코드 주석·제품 동작 변경 없음.
+
+### 2026-10-14 배음 감쇠 합성 원인 실험 완료
+
+- 비포화 합성 56개에서 Pitchy·네 CREPE를 비교했다. 전체 음량 감쇠를 맞춰도 기본음 성분만 상대적으로 빨리 줄이면 모두 옥타브 이탈을 보였다. 같은 비율로 감쇠하는 대조군은 기본음을 유지했다.
+- 입력 배음 균형 변화가 공통 실패를 만드는 충분조건을 확보했다. 마이크 적응은 필수 설명이 아니며, 실제 음색 변화의 발생 원천은 미확정이다. 제품 교체 보류, 다음 후보는 감쇠·연속성을 이용한 후처리 평가다.
+- dev 생성/추론/집계 runner 및 로컬 synthetic-decay-experiment, synthetic-fundamental-decay-experiment에 plan/WAV/hash/JSON/CSV/PNG 저장. 검사와 build 통과, 제품 코드·threshold 변경 없음. 상세 3.6 15절과 2026-10-14-synthetic-decay-review.md.
+
+### 2026-10-14 Pitchy 실패 입력 확보와 A4 반복 CREPE 비교
+
+- 새 other 녹음에서 Pitchy voiced 음정 튐을 재현했다. A4 반복의 발음 끝부분에서 약 490→980Hz 이동, clarity 최대 .970 및 해당 창 PCM 포화 없음이 확인됐다.
+- 동일 WAV에 네 CREPE를 적용했으며 부분 개선과 공통 실패가 함께 나타났다. full도 문제를 제거하지 못했고 모델 크기별 단조 개선 없음. 제품 변경 없이 결과를 보존했다.
+- 상세 3.6 14절 및 docs/report-prep/implementation-records/2026-10-14-a4-repeat-crepe-comparison.md. 다음은 기본음/배음의 감쇠 속도를 분리한 합성 실험이다.
+
+### 2026-10-14 케이스별 새 녹음과 small·medium 비교 완료
+
+- 사용자 WAV·JSON 7쌍(64.53초) 검증 후 Pitchy/tiny/full/small/medium 비교 완료. 목표음은 의도 정보이며 정답률을 산출하지 않는다.
+- small/medium의 낮은 confidence 문제는 일부 줄었지만 gliss 및 F3 반복·지속음에 옥타브 불일치가 남았다. 이번 자료에서는 full의 Pitchy 일치가 대체로 가장 좋고 제품 교체 이점은 아직 미입증이다.
+- dev/middle_case_pilot.py 및 compare_middle_cases.py, 로컬 middle-case-experiment의 JSON/CSV/네 모델 PNG를 추가했다. 모델·입력 hash/시간축/RMS 동일성/구문/build 통과. 제품 src/public/package 변경 및 공개 배포 없음.
+- 다음: 후보 구간의 독립 음정 검토와 통제 합성 입력. 상세 3.6 13절과 docs/report-prep/implementation-records/2026-10-14-crepe-middle-model-review.md.
+
+### 2026-10-14 새 비교 녹음용 dev PCM recorder 준비
+
+- 과거 3.4의 캡처 기록과 달리 현재 소스/로컬 이력 검색에서 실행 가능한 녹음 도구를 찾지 못해 실험 dev/crepe/recorder.html을 추가했다. 케이스·목표 진행·반복·환경을 입력하고 WAV와 metadata JSON을 저장한다.
+- AudioWorklet explicit mono, 실제 AudioContext rate, PCM16, 60초 sample cap, 수동 stop/취소, 늦은 permission 응답 정리, 이전 결과 보존을 구현했다. 서버 전송/제품 연결 없음.
+- test:recorder(PCM/60초/flush, Chrome 가상 입력·파일 다운로드·취소·권한 거부), build 통과. 실제 마이크 검증은 사용자 녹음 단계다.
+- 실행: 실험 regression-code에서 npm run dev -- --port 5175 --strictPort, /dev/crepe/recorder.html. 보고서 `docs/report-prep/implementation-records/2026-10-14-dev-pcm-recorder.md`. 제품 src/public 변경 없음.
+
+### 2026-10-14 재시작 점검·full 오프라인 대조 완료
+
+- 종료 전 WAV/모델 hash·fixture·JSON 및 tiny Chrome 재실행 검사 통과. 자료 손상 징후 없음. WASM p95 2.4ms 재관측, 제품 파일은 de2e7b2와 동일하다.
+- 실험 dev에서 공식 full을 동일 WAV 4개 전체 12,480 frame에 실행했다. full 원시 결과·tiny/Pitchy 대조 CSV·검토 후보 PNG는 실험 report-prep/full-experiment에 있다. full 브라우저 실행은 미수행이다.
+- 합성 배음 입력에서 full이 tiny의 일부 옥타브 오류를 줄였지만 440Hz에서는 full만 881.44Hz를 출력했다. 실제 녹음의 정답이 없어 채택 판단은 보류한다. 사용자의 같은 음 반복→gliss 기억과 짧은 옥타브 꺾임은 검토 단서로만 사용하며 보정/자동 정답 분류 없음.
+- 후보 탐색 경계 6개·구문·의존성·typecheck 통과. 다음은 통제된 배음/위상/이동 신호 및 실제 녹음 불확실 구간 검토다. 상세 3.6 11절, 로컬 보고서 `docs/report-prep/implementation-records/2026-10-14-crepe-full-offline-review.md`. commit/push/제품 배포 없음.
+
+### 2026-10-14 CREPE tiny dev 변환·첫 실행 검증 완료
+
+- 실험 worktree `D:/SPRED-crepe-pilot`의 `regression-code/dev/crepe/`에 원본 로드·공식 Keras 변환·동일 입력 검사·Chrome WASM/WebGL 측정·전처리 검사·WAV 정렬 도구와 재현 lock/README를 추가했다. 제품 src/public/package는 기준 de2e7b2와 같다.
+- tiny float32 변환 1,965,156 bytes, 110 frame 수치 검증 통과. Windows의 불필요한 Decision Forests import 실패는 공식 HDF5 하위 모듈 독립 로딩으로 대응했다(설치 코드/변환 연산 수정 없음).
+- 이 PC(Ryzen 7 9800X3D)의 Chrome headless WASM 1 thread median/p95 2.0/2.4ms, WebGL 5.6/15.4ms. 캡처·전처리·판정·UI 제외 dev 값이다. tensor 해제/pageerror 검사·44.1/48kHz 전처리·build/test:game 통과.
+- 4 WAV 원본 tiny 전체 출력과 Pitchy 정렬 CSV 생성. 정답 라벨 부재로 품질 개선 판단은 보류한다. 다음은 full 대조와 정답/불확실 구간 정리 후 조건부 WASM 실시간 연결이다. full/마이크/Practice/저전력 장치/배포는 미수행.
+- 상세는 3.6 10절과 `docs/report-prep/implementation-records/2026-10-14-crepe-tiny-dev-experiment.md`. 원본 main은 문서만 갱신하며 dev 구현은 실험 branch에 있다. commit/push 없음.
+
+### 2026-10-14 CREPE 실험 worktree 분리와 모델 정적 조사 완료
+
+- `de2e7b2f8e20761cc8ef1b4e429b126d297311e9`에서 `experiment/practice-pitch-detection` branch와 `D:/SPRED-crepe-pilot` worktree를 만들었다. main은 유지했다. 시작 시 미커밋은 하네스뿐이며 제품 개선은 기준 commit에 포함된다.
+- WAV/metadata 8개를 복사해 원본 hash와 일치를 확인하고 기존 Pitchy 기준선 도구/결과를 실험 report-prep에 복사했다. 원본/실험 제품 diff 0 확인. 모델과 corpus는 Git 제외 로컬 경로다.
+- 원본 CREPE/TF.js demo/onnxcrepe source commit과 라이선스·구조를 확인했다. 원본 tiny HDF5(2,011,144 bytes), ONNX v1.1.0 tiny(1,955,762 bytes)를 받아 SHA-256을 기록했다. 나머지 모델은 크기 metadata만 확인했다.
+- 데모의 구형 TF.js/단순 리샘플링 및 ONNX 원본 비교 테스트의 느슨한 허용치를 발견했다. 다음은 원본 tiny 기준 TF.js 변환 재현성 검토, ONNX는 대안이다. runtime 최종 선택·설치·추론·품질 비교는 아직 수행하지 않았다.
+- 보고서: `docs/report-prep/implementation-records/2026-10-14-crepe-environment-model-review.md`. 모델 inventory와 조사 도구는 실험 worktree의 `docs/report-prep/crepe-pilot/`에 있다. Python/Node 의존성 설치는 다음 단계이며 이번 제품 build/test 반복·commit·push·배포 없음.
+
+### 2026-10-14 Pitchy 오프라인 기준선 재현 완료
+
+- 확보한 WAV 4개에 현재 제품 pitch runtime을 직접 연결하여 4096샘플/10ms hop 기준선을 생성했다. Pitchy 4.1.0, clarity 0.75, RMS 0.01을 유지하고 과거 layout 미확정으로 제품 null-layout 음역 20–5000Hz를 사용했다.
+- 총 12,446 frame 중 7,795 frame이 필터를 통과했다. 정답 라벨이 없어 정확도 수치가 아니다. 원본 hash/header/metadata, 440Hz/무음, 전체 두 번 실행 동등성을 확인했다. RAF/마이크/실시간 지연의 재현과 구분한다.
+- 로컬 도구·시계열·요약은 `docs/report-prep/crepe-pilot/`, 보고서는 `docs/report-prep/implementation-records/2026-10-14-pitchy-baseline.md`에 있다. 제품·원본 녹음 변경 및 모델 설치 없음. 다음은 CREPE 개념 해설과 단계 B 구현 계획 검토이며 실험 worktree와 CREPE 실행은 아직 준비 전이다.
 
 ### 2026-10-14 CREPE 비교용 기존 녹음 확보
 

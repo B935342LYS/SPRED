@@ -262,6 +262,9 @@ If the conflict affects implementation safety, stop and surface it clearly befor
 
 ## Comment Style
 
+- 해설용 복사본의 주석 작업은 `docs/4.1-code-commentary-guide.md`를 함께 따른다. 현재 대상은 `regression-code-report-commentary-2026-10-15/`이며, 제품 코드의 간결한 주석 원칙을 이유로 해설 밀도를 낮추지 않는다.
+- 해설본에서는 모듈 최상단·함수·객체·타입 선언 앞의 간소화된 JSDoc을 유지하고, 블록 내부의 의미 있는 개별 처리와 객체 필드·유니온 각 경우를 `//`로 상세히 설명한다. 내부 설명을 `/* ... */`로 대체하는 이전 해설본의 기준은 새 작업에 적용하지 않는다.
+- 가이드 작성과 코드 주석 착수는 별개다. 진행 상태와 사용자가 지정한 다음 범위는 하네스 및 해당 해설본 README에서 확인한다.
 - TypeScript의 `export type`, 모든 함수, 주요 모듈 진입점에는 JSDoc 형태의 블록 주석을 작성한다.
 - JSDoc 태그인 `@param`, `@returns`는 사용하지 않고, 가독성을 위해 일반 문자열 형식의 `- 인수 :`, `- 반환값 :`을 사용한다.
 - 함수 주석에는 함수 설명, 인수, 반환값을 기록한다.
