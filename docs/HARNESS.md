@@ -409,6 +409,26 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-26 ScoreFile 검증·허용 정책 보강 완료
+
+- 사용자 확정 정책에 따라 spred-sheet/0.0.1 지원 목록, 중첩 객체·배열, ID·행 종류·전역 종류 유일성, 악기 MIDI·열 너비, 트랙 note 행 참조 검사를 보강했다.
+- 날짜 누락/오류/역전, 개방현 정보 불일치, 악기 설정 음역 밖 note 행, 전역 parser 오류는 로드를 허용하고 비차단 경고로 모아 표시한다. 전역 시작 셀의 존재는 여전히 필수다.
+- 작성 시각은 원본 보존 후 명시 저장에서만 필요 시 보완한다. 정상 날짜·선택 난이도·presetId 생략은 보존한다. Details는 비문자열 날짜를 안전하게 표시한다.
+- 행 추가와 별도 레이아웃 프리셋도 음역 밖 MIDI 및 빈 표시명을 허용한다. 읽기 전용 openMidi는 레이아웃 적용만으로 생성·삭제하지 않는다.
+- 새 score_warnings.ts는 시각 판별과 비차단 경고 수집을 담당한다. parser/analyzer/renderer/audio 알고리즘 변경이나 외부 소스 재사용은 없다.
+- 검증: build(타입·라이선스 포함), test:score/layout/edit/parse/analyze/examples 통과. test:score에 구조 거부·경고 원본 보존·저장 보완·프리셋 왕복 회귀 검사를 연결했다.
+- Chrome: 경고 펼치기, Details, 레이아웃 개방현 누락 보존, JSON 저장 시 날짜 보완, 손상된 현 객체 거부 확인; pageerror 0개.
+- 작업본 regression-code와 명세 1.3/2.4/2.5 반영. 해설본·배포본 갱신과 커밋·배포는 이번 작업 범위에 포함하지 않았다. 상세 기록: 3.10의 31절.
+
+
+### 2026-10-22 MIDI 선행 구조 개선 배포 완료
+
+- 사용자 요청으로 원본 `5b0b526`의 선택 metadata/명시적 로드 결과 변경을 배포 사본에 반영했다. 제품 9개·관련 검사 4개 파일을 동기화하고 배포용 lock/설정 및 해설본은 유지했다.
+- spredtest main `63ac629c05a4bbccd03fb0e0aa4a320007202974` 커밋·push 완료. [Pages 실행 39775046650](https://github.com/B935342LYS/spredtest/actions/runs/39775046650)의 build/deploy success. 아래 10월 20일 미커밋·미배포는 당시 기록이다.
+- 배포본 build(타입·라이선스 검사 포함), test:score/layout/game/examples 통과. test:view 기존 Fit Height 기대값 문제는 이번 배포에서 수정하지 않았다.
+- 공개 사이트 Chrome 검사: 선택 metadata 없는 JSON 로드, Details의 0 표시, 레이아웃 창 열기, 다운로드의 필드 생략 유지, 잘못된 JSON 로드 후 기존 악보 보존, pageerror 0개 확인. 공개 JS는 raw 템플릿 CRLF escape 정규화 후 로컬 배포 bundle과 일치한다. 실제 마이크·청감 검증을 뜻하지 않는다.
+- 배포 저장소 작업 트리는 깨끗하다. 원본의 이번 변경은 이미 사용자 커밋에 포함되어 있었으며, 에이전트는 배포 현황 문서만 추가 갱신했다. MIDI 설계는 이후 작업이다.
+
 ### 2026-10-20 선택 metadata·명시적 로드 결과 반영
 
 - 사용자 결정으로 난이도 객체/개별 트랙 값과 ScoreFile presetId는 선택값으로 변경했다. 누락 난이도는 Details 0, Practice 기존 1/2/3 기본값; presetId는 custom 계열로 취급한다. 로드·단순 저장은 생략 상태를 보존하며 별도 프리셋 생성 시 custom을 기록한다. 1.3/2.5 갱신.
