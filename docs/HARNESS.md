@@ -60,6 +60,7 @@ Primary spec roots:
 - `docs/3.1-extension-roadmap.md`
 - `docs/3.2-karaoke-game-mode-spec.md`
 - `docs/3.3-third-extension-candidate-spec.md`
+- `docs/3.11-midi-import-spec.md` — MIDI 확정 정책; 미확정 절은 협의 초안
 - `docs/1.0-development-spec.md`
 
 Memo roots:
@@ -174,7 +175,7 @@ Code commentary guide:
 `docs/implementation-memo/` : `memo`
 `regression-code/` : `active`
 - stable SPRED implementation root for `B935342LYS/SPRED`
-- currently kept at the second-extension stable line around commit `21d7d82 구간 연습 지원`
+- current product baseline: `b73dda6 ScoreFile 명세구현 구멍 메우기`, followed by the 2026-10-30 pre-MIDI stabilization checkpoint; see section 9 for deployment and verification
 
 `regression-code-extend/` : `local-extension-copy`
 - local-only working copy for higher-risk third-extension experiments such as MIDI import
@@ -408,6 +409,42 @@ If memo content is explicitly adopted by the user for implementation order or st
 - still resolve rule conflicts in favor of the active specification documents
 
 ## 9. Current Working Mode
+
+### 2026-10-30 MIDI 구현 전 안정 상태 고정
+
+- 제품 기준은 `regression-code/`의 `b73dda6`이다. MIDI import 활성 작업본 구현은 미착수이며, 정책 기준은 `3.11-midi-import-spec.md`다. 다음 논의는 일대일 유지 또는 다대일 허용 여부이다.
+- 최신 ScoreFile 구조 검증·비차단 경고·날짜 보완·레이아웃 허용 정책과 관련 UI/검사 16개 파일을 배포본에 동기화했다. 배포용 package-lock.json과 CI 설정은 유지했다.
+- 배포 저장소 `B935342LYS/spredtest`의 `main`에 `1d8d7d4` (`10.30 MIDI구현 시도 전 안정적 상태 고정`)를 커밋·푸시했다.
+- [Pages 실행 40931291538](https://github.com/B935342LYS/spredtest/actions/runs/40931291538)의 build/deploy 모두 success. 공개 페이지와 연결된 JS/CSS HTTP 200 및 새 로드 경고 UI 마크업을 확인했다. 브라우저 상호작용 재검증은 수행하지 않았다.
+- 원본과 배포본의 추적 대상 `src/`, `styles/`, `public/`, `scripts/` 파일 hash 차이는 0개다. 배포 사본 작업 트리는 커밋 후 깨끗하다.
+- 원본 및 배포본에서 `npm run build`(타입·라이선스 검사 포함), `test:score`, `test:layout`, `test:edit`, `test:parse`, `test:analyze`, `test:examples`가 모두 통과했다. 두 로컬 빌드의 JS/CSS 산출물 이름도 일치한다.
+- `test:view`의 알려진 과거 기대값 문제는 이번 범위에서 수정·재검사하지 않았다. 실제 마이크·청감 검증은 수행하지 않았다.
+- MIDI 명세와 후보 문서·하네스 변경은 원본 안정화 커밋에 포함한다. `docs/report-prep/2026-10-week5-midi-policy.md`는 `.gitignore`의 `docs/report-prep/` 규칙에 따라 로컬 전용으로 유지한다.
+- 아래 날짜별 기록의 미배포·미커밋 표시는 당시 상태이며, 현재 상태는 이 체크포인트를 우선한다.
+
+
+### 다음 대화 재개 지점 — 2026-10-30
+
+- 졸업전시 팜플렛 작성·검토를 마치고 MIDI import 설계 논의로 복귀했다. 팜플렛 메일의 실제 발송 여부는 확인하지 않았다.
+- 현재 읽을 문서: [3.11 MIDI Import 명세](3.11-midi-import-spec.md), [10월 5주차 보고서용 문단·표](report-prep/2026-10-week5-midi-policy.md). 실험본 한계는 3.10의 29절 참고.
+- 확정 정책: 기존 악보에 병합하지 않고 새 ScoreFile 생성; 제목·아티스트·장르 Unknown, 작성자 Anonymous, 코멘트 빈 문자열; MIDI 텍스트/파일명의 곡 metadata 자동 대입 제외; 생성 후 Details에서 직접 입력; 기존 생성·저장 시각 정책 사용.
+- 확정 UI 방향: MIDI import 버튼으로 파일 입력 → 원본 트랙 목록 표시 → 사용자가 basic/optional/extra 대상 레이어 지정.
+- **첫 논의 항목은 일대일 유지 또는 다대일 병합 허용 여부이다.** 사용자는 최초 일대일을 선택한 후 여러 MIDI 트랙을 같은 대상에 배정하는 경우의 구현 난도를 질문했다. 다대일의 구현 가능성과 충돌 문제를 설명했으나 최종 선택은 아직 없다.
+- 기존 악보와 MIDI를 합치는 기능은 제외로 확정했다. 여러 MIDI 트랙을 새 악보의 한 레이어로 합치는 다대일 여부와 혼동하지 않는다.
+- 그 다음은 채널/음표 없는 트랙, layout, 양자화·동일 음 중첩·충돌, 템포/박자, 지원 범위와 손실 보고·적용 절차 순으로 협의한다. 기존 제안이나 실험본 기본값을 승인된 정책으로 간주하지 않는다.
+- 사용자 작업 방식: 정책을 순서대로 논의·확정할 때마다 명세와 10월 5주차 보고서용 문단·표를 함께 갱신한다. 설계 결정과 구현 완료 표현을 구분한다.
+- 원본 코드 기준 커밋: b73dda6 (ScoreFile 명세구현 구멍 메우기). MIDI 활성 작업본 구현은 미착수이며, 이번 세션은 문서만 수정했다. 커밋·배포는 하지 않았다.
+- 이번 문서 변경: docs/3.11 신규, docs/HARNESS 및 docs/3.3 갱신, docs/report-prep/2026-10-week5-midi-policy.md 신규. report-prep 파일은 로컬에는 존재하나 현재 git status에 표시되지 않으므로 이후 커밋 시 추적/ignore 여부를 별도로 확인한다.
+
+
+### 2026-10-30 MIDI Import 정책 명세 초안 작성
+
+- [3.11 MIDI Import 명세](3.11-midi-import-spec.md)는 현재 확정된 정책의 기준이다. 미확정 절은 구현 승인으로 해석하지 않는다.
+- 확정: 새 ScoreFile 생성, 곡 메타데이터 자동 추출/추정 제외 및 기존 기본값 사용, Details 수동 입력, 전용 MIDI import UI에서 원본 트랙 목록과 대상 레이어 수동 배정.
+- 배정 관계: 최초 일대일 선택 이후 다대일 병합 가능성을 질문·검토한 상태다. 다대일 채택도 일대일 최종 고정도 아직 확정하지 않는다.
+- 다음 협의: 배정 관계 → 채널/전역 전용 트랙 → layout → 양자화·중첩·충돌 → 템포/박자·지원 범위 → 경고·적용·검증.
+- [10월 5주차 보고서용 문단·표](report-prep/2026-10-week5-midi-policy.md)를 함께 작성했다. 이번 작업은 문서 정리이며 MIDI 제품 구현·배포는 하지 않았다.
+
 
 ### 2026-10-26 ScoreFile 검증·허용 정책 보강 완료
 
@@ -1852,16 +1889,16 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 10. Current Progress Summary
 
-### 현재 요약 — 2026-10-20
+### 현재 요약 — 2026-10-30
 
 - **제품:** 악보 로드·검증·파싱·분석, Canvas 렌더링, Web Audio 재생, 편집/범위 선택/Undo·Redo, 레이아웃·트랙, YouTube 동기화, Practice, Examples 및 매뉴얼이 구현되어 있다. Loop 재생, Practice 난이도(easy/standard/pro), gliss/vib/trem 판정은 이미 구현된 경로다. 아래 초기 목록의 미구현 표현을 재개 목록으로 쓰지 않는다.
 - **렌더링:** eventDiff 및 plan/patch 경로를 제거하고 재사용한 artifact의 완성된 renderInput을 직접 렌더한다. track/global 산출물 재사용과 viewport 가상화는 유지한다. `3.8` 부분 redraw 실험은 미채택 기록이다.
 - **구조 개선:** 편집·이력 동시 확정과 출력 복구, 무변경 편집 생략, 이력 인덱스 재사용, 공용 편집·프리셋 계약 분리, Examples 권한 축소, marker 중복 생성 감소, metadata 인덱스 재사용, 비동기 요청·카운트다운 수명 보호, Practice 입력 기록 분리를 완료했다. 상세는 `3.10-code-structure-review.md`와 9절 날짜별 기록이다.
-- **배포:** 마지막 기록은 2026-10-16, 원본 기준 `8b14255`, spredtest `bd5cd39` 및 설치 보완 `fe68974`다. 당시 Pages 성공과 공개 bundle 일치를 검증했다. 이번에는 원격 상태를 재검사하지 않았다.
+- **배포:** 2026-10-30 원본 제품 기준 `b73dda6`의 변경을 spredtest `1d8d7d4`에 반영·푸시했다. 검증 및 배포 결과는 9절의 최신 안정화 체크포인트를 따른다.
 - **해설:** `4.1` 기준과 `4.2` 계획에 따라 `regression-code-report-commentary-2026-10-15/`의 108/108개 TS 파일 완료. 원본 167개 hash, 주석 제외 구문 동일성, 주석 계약, typecheck/build 통과 기록이 있다. dev 도구·테스트·HTML/CSS·매뉴얼은 해당 계획 밖이다.
 - **음정 실험:** `D:/SPRED-crepe-pilot`에서 Pitchy와 CREPE tiny/small/medium/full을 비교했다. 기본음이 배음보다 빨리 감쇠하는 합성 입력에서 공통 옥타브 이탈을 확인했다. 실제 음색 변화의 원천과 제품 교체 이점은 미확정이다. detector 교체는 보류하며 전통 알고리즘·후처리·파인튜닝은 후속 검토 후보다.
-- **검증 후속:** test:view는 과거 기대값 미갱신 문제다. 배포용 lock/CI 보완은 원본 clean-install 문제 해결을 의미하지 않는다. 실제 장치·외부 서비스 검증은 자동/대역 검사와 구분한다. 이번 문서 정리에서는 build/test를 재실행하지 않았다.
-- **다음 선택:** 9절의 네 후보 중 범위를 정한다. 아래 과거 대기 목록을 자동 재개하지 않는다.
+- **검증 후속:** 10월 30일 원본·배포본 build 및 관련 6개 검사를 통과했다(9절 참조). test:view는 과거 기대값 미갱신 문제로 남겨 둔다. 배포용 lock/CI 보완은 원본 clean-install 문제 해결을 의미하지 않는다. 실제 장치·외부 서비스 검증은 자동/대역 검사와 구분한다.
+- **다음 작업:** MIDI import 정책 협의. `3.11`의 일대일/다대일 배정 관계부터 확정하며, 활성 작업본 MIDI 구현은 미착수다. 아래 과거 대기 목록을 자동 재개하지 않는다.
 
 ### 과거 진행 기록 — 현재 작업 지시로 사용하지 않음
 
