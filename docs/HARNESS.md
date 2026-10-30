@@ -410,6 +410,14 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-30 노트북 정책 브랜치 main 병합 — 현재 재개 지점
+
+- `origin/docs/midi-import-checkpoint-2026-10-30`의 `8ae0e09`를 로컬 main에 fast-forward 병합했다. 하네스·3.11 명세·보고서 기록의 최신 사용자 결정을 이어받으며, 제품 코드는 안정화 기준과 동일하다.
+- 이 PC의 이전 미커밋 하네스·명세는 `Preserve desktop MIDI policy notes before laptop checkpoint merge` stash에 보존했다. 기존 로컬 보고서를 포함한 세 문서는 `.agents/tmp/midi-before-laptop-merge-20261030-231848/`에도 보존했다. 미확정 상태였던 이전 내용을 최신 확정 정책 위에 재적용하지 않는다.
+- 현재 확정: 다대일·출처별 악기 구분, 화음 유지와 같은 음 재발음/발음 구간 합집합 유지, 정수 양자화·SPB 기본 4, 전역 4행+note 128행/21px, Format 0/1+PPQ, midi-file 채택(설치 전), Dynamics 100, 원본 전체 EOT 길이, 템포·박자 전체 변화/분모 환산·충돌 정책, 모두 미선택 및 검증 요약 후 Apply.
+- 다음 협의는 3.11 6.17의 두 미확정 제안이다: 같은 출처에서 같은 bank/program으로 돌아온 음들을 동일 목록 항목으로 묶기, 초기 타악기 판별을 GM 채널10 드럼 맵 파트로 한정하기. 이후 note 짝짓기·비정상 입력·규모 제한·출력 실패 복구 등 잔여 정책을 정한다.
+- 보고서 파일 하나는 이제 Git 추적 대상이다. 폴더 전체 ignore 규칙은 유지한다. 이번 병합·현황 정리는 문서 변경만 포함하므로 제품 build/test·배포는 재실행하지 않았다.
+
 ### 2026-10-30 MIDI 명세 중간 저장 및 작업 중단
 
 - 사용자 일정으로 설계 협의를 잠시 중단하고 하네스·3.11 명세·보고서 기록 세 파일을 GitHub `B935342LYS/SPRED`의 별도 문서 브랜치 `docs/midi-import-checkpoint-2026-10-30`에 중간 저장한다. 제품 구현 착수·배포를 뜻하지 않는다.
@@ -1927,7 +1935,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - **해설:** `4.1` 기준과 `4.2` 계획에 따라 `regression-code-report-commentary-2026-10-15/`의 108/108개 TS 파일 완료. 원본 167개 hash, 주석 제외 구문 동일성, 주석 계약, typecheck/build 통과 기록이 있다. dev 도구·테스트·HTML/CSS·매뉴얼은 해당 계획 밖이다.
 - **음정 실험:** `D:/SPRED-crepe-pilot`에서 Pitchy와 CREPE tiny/small/medium/full을 비교했다. 기본음이 배음보다 빨리 감쇠하는 합성 입력에서 공통 옥타브 이탈을 확인했다. 실제 음색 변화의 원천과 제품 교체 이점은 미확정이다. detector 교체는 보류하며 전통 알고리즘·후처리·파인튜닝은 후속 검토 후보다.
 - **검증 후속:** 10월 30일 원본·배포본 build 및 관련 6개 검사를 통과했다(9절 참조). test:view는 과거 기대값 미갱신 문제로 남겨 둔다. 배포용 lock/CI 보완은 원본 clean-install 문제 해결을 의미하지 않는다. 실제 장치·외부 서비스 검증은 자동/대역 검사와 구분한다.
-- **다음 작업:** MIDI import 정책 협의. `3.11`의 일대일/다대일 배정 관계부터 확정하며, 활성 작업본 MIDI 구현은 미착수다. 아래 과거 대기 목록을 자동 재개하지 않는다.
+- **다음 작업:** 노트북 정책 브랜치를 main에 병합했다. 3.11 6.17의 악기 변경별 항목 구성·타악기 판별 범위부터 협의한다. 다대일·중첩·양자화·전역값·Apply 기본 정책은 확정했으며 활성 작업본 MIDI 구현은 미착수다. 아래 과거 대기 목록을 자동 재개하지 않는다.
 
 ### 과거 진행 기록 — 현재 작업 지시로 사용하지 않음
 
