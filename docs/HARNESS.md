@@ -410,6 +410,31 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-10-31 사용자 확인 후 포커스 수정 배포
+
+- 사용자 정상 동작 확인 후 원본의 제품 변경 4개 파일(index.html, edit_pointer_binding.ts, main.ts, app_playback_binding.ts)을 배포본에 동기화했다. 버튼 포커스와 키보드 접근성은 유지하며, 악보 조작 시 포커스 이동·dialog 단축키 격리·버튼의 Space 기본 동작 보존을 적용한다.
+- 배포 저장소 spredtest main `9759014` (`10.31 악보 편집 포커스 및 단축키 충돌 수정`)를 커밋·푸시했다. 배포용 lock/CI와 해설본은 변경하지 않았다.
+- [Pages 실행 41163412102](https://github.com/B935342LYS/spredtest/actions/runs/41163412102)의 build/deploy 모두 success. 공개 사이트 Chrome에서 기존 복사·붙여넣기·Undo·스크롤/입력 보호 검사와 28개 포커스 경로·7개 dialog 격리·Escape·Space 검사를 모두 재통과했다. pageerror 0개. 실제 마이크·외부 YouTube 영상·청감 재검증을 뜻하지 않는다.
+- 배포본 build(타입·라이선스 포함), test:edit/audio/game 통과. 원본의 직전 검사도 동일 항목을 통과했다. 원본/배포본 추적 제품 src/styles/public/scripts/index.html hash 차이는 0개다.
+- 원본 커밋에는 제품 수정과 관련 UI 명세, MIDI 6.17 확정 정책, 보고서 및 하네스 갱신을 함께 포함한다. MIDI 코드는 미착수다. 아래 미커밋·미배포 문구는 당시 작업 이력이다.
+
+### 2026-10-31 포커스 및 전역 단축키 추가 점검 완료
+
+- Edit Mode만의 문제가 아니다. input/select에 남은 포커스가 악보 단축키 보호 조건에 걸리는 공통 구조다. 앞선 score-area 포커스 이동으로 숫자·CUSTOM·주법·음정·레이아웃·Expand·View·음량/파형·seek·잇단음·YouTube 및 버튼을 포함한 28개 경로에서 재선택 후 복사를 확인했다. 입력/선택 메뉴는 값 변경 전체를 재검증한 것이 아니라 포커스 배치 후 실제 pointer/keyboard 흐름을 검사했다.
+- 추가 결함 재현: Details Cancel 버튼에 포커스가 있으면 Ctrl+C가 뒤쪽 악보를 복사했다. Details 버튼의 Space는 창 열기 대신 재생을 시작했다.
+- 열린 dialog 및 defaultPrevented keydown에서 범위 편집·Undo/Redo·전역 Space를 무시하도록 보완했다. Space는 버튼/summary/링크 기본 조작도 보존한다. 변경 경계는 앱 키보드 이벤트 조율이며 renderer/audio 생성 알고리즘은 변경하지 않았다.
+- Chrome 검증: Info/Examples/Details/Practice Sync/Rules/Result/Layout의 7개 dialog에서 C/X/V/Z/Y/Shift+Z/Delete/Backspace가 배경 악보를 조작하지 않음, dialog 배경 Space 재생 차단, Escape 닫기, Details 버튼 Space 열기 및 악보 Space 재생/일시정지 확인. 실제 dialog DOM을 열어 키 이벤트를 검사했으며 Examples 원격 요청·Practice 마이크 세션까지 재실행한 것은 아니다.
+- build(타입·라이선스 포함), test:edit/audio/game 통과. 기존 복사·붙여넣기·Undo·텍스트 입력 보호·스크롤 유지 브라우저 검사도 재통과했고 pageerror 0개다. 로컬 검증 스크립트: `.agents/tmp/test-focus-audit.cjs`, `.agents/tmp/test-range-focus.cjs`.
+- 원본 작업본만 수정했으며 이번 변경의 커밋·푸시·배포는 수행하지 않았다. MIDI 확정 사항과 잔여 정책은 아래 기록을 유지한다.
+
+### 2026-10-31 MIDI 두 정책 확정 및 범위 복사 포커스 UX 수정
+
+- 사용자 확정으로 3.11 6.17의 동일 출처/bank/program 재등장 항목 통합과 초기 GM 채널10 타악기 판별·비활성화를 채택했다. 일반 선율 채널의 실로폰·마림바는 악기명으로 제외하지 않는다. 명세와 추적 중인 보고서 기록에 반영했다. MIDI 구현은 미착수이며 사용자 요청으로 UX 수정에 전환했다.
+- Ctrl+드래그 후 숨겨진 Edit Mode checkbox에 포커스가 남아 Ctrl+C가 입력 필드 보호 조건에서 무시되는 증상을 실제 Chrome에서 재현했다. pointerdown의 preventDefault가 기본 포커스 이동을 막는 것이 원인이다.
+- `regression-code/index.html`의 score-area에 tabindex=-1을 부여하고 edit pointerdown에서 preventScroll 옵션으로 해당 영역에 포커스를 옮긴다. 실제 입력 필드의 단축키 보호는 유지한다. 수정 경계는 앱 편집 UI이며 parser/analyzer/renderer/audio·저장 계약은 변경하지 않았다.
+- 검증: build(타입·라이선스 포함), test:edit 통과. Chrome에서 Edit Mode → Ctrl+드래그 → Ctrl+C 수정 전 실패/수정 후 성공, Ctrl+V/Undo, 텍스트 입력 단축키 보호, 입력 필드에서 악보 재선택 시 포커스 회수, 스크롤 유지 확인. pageerror 0개. 재현 스크립트는 로컬 `.agents/tmp/test-range-focus.cjs`다.
+- 제품 수정은 원본 작업본에만 반영했다. 이번 변경의 커밋·푸시·배포 및 해설본 동기화는 수행하지 않았다. MIDI 재개 시 note 짝짓기·악기 상태 잔여 상세·비정상 입력 등 미확정 정책을 이어서 협의한다.
+
 ### 2026-10-30 노트북 정책 브랜치 main 병합 — 현재 재개 지점
 
 - `origin/docs/midi-import-checkpoint-2026-10-30`의 `8ae0e09`를 로컬 main에 fast-forward 병합했다. 하네스·3.11 명세·보고서 기록의 최신 사용자 결정을 이어받으며, 제품 코드는 안정화 기준과 동일하다.
@@ -1935,7 +1960,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - **해설:** `4.1` 기준과 `4.2` 계획에 따라 `regression-code-report-commentary-2026-10-15/`의 108/108개 TS 파일 완료. 원본 167개 hash, 주석 제외 구문 동일성, 주석 계약, typecheck/build 통과 기록이 있다. dev 도구·테스트·HTML/CSS·매뉴얼은 해당 계획 밖이다.
 - **음정 실험:** `D:/SPRED-crepe-pilot`에서 Pitchy와 CREPE tiny/small/medium/full을 비교했다. 기본음이 배음보다 빨리 감쇠하는 합성 입력에서 공통 옥타브 이탈을 확인했다. 실제 음색 변화의 원천과 제품 교체 이점은 미확정이다. detector 교체는 보류하며 전통 알고리즘·후처리·파인튜닝은 후속 검토 후보다.
 - **검증 후속:** 10월 30일 원본·배포본 build 및 관련 6개 검사를 통과했다(9절 참조). test:view는 과거 기대값 미갱신 문제로 남겨 둔다. 배포용 lock/CI 보완은 원본 clean-install 문제 해결을 의미하지 않는다. 실제 장치·외부 서비스 검증은 자동/대역 검사와 구분한다.
-- **다음 작업:** 노트북 정책 브랜치를 main에 병합했다. 3.11 6.17의 악기 변경별 항목 구성·타악기 판별 범위부터 협의한다. 다대일·중첩·양자화·전역값·Apply 기본 정책은 확정했으며 활성 작업본 MIDI 구현은 미착수다. 아래 과거 대기 목록을 자동 재개하지 않는다.
+- **다음 작업:** 10월 31일 3.11 6.17의 두 정책을 확정하고 사용자 요청의 범위 복사 포커스 UX를 수정·검증했다. MIDI 구현은 미착수이며 재개 시 note 짝짓기·악기 상태 잔여 상세·비정상 입력 등 후속 정책을 협의한다. 아래 과거 대기 목록을 자동 재개하지 않는다.
 
 ### 과거 진행 기록 — 현재 작업 지시로 사용하지 않음
 
