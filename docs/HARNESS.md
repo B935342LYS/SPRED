@@ -410,6 +410,19 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-02 악보 로드 테마 유지 배포
+
+- [Pages 실행 41357426529](https://github.com/B935342LYS/spredtest/actions/runs/41357426529)의 build/deploy 모두 success. 공개 사이트 Chrome에서 파일/Local/Examples의 Dark 유지, 잘못된 파일 로드 시 기존 악보·Dark 유지, Light 정상 로드 유지를 확인했다. Examples는 fixture 응답으로 공개 앱의 로드 경로를 검사했으며 pageerror 0개다.
+- 사용자 요청으로 main.ts의 menuTheme 보존 변경을 배포본에 반영하고 spredtest main `583a7a8` (`11.02 악보 로드 시 사용자 테마 유지`)로 커밋·푸시했다. 배포용 lock/CI와 해설본은 변경하지 않았다.
+- 배포본 build(타입·라이선스 포함), test:examples/score 통과. 원본은 직전 작업에서 같은 검사와 Chrome 로드별 테마 검증을 통과했다. 아래 미커밋·미배포 표시는 당시 이력이다.
+
+### 2026-11-02 악보 로드 시 테마 유지 수정
+
+- 새 악보의 initialState가 menuTheme를 Light로 초기화하여 Dark 선택이 사라지는 현상을 Chrome 파일 로드로 재현했다. 공통 loadScoreJsonText에서 기존 menuTheme를 보존하도록 main.ts를 수정했다.
+- JSON 파일·Local Load·Examples 모두 같은 경로를 사용한다. 최초 실행 기본 Light 및 새로고침 시 초기화는 유지하며 ScoreFile/localStorage에 테마를 추가하지 않는다. parser/analyzer/renderer/audio 계약 변경 없음.
+- build(타입·라이선스 포함), test:examples/score 통과. Chrome에서 Dark의 파일/Local/Examples 로드 유지, 실패 시 악보·Dark 유지, Light의 정상 로드 유지를 확인했다. Examples는 fixture 응답으로 공통 로드 흐름을 검증했고 pageerror 0개다. 로컬 스크립트: `.agents/tmp/test-score-theme.cjs --verify`.
+- 원본 작업본만 수정했으며 이번 변경의 커밋·푸시·배포·해설본 동기화는 수행하지 않았다.
+
 ### 2026-11-02 예제 기본 정렬 최신순 변경
 
 - [Pages 실행 41346172970](https://github.com/B935342LYS/spredtest/actions/runs/41346172970)의 build/deploy 모두 success. 공개 사이트 Chrome에서 수정일 내림차순의 실제 목록 순서와 수동 정렬 변경 후 재개방 시 최신순 복귀를 확인했다. pageerror 0개. 로컬 검사 스크립트: `.agents/tmp/test-example-default-sort.cjs`.
