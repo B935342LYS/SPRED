@@ -410,6 +410,12 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-02 예제 기본 정렬 최신순 변경
+
+- [Pages 실행 41346172970](https://github.com/B935342LYS/spredtest/actions/runs/41346172970)의 build/deploy 모두 success. 공개 사이트 Chrome에서 수정일 내림차순의 실제 목록 순서와 수동 정렬 변경 후 재개방 시 최신순 복귀를 확인했다. pageerror 0개. 로컬 검사 스크립트: `.agents/tmp/test-example-default-sort.cjs`.
+- 사용자 요청으로 Examples 최초 열기·재개방의 기본값을 `Recently Updated` / `Descend`(updatedAt 내림차순)로 변경했다. HTML 기본 선택과 dialog 초기화 값을 함께 갱신했다. 수동 정렬과 기존 날짜 누락/동률 비교는 유지하며 DB·Storage 변경은 없다.
+- 원본·배포본 build(타입·라이선스 포함), test:examples 통과. 배포본 main `6c0b080` (`11.02 예제 악보 기본 정렬을 최신순으로 변경`)를 커밋·푸시했다. 제품 변경은 index.html과 example_dialog.ts 두 파일이다.
+
 ### 2026-11-01 예제 캐시 수정 배포 및 2차 구현 안정판 운영
 
 - [Pages 실행 41272436671](https://github.com/B935342LYS/spredtest/actions/runs/41272436671)의 build/deploy 모두 success. 공개 사이트 Chrome에서 공개 예제 Cradles를 같은 URL로 두 번 정상 로드하고 두 요청 모두 `cache: "no-cache"`임을 확인했다. pageerror 0개. 로컬 검사 스크립트는 `.agents/tmp/test-published-example-cache.cjs`이며 Storage 파일을 실제로 수정한 검사는 아니다.
