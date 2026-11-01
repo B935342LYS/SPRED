@@ -410,6 +410,21 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-01 예제 캐시 수정 배포 및 2차 구현 안정판 운영
+
+- [Pages 실행 41272436671](https://github.com/B935342LYS/spredtest/actions/runs/41272436671)의 build/deploy 모두 success. 공개 사이트 Chrome에서 공개 예제 Cradles를 같은 URL로 두 번 정상 로드하고 두 요청 모두 `cache: "no-cache"`임을 확인했다. pageerror 0개. 로컬 검사 스크립트는 `.agents/tmp/test-published-example-cache.cjs`이며 Storage 파일을 실제로 수정한 검사는 아니다.
+- 사용자 확인과 판단에 따라 2차 구현 범위는 안정판으로 유지하며, 이후 유지보수는 확인된 결함 수정과 제한적인 구조 개선을 중심으로 한다. MIDI 등 3차 확장 설계·구현은 별도 범위다. 알려진 test:view 기대값 미갱신과 실제 장치·외부 서비스의 검증 한계는 안정판 판단과 구분하여 유지한다.
+- 예제 Score JSON GET의 `cache: "no-cache"`를 배포본에 동기화하고 spredtest main `b015d4e` (`11.01 예제 악보 갱신 시 HTTP 캐시 재검증`)로 커밋·푸시했다. DB/Storage·배포용 lock/CI·해설본은 변경하지 않았다.
+- 배포본 build(타입·라이선스 포함), test:examples 통과. 원본도 직전 작업에서 같은 검사 및 Chrome 캐시 갱신 재현/실제 Supabase 읽기를 통과했다. 아래 미커밋·미배포 표시는 당시 이력이다.
+
+### 2026-11-01 예제 JSON 동일 URL 갱신 캐시 보완
+
+- 사용자 신고: Storage의 예제 JSON에서 YouTube 주소를 갱신하고 catalog upsert했지만 앱에는 이전 주소가 표시됨. 대상은 `example-scores/ryo-worldismine.json`이다.
+- 실제 공개 JSON과 cacheNonce 추가 요청 모두 videoId `qrwVthk38b0`, updatedAt `2026-11-01T04:04:58.790Z`, 응답 `Cache-Control: public, max-age=3600`을 확인했다. 공개 manifest에는 이 항목이 없어 추가 목록의 score_url 일치와 사용자 브라우저 캐시는 직접 확인하지 않았다. 로드 완료 시 YouTube 입력은 새 ScoreFile에서 다시 읽으므로 로컬 videoId 보관 경로는 원인으로 확인되지 않았다.
+- 기존 provider의 기본 fetch가 브라우저의 유효한 이전 응답을 재사용하는 동작을 Chrome+로컬 HTTP fixture로 재현했다. 서버 변경 후 old/old/old(네트워크 1회)였고, `cache: "no-cache"` 적용 후 old/new/new(매회 검증, 마지막 304)로 통과했다.
+- 수정 경계는 `example_supabase_provider.ts`의 개별 악보 GET이다. 실제 Supabase URL도 수정된 provider를 통해 새 videoId를 읽었다. build(타입·라이선스 포함), test:examples 통과. 로컬 검사: `.agents/tmp/test-example-http-cache.cjs --verify --remote`.
+- 사용자 브라우저에서 발생한 정확한 캐시 계층을 확정한 것은 아니다. CDN 무효화까지 보장하지 않으며, Supabase/MDN 문서의 참고 및 한계는 2.11에 기록했다. 코드 재사용·의존성 추가 없음. DB/Storage 변경, 커밋·푸시·배포는 수행하지 않았다.
+
 ### 2026-10-31 사용자 확인 후 포커스 수정 배포
 
 - 사용자 정상 동작 확인 후 원본의 제품 변경 4개 파일(index.html, edit_pointer_binding.ts, main.ts, app_playback_binding.ts)을 배포본에 동기화했다. 버튼 포커스와 키보드 접근성은 유지하며, 악보 조작 시 포커스 이동·dialog 단축키 격리·버튼의 Space 기본 동작 보존을 적용한다.
