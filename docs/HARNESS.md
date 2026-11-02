@@ -298,6 +298,7 @@ Audio playback:
 Layout editing:
 - `docs/2.4-layout-edit-ui-spec.md`
 - `docs/2.5-layout-preset-format-spec.md`
+- `docs/2.13-layout-bulk-pitch-remap-spec.md` — 1~4단계 구현·실사용 확인·배포 완료 (`9639ce1`)
 
 Track layer:
 - `docs/2.6-track-layer-ui-spec.md`
@@ -330,6 +331,9 @@ Appendix:
 - `docs/a1.0-open-source-reference-survey.md`
 
 ## 6. Document Status
+
+`feature-draft`
+- `2.13-layout-bulk-pitch-remap-spec.md` — 2026-11-03 사용자 요청. 일괄 레이아웃 매핑 이동 후 수동 조정; 미확정 정책을 기존 Apply 규칙 위에 자동 적용하지 않는다.
 
 `active`
 - `1.0-development-spec.md`
@@ -412,6 +416,92 @@ If memo content is explicitly adopted by the user for implementation order or st
 - still resolve rule conflicts in favor of the active specification documents
 
 ## 9. Current Working Mode
+
+### 2026-11-03 레이아웃 노트 일괄 변경 기능 배포 — 최신 재개점
+
+- 사용자 실사용 확인 후 배포본에 기능을 반영했다. 배포 저장소 커밋 `9639ce1`의 이름은 사용자 지정 `레이아웃 노트 일괄 변경 기능 최초 추가`이다.
+- 직전 배포 기준은 `001ccb1`. 문제 시 배포 저장소의 `9639ce1`을 revert하는 새 커밋을 배포하면 기능 추가 전 상태로 복구할 수 있다.
+- 배포본 `test:layout`, `build` 통과. Pages 실행 `41489723130` 성공. 공개 사이트에서 +/- 왕복 이동·툴팁 갱신·페이지 오류 없음을 확인했다.
+
+### 2026-11-03 Pitch Shift UI 간소화
+
+- 후속 요청: 요약 전용 줄을 제거하고 `Pitch Shift` 라벨의 hover 툴팁으로 옮겼다. draft 변경 시 갱신되며 빌드와 브라우저 DOM 확인을 통과했다. 미배포 상태다.
+
+- 사용자 요청으로 반음 입력·실행 버튼을 String 왼쪽의 `Pitch Shift [+] [−]`로 대체했다. 클릭마다 1반음 이동하고 MIDI 0/127 경계에서는 해당 방향을 비활성화한다. 음역과 삭제 대상 수 요약은 간략히 유지한다.
+- MinMidi·MaxMidi는 악기 음역 metadata와 경고 기준이므로 자동 변경하지 않는다. 실제 악기 음역 변경은 기존 수동 편집을 사용한다.
+- `build`, `test:layout` 통과. 배포하지 않았다.
+
+### 2026-11-03 레이아웃 일괄 음정 매핑 이동 3단계 완료
+
+- Layout Editor Rows에 `Semitones` 입력과 `Shift mapping` 버튼을 연결했다. 현재 score를 ID 기준으로 사용하고 이동 후 기존 행 목록·preview를 다시 그린다. 음역·허용 이동량·전체 트랙 삭제 셀 수를 표시하며 실제 적용은 기존 Apply에서 수행한다.
+- 성공 후 입력은 0, 실패 시 입력·draft 유지. Enter는 전체 Apply가 아닌 이동만 실행한다. Reset·재개방·프리셋 로드·string 변경 시 입력을 초기화한다. 성공한 이동은 대기 중인 파일 읽기를 무효화한다.
+- `test:layout`, `build` 통과. 로컬 Edge headless에서 왕복 이동, 잘못된 입력, 삭제 확인 취소, Reset·Cancel/재개방·Local/File Load·string 변경 초기화를 검증했고 페이지 오류는 없었다. 화면 배치도 확인했다.
+- 배포하지 않았다. 다음 4단계는 최종 실사용 확인 및 배포본 반영이다. parser·analyzer·audio·저장 형식은 변경하지 않았다.
+
+### 2026-11-03 레이아웃 일괄 음정 매핑 이동 2단계 완료
+
+- 기존 ID 기반 Apply와 삭제 정책은 유지하고 `layout_confirmation.ts`에 dialog·toolbar 공용 확인 경계를 추가했다. 삭제 총수와 원본 행의 ID·string·음정·셀 수를 표시한다. 순수 Apply는 승인 없이는 여전히 삭제를 거부한다.
+- `dev/test_layout_pitch_apply.ts`에서 실제 Apply 후 분석 결과·오디오 스케줄 보존, ScoreFile 왕복, 전체 트랙 삭제 집계, 미승인 시 document·analysis·history·저장 슬롯 보존, 승인 후 대상 셀만 삭제, 수동 삭제 및 File/Local 프리셋 재적용을 검증했다.
+- `test:layout`, `test:score`, `test:analyze`, `test:audio`, `test:edit`, `build` 통과. 2.4·2.5의 오래된 악기 음역 내 제한을 최신 1.3의 MIDI 0..127 허용 정책에 맞췄다. 저장 형식과 parser·analyzer·audio 구현은 변경하지 않았다.
+- 다음은 3단계 반음 입력·이동 버튼·preview 연결이다. 실제 브라우저 조작·청취는 4단계이며 이번 단계에서는 배포하지 않았다.
+
+### 2026-11-03 레이아웃 일괄 음정 매핑 이동 1단계 완료
+
+- `layout_draft.ts`에 `shiftLayoutDraftPitch(draft, semitones, sourceRows)`를 구현했다. 선택 string의 음정 매핑과 gap 경계를 이동하고 높이·물리적 순서·악기 정보·비대상 string은 유지한다.
+- 원본 score 행 목록을 기준으로 같은 음정의 ID를 보존한다. 임의 ID의 왕복 복원과 사라질 원본 ID의 잘못된 재사용 방지를 포함한다. 실패 시 입력은 수정하지 않는다.
+- `dev/test_layout_pitch_shift.ts`를 기존 `test:layout`에 연결했다. 양방향·반복·왕복 이동, MIDI/gap 경계, 다중 string, ID 충돌, 입력 불변성을 검증했다. `npm run test:layout`, `npm run build` 통과.
+- 변경 경계는 Layout Editor draft 변환이며 parser·analyzer·renderer·audio·저장 형식은 변경하지 않았다. UI·Apply에는 미연결이며 배포하지 않았다.
+- 다음은 2단계 Apply·삭제 안내·프리셋 경로 검증이다. 실제 Apply 이후 원곡 음정·분석·재생 보존 검증은 아직 수행하지 않았다. 상세 단계는 `2.13` 10절을 따른다.
+
+### 2026-11-03 레이아웃 일괄 음정 매핑 이동 명세 초안
+
+- 사용자 요청으로 `2.13-layout-bulk-pitch-remap-spec.md`를 작성했다. 기존 물리적 간격을 보존하고 note mapping을 정수 반음 단위로 이동한 뒤 기존 수동 편집으로 미세 조정하는 기능이다. 모델·개체별 간격이 동일하다고 가정하지 않는다.
+- 사용자 후속 확정: 반음 이동량 입력, 남는 음표의 원곡 음정 유지, 수용할 음정 행이 없어지는 셀은 기존처럼 삭제 안내·확인 후 Apply. 앞선 Apply 차단 안은 폐기했다. 프리셋 재적용도 기존 삭제 확인 흐름을 유지한다. 악보 조바꿈·rawText 일괄 치환·개별 MIDI 편집 추가는 범위 밖이다.
+- 같은 음정의 ID를 보존하여 남길 셀까지 잘못 삭제되지 않게 하는 설계 초안을 유지한다. 최종 결과에서 모든 트랙의 삭제 셀을 집계하고 취소 시 원본을 보존한다. 삭제 승인 시 연결 이벤트 분석 결과까지 불변이라고 보장하지 않는다. 음역 밖 행은 최신 1.3의 허용+경고 정책을 따른다.
+- 문서 작업만 수행했다. 제품 구현·테스트 실행·커밋·배포는 하지 않았다. 기존 3차 확장 전체 재개가 아니며 본 기능의 구현도 별도 요청 전에는 착수하지 않는다.
+
+### 2026-11-02 다국어 지원 3차 확장 후보 등록
+
+- 사용자 요청으로 다국어 UI 지원을 `3.1` 후보 목록과 `3.3` 14절에 기록하고 `1.0`에 연결했다. 한국어/영어는 초기 검토 후보이며 지원 언어·기본값·선택 보존·구현 방식·기존 후보 대비 우선순위는 미확정이다.
+- 모바일 추가 지원은 현재 수준에서 마무리하며, 전시 전에는 안정판 유지보수와 안내·체험 개선을 검토한다. 3차 확장 구현은 계속 중단 상태이며 이번 후보 등록으로 재개하지 않는다.
+- 문서만 수정했다. 제품 코드·의존성·배포는 변경하지 않았고 빌드/테스트는 재실행하지 않았다.
+
+### 2026-11-02 YouTube 허용 오차 250ms 복원 — 최신 상태
+
+- iPad 0~1초 반복은 재현 불가로 원인을 확인하지 못했다. 사용자 결정으로 drift threshold를 100ms에서 250ms로 복원했다. 검사 주기 1초·seek cooldown 500ms·재개 seek 생략 50ms는 유지한다. Local offset은 Android 미설정 -220ms, iOS/iPadOS·Windows 등 0ms, 저장값 우선 정책 그대로다.
+- 원본·배포본 build(타입·라이선스 포함), test:youtube 통과. 양방향 249/250/251ms 경계, 200ms 재동기화 생략 및 binding/player 수명 검사를 확인했다. 반복 현상의 원인 확정이나 실기기 해결 검증으로 간주하지 않는다.
+- 배포 사본의 sync 상수와 YouTube 테스트 두 파일만 `001ccb1`로 커밋·푸시했다. [Pages 실행 41437721031](https://github.com/B935342LYS/spredtest/actions/runs/41437721031)의 build/deploy 모두 success. 공개 페이지 HTTP 200, 공개 JS는 CR escape·줄바꿈 정규화 후 로컬 build와 일치한다. 원본은 로컬 수정 상태이며 2.7·3.7·4.3에 복원 정책을 반영했다.
+- 다음은 실제 사용에서 반복 현상 재발 여부 관찰이다. 재발 시 악보 커서·영상 위치·AudioContext 시계 진행을 구분한다. 과거 100ms 적용 기록은 당시 이력이다.
+
+### 2026-11-02 Local offset Android 한정 보정 배포 — 최신 상태
+
+- 사용자 후속 보고에서 iOS는 0ms일 때 싱크가 맞는 것으로 관찰되었다. 사용자 요청에 따라 저장값 부재 시 Android만 -220ms, iOS/iPadOS·Windows·그 외는 0ms로 변경했다. iPhone/iPad/iPod 및 Macintosh+멀티터치 기반 보정 분기를 제거했다. 기존 사용자 저장값(0 포함)은 계속 우선하며 자동 초기값은 저장하지 않는다.
+- 원본·배포본에 동일 정책 반영, 2.7·3.7·4.3과 배포 README 갱신. 이전 -220ms 기본값을 직접 저장하지 않은 iOS 사용자는 재방문 시 0ms, 직접 저장한 경우에는 0을 입력·확정해야 한다.
+- 원본·배포본 build(타입·라이선스 포함), test:youtube 통과. 로컬·공개 Chrome 환경 모사에서 Android -220ms, iPhone/iPad/데스크톱 UA iPadOS·Windows 터치·macOS 0ms, 저장값 보존 및 재방문 검사 통과(pageerror 0). `.agents/tmp/test-mobile-local-offset.cjs` 사용. 실제 기기 계측은 아니다.
+- spredtest `cc84588`, [Pages 실행 41437124197](https://github.com/B935342LYS/spredtest/actions/runs/41437124197) build/deploy success. 원본 변경은 로컬 수정 상태다.
+- iPad에서 보고된 0~1초 반복은 별도 미확정 문제다. 악보 커서와 영상 중 무엇이 반복/정지하는지 아직 확인되지 않았다. 오디오 시계 정지와 반복 drift seek는 후보이며 이번 기본값 변경을 해당 문제 해결로 단정하지 않는다. 아래 모바일 전체 -220ms 기록은 이전 정책이다.
+
+### 2026-11-02 모바일 Local offset 기본값 제품 정책 확정 — 최신 상태
+
+- 테스터 휴대폰에서도 -220ms로 싱크가 정상이라는 사용자 보고가 추가되었다. 사용자는 모바일 미설정 -220ms, Windows 0ms, 이후 사용자 변경값 보존을 제품 정책으로 확정했다. iOS/iPadOS 실제 청감이나 모든 기기의 보편 지연이 검증된 것은 아니다.
+- 원본·배포본 `youtube_preferences.ts`에 동일 정책을 적용했다. 저장값(0 포함)을 우선하고 키 부재에만 Android/iPhone/iPad/iPod UA 또는 Macintosh+멀티터치(iPadOS 추정)를 적용한다. Windows는 터치 여부와 관계없이 0ms다. 오염·저장소 실패·판별 불가는 0ms, 기본값은 자동 저장하지 않고 사용자 확정값만 저장한다. 키 부재는 실제 첫 방문과 다르다.
+- Android 배포본 한정 임시 예외는 종료했다. 2.7·3.7·4.3과 배포 README에 최신 정책 및 판별 한계·관찰 근거를 반영했다. 과거 Android만 허용·원본 기본0·모바일 보류 기록은 당시 이력이다.
+- 원본·배포본 build(타입·라이선스 포함), test:youtube 통과. 로컬·공개 Chrome 환경 모사에서 모바일/Windows 터치/macOS/iPadOS 데스크톱 UA 기본값, 저장값 보존, 재방문·수동0 저장 확인(pageerror 0). 스크립트 `.agents/tmp/test-mobile-local-offset.cjs`. 실기기 지연 측정은 아니다.
+- 배포 커밋 `58df8d9`, Pages 실행 [41435419998](https://github.com/B935342LYS/spredtest/actions/runs/41435419998)의 build/deploy 모두 success. 원본 제품·문서는 로컬 수정 상태이며 원본 커밋·푸시는 하지 않았다.
+
+### 2026-11-02 Android 미설정 Local offset -220ms 시험 배포 — 최신 상태
+
+- 사용자 후속 요청 및 Android 한정 확인에 따라, 테스트 배포 사본에만 임시 초기값을 적용했다. `localStorage` 키가 없고 UA에 Android가 있으면 -220ms, 기존 저장값(0 포함)은 우선한다. 오염·접근 실패·비Android는 0ms다. 기본값은 자동 저장하지 않으며 수동 조절값만 저장한다. 키 부재는 실제 첫 방문 판별이 아니다.
+- 원본 `regression-code/`는 0ms 정책 그대로다. 배포본 `src/infra/youtube_preferences.ts`, `dev/test_youtube.ts`, README의 의도적인 차이를 추후 동기화 시 보존하거나 사용자 결정에 따라 종료한다. 기존 테스터는 -220ms를 직접 입력해 비교할 수 있다.
+- spredtest main `1aa07d9` 커밋·푸시 완료. [Pages 실행 41433898994](https://github.com/B935342LYS/spredtest/actions/runs/41433898994)의 build/deploy success. 로컬 build(타입·라이선스 포함), test:youtube 통과. 공개 Chrome UA 모사에서 Android 미설정/저장0/사용자값/오염, iOS·PC 기본값, 재방문·수동0 저장 검사 통과(pageerror 0). `.agents/tmp/test-android-local-offset.cjs` 사용.
+- 실제 Android 기기의 지연·싱크는 아직 측정하지 않았다. 테스터 관찰 후 유지·조정·종료를 판단한다. 이전 3번 보류 기록은 이번 명시적 시험 범위에서 대체되며 제품 원본·타 플랫폼 확대는 승인되지 않았다.
+
+### 2026-11-02 트랙 유지 및 YouTube 100ms 배포 완료 — 최신 상태
+
+- 사용자 요청으로 원본 `09caa25`의 제품·검사 5개 파일을 배포 사본에 동기화하고 spredtest main `dfa88cf`로 커밋·푸시했다. 배포용 lock/CI 및 해설본은 변경하지 않았다.
+- [Pages 실행 41399494012](https://github.com/B935342LYS/spredtest/actions/runs/41399494012)의 build/deploy 모두 success. 배포 사본 build(타입·라이선스 포함), test:track/youtube/score/edit/layout/examples 통과. 동기화한 5개 파일의 원본/배포본 hash 일치 및 배포 사본 clean 확인.
+- 공개 사이트 Chrome에서 파일/Local/Examples 트랙 유지, 검증 실패 보존, 모두 비활성 유지 및 새로고침 basic 기본값 확인(pageerror 0). Examples는 fixture 응답이다. 공개 페이지·JS HTTP 200, JS는 내장 악보 문자열의 CR escape와 줄바꿈 정규화 후 로컬 build와 일치한다(바이트 동일 주장 아님).
+- 1·2번 배포 완료. 실제 YouTube 버벅임은 사용자 관찰 후 필요 시 수치를 조정하며 실제 영상·청감 검증은 이번 자동 검사에 포함하지 않았다. 모바일 자동 보정은 계속 보류한다. 아래 미배포 표시는 당시 기록이다.
 
 ### 2026-11-02 YouTube 허용 오차 100ms 적용 — 최신 재개점
 
