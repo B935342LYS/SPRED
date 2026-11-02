@@ -256,6 +256,9 @@ Interpretation rules:
 
 ## 5. Topic Entry Points
 
+Graduation exhibition / stable maintenance (current work):
+- `docs/4.3-exhibition-maintenance-plan.md` — 작업 계획; 구현 완료 명세 아님. 3차 확장 중단, 전시 준비, 트랙 유지·싱크 검토·모바일 가설 검증 재개점
+
 Project overview:
 - `docs/1.0-development-spec.md`
 - `docs/1.1-project-plan.md`
@@ -409,6 +412,31 @@ If memo content is explicitly adopted by the user for implementation order or st
 - still resolve rule conflicts in favor of the active specification documents
 
 ## 9. Current Working Mode
+
+### 2026-11-02 YouTube 허용 오차 100ms 적용 — 최신 재개점
+
+- 사용자 요청으로 4.3 유지보수 2번까지 진행했다. `YOUTUBE_DRIFT_THRESHOLD_SECONDS`를 0.25에서 0.1로 변경했다. 검사 주기 1초·seek cooldown 500ms·재개 시 seek 생략 50ms는 유지하며, 실제 사용 중 버벅임이 있으면 수치를 재조정한다.
+- test:youtube(양방향 99/100/101ms 경계·200ms 보정 전환·binding/player 수명 포함), build(타입·라이선스 포함) 통과. 실제 외부 영상·청감 검증은 하지 않았다.
+- 2.7 명세와 4.3 진행 상태를 갱신했다. 1번 트랙 유지와 2번 100ms는 원본 로컬에 반영되었으며 커밋·배포하지 않았다.
+- 3번 Android 자동 보정은 보류한다. 별도 재개 요청 전에는 진행하지 않으며 Local offset 기본값 0ms를 유지한다.
+
+### 2026-11-02 악보 교체 시 트랙 활성화 유지 구현
+
+- 파일·Local·Examples의 공통 loadScoreJsonText에서 기존 activeTrackIds를 초기 상태 생성에 전달한다. 빈 배열을 포함한 선택을 첫 renderer 입력·편집·재생에 적용하며 최초 실행은 basic 기본값을 유지한다. ScoreFile/localStorage 계약 변경 없음. 2.6 명세를 갱신했다.
+- build(타입·라이선스 포함), test:track/score/edit/layout/examples 통과. 트랙 8개 조합의 로드·alpha·audio 필터 검사 및 Chrome 파일/Local/Examples 로드·검증 실패 보존·모두 비활성·새로고침 기본값 검사 통과(pageerror 0). Examples는 fixture이며 실제 외부 서비스·청감 검증은 아니다. 로컬 스크립트: `.agents/tmp/test-score-tracks.cjs --verify`.
+- 원본 작업본만 변경했으며 커밋·배포·해설본 동기화는 하지 않았다. 공개 안정 기준은 아래 기존 배포 기록을 유지한다.
+- 사용자 확인: 전시 제출 형식·기한은 이미 정해져 있으며 사용자가 진행하다 필요 시 질의한다. 추가 제출물 확인을 선행 과제로 삼지 않는다.
+- 다음 검토 후보는 YouTube 100ms threshold다. 현재 250ms/검사 1초/seek cooldown 500ms는 유지했다. Android 실측이 어려우므로 -220ms 공통 초기값은 미확정·미적용이다.
+
+### 2026-11-02 졸업전시 준비 전환 — 다음 대화 최우선 재개점
+
+- 학과 주간보고서 제출 요구가 종료되었다. 앞으로는 졸업전시 자료와 전시 준비에 집중하며 주간보고서·report-prep 동시 갱신을 자동 재개하지 않는다. 기존 기록은 보존한다.
+- 사용자 요청으로 MIDI 등 3차 확장 개발을 임시 중단한다. 정책·실험 자료는 보존하되 별도 재개 요청 전에는 과거 MIDI 다음 작업을 진행하지 않는다.
+- 졸업전시 전까지 2차 안정판 유지보수를 우선한다. 현재 안정 기준: 원본 `88cb20a`, 배포본 `583a7a8`(악보 로드 시 테마 유지까지 배포 완료).
+- 현재 작업 문서: [4.3 졸업전시 준비 및 안정판 유지보수 계획](4.3-exhibition-maintenance-plan.md). 전시 제출물 종류·기한은 아직 미지정이다.
+- 유지보수 순서: (1) 악보 교체 후 트랙 활성화 상태 유지 (2) YouTube 싱크 허용 오차를 검토 후 안전한 범위에서 축소 (3) Android -220ms 관찰을 검증한 뒤 공통 오차가 확인된 모바일 범위에 한해 최초 Local offset 초기값 자동 설정 검토.
+- 1번은 미구현, 2번의 새 수치는 미정이다(현재 threshold 250ms, 검사 주기 1초). 3번은 검증 전 가설이며 현재 Local offset 기본값 0ms를 바꾸지 않았다. 기존 사용자 보정값 보존·Android 외 적용 범위·최초 접속 판별은 별도 검토한다.
+- 다음 대화는 본 항목과 4.3을 읽고 트랙 활성화 유지부터 이어간다. 이번에는 문서만 갱신했으며 구현·가설 실험·빌드·커밋·배포는 하지 않았다.
 
 ### 2026-11-02 악보 로드 테마 유지 배포
 
@@ -1985,16 +2013,16 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 10. Current Progress Summary
 
-### 현재 요약 — 2026-10-30
+### 현재 요약 — 2026-11-02
 
 - **제품:** 악보 로드·검증·파싱·분석, Canvas 렌더링, Web Audio 재생, 편집/범위 선택/Undo·Redo, 레이아웃·트랙, YouTube 동기화, Practice, Examples 및 매뉴얼이 구현되어 있다. Loop 재생, Practice 난이도(easy/standard/pro), gliss/vib/trem 판정은 이미 구현된 경로다. 아래 초기 목록의 미구현 표현을 재개 목록으로 쓰지 않는다.
 - **렌더링:** eventDiff 및 plan/patch 경로를 제거하고 재사용한 artifact의 완성된 renderInput을 직접 렌더한다. track/global 산출물 재사용과 viewport 가상화는 유지한다. `3.8` 부분 redraw 실험은 미채택 기록이다.
 - **구조 개선:** 편집·이력 동시 확정과 출력 복구, 무변경 편집 생략, 이력 인덱스 재사용, 공용 편집·프리셋 계약 분리, Examples 권한 축소, marker 중복 생성 감소, metadata 인덱스 재사용, 비동기 요청·카운트다운 수명 보호, Practice 입력 기록 분리를 완료했다. 상세는 `3.10-code-structure-review.md`와 9절 날짜별 기록이다.
-- **배포:** 2026-10-30 원본 제품 기준 `b73dda6`의 변경을 spredtest `1d8d7d4`에 반영·푸시했다. 검증 및 배포 결과는 9절의 최신 안정화 체크포인트를 따른다.
+- **배포:** 최신 안정 기준은 원본 `88cb20a`, spredtest `583a7a8`이다. 포커스·예제 캐시/최신순·악보 교체 시 테마 유지까지 배포했다. 검증 및 배포 결과는 9절 날짜별 기록을 따른다.
 - **해설:** `4.1` 기준과 `4.2` 계획에 따라 `regression-code-report-commentary-2026-10-15/`의 108/108개 TS 파일 완료. 원본 167개 hash, 주석 제외 구문 동일성, 주석 계약, typecheck/build 통과 기록이 있다. dev 도구·테스트·HTML/CSS·매뉴얼은 해당 계획 밖이다.
 - **음정 실험:** `D:/SPRED-crepe-pilot`에서 Pitchy와 CREPE tiny/small/medium/full을 비교했다. 기본음이 배음보다 빨리 감쇠하는 합성 입력에서 공통 옥타브 이탈을 확인했다. 실제 음색 변화의 원천과 제품 교체 이점은 미확정이다. detector 교체는 보류하며 전통 알고리즘·후처리·파인튜닝은 후속 검토 후보다.
 - **검증 후속:** 10월 30일 원본·배포본 build 및 관련 6개 검사를 통과했다(9절 참조). test:view는 과거 기대값 미갱신 문제로 남겨 둔다. 배포용 lock/CI 보완은 원본 clean-install 문제 해결을 의미하지 않는다. 실제 장치·외부 서비스 검증은 자동/대역 검사와 구분한다.
-- **다음 작업:** 10월 31일 3.11 6.17의 두 정책을 확정하고 사용자 요청의 범위 복사 포커스 UX를 수정·검증했다. MIDI 구현은 미착수이며 재개 시 note 짝짓기·악기 상태 잔여 상세·비정상 입력 등 후속 정책을 협의한다. 아래 과거 대기 목록을 자동 재개하지 않는다.
+- **다음 작업:** 졸업전시 준비 및 2차 안정판 유지보수로 전환했다. 주간보고서는 종료, MIDI 등 3차 확장은 임시 중단한다. 트랙 활성화 유지는 로컬 구현·검증 완료(미배포). 이후 YouTube 허용 오차 검토 → Android -220ms 가설 검증/조건부 초기값 순서로 이어간다. 전시 형식·기한은 사용자가 관리하며 필요 시 질의한다. 아래 과거 대기 목록을 자동 재개하지 않는다.
 
 ### 과거 진행 기록 — 현재 작업 지시로 사용하지 않음
 
