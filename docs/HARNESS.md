@@ -417,7 +417,21 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
-### 2026-11-03 레이아웃 노트 일괄 변경 기능 배포 — 최신 재개점
+### 2026-11-05 코드 리뷰 보완 배포 — 최신 재개점
+
+- 배포 저장소에 `faddfb2` (`저장 용량·레이아웃 입력 보존·삭제 집계 경계 보완`)로 커밋·푸시했다. 직전 배포 기준은 `9639ce1`이며 문제 시 `faddfb2`를 revert하여 복구한다.
+- 배포본 `test:score`, `test:layout`, `test:edit`, `build` 통과. Pages 실행 `41897747387` 성공. 공개 사이트에서 이름 입력 후 높이 변경·행 선택 시 보존, Pitch Shift 왕복, JSON 다운로드와 페이지 오류 없음을 확인했다.
+
+### 2026-11-05 코드 리뷰 후 세 경계 보완
+
+- 삭제 집계의 rowId별 사전을 프로토타입 없는 객체로 변경했다. 유효한 외부 ID `__proto__`·`constructor`·`toString`도 행별 수량과 확인창에 정확히 반영된다.
+- Layout Editor의 일반 편집을 callback 방식으로 통일했다. 이름·악기 설정을 DOM에서 읽은 최신 draft로 행 선택·높이·추가·삭제·Shift·드래그 시작을 실행하며, Reset·Cancel·Load는 기존 교체 동작을 유지한다.
+- 파일 다운로드 전 `prepareScoreJsonExport`로 UTF-8 8 MiB를 검사한다. 들여쓰기 때문에 초과하면 공백 없는 JSON으로 저장하고 그래도 초과하면 다운로드하지 않는다. 실패 시 score·timestamp·origin·history는 보존한다. localStorage의 3 MiB 정책과 기존 직렬화 함수는 유지한다.
+- 정식 score/layout 테스트에 재현 사례를 추가했다. 일반·공백 생략 저장 왕복, 정확히 8 MiB와 +1 바이트, 다중 바이트 문자열, 버튼 저장 실패 시 상태 보존 및 특수 ID 집계·승인·취소를 검증했다. 로컬 Edge headless에서 이름·악기 종류 보존, 행 선택·높이·gap·Shift·드래그, 실패·Reset·Cancel·File/Local Load와 실제 JSON 다운로드를 확인했다.
+- 외부 코드·의존성 추가 없이 기존 도구와 모듈을 재사용했다. 이번 변경은 작업본만 수정했으며 커밋·배포하지 않았다. 배포 기준은 여전히 `9639ce1`이다.
+- `test:score`, `test:layout`, `test:edit`, `build` 통과. 브라우저에서 행 추가·삭제 후 입력 이름 보존도 확인했다.
+
+### 2026-11-03 레이아웃 노트 일괄 변경 기능 배포
 
 - 사용자 실사용 확인 후 배포본에 기능을 반영했다. 배포 저장소 커밋 `9639ce1`의 이름은 사용자 지정 `레이아웃 노트 일괄 변경 기능 최초 추가`이다.
 - 직전 배포 기준은 `001ccb1`. 문제 시 배포 저장소의 `9639ce1`을 revert하는 새 커밋을 배포하면 기능 추가 전 상태로 복구할 수 있다.
