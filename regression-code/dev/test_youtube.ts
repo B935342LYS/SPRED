@@ -31,15 +31,39 @@ function runYoutubeTests(): void {
   assert.equal(normalizeYoutubeLocalOffsetMs(5001), 5000);
   assert.equal(normalizeYoutubeLocalOffsetMs(1.4), 1);
   const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   const values = new Map<string, string>();
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
     getItem: (key: string) => values.get(key) ?? null,
     setItem: (key: string, value: string) => values.set(key, value),
   } });
   try {
+    // UA와 터치 수를 조합하여 Windows 태블릿을 포함한 환경별 초기값을 확인한다.
+    const environments = [
+      { userAgent: "Mozilla/5.0 Windows NT 10.0", maxTouchPoints: 10, expected: 0 },
+      { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", maxTouchPoints: 5, expected: 0 },
+      { userAgent: "Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X)", maxTouchPoints: 5, expected: 0 },
+      { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", maxTouchPoints: 5, expected: 0 },
+      { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", maxTouchPoints: 0, expected: 0 },
+      { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", maxTouchPoints: 10, expected: 0 },
+      { userAgent: "Mozilla/5.0 (Linux; Android 14)", maxTouchPoints: 5, expected: -220 },
+      { userAgent: "", maxTouchPoints: 0, expected: 0 },
+    ];
+    for (const environment of environments) {
+      Object.defineProperty(globalThis, "navigator", { configurable: true, value: environment });
+      assert.equal(loadYoutubeLocalOffsetMs(), environment.expected);
+    }
+    Reflect.deleteProperty(globalThis, "navigator");
     assert.equal(loadYoutubeLocalOffsetMs(), 0);
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "Mozilla/5.0 (Linux; Android 14)" } });
+    assert.equal(loadYoutubeLocalOffsetMs(), -220);
+    assert.equal(values.size, 0, "Environment default should not overwrite a user preference.");
+    assert.equal(saveYoutubeLocalOffsetMs(0), 0);
+    assert.equal(loadYoutubeLocalOffsetMs(), 0, "Explicit zero must override the mobile default.");
     assert.equal(saveYoutubeLocalOffsetMs(-201), -201);
     assert.equal(loadYoutubeLocalOffsetMs(), -201);
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { userAgent: "iPad" } });
+    assert.equal(loadYoutubeLocalOffsetMs(), -201, "iOS must preserve an explicitly saved preference.");
     for (const raw of ["", " ", "oops", "NaN", "Infinity"]) {
       values.set("regression-code:youtube-local-offset-ms", raw);
       assert.equal(loadYoutubeLocalOffsetMs(), 0);
@@ -49,6 +73,8 @@ function runYoutubeTests(): void {
     assert.equal(loadYoutubeLocalOffsetMs(), 0);
     assert.equal(saveYoutubeLocalOffsetMs(201), 201);
   } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else Reflect.deleteProperty(globalThis, "navigator");
     if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
     else Reflect.deleteProperty(globalThis, "localStorage");
   }
@@ -69,13 +95,13 @@ function runYoutubeTests(): void {
   assert.ok(Math.abs(secondsUntilYoutubeStart(0.1, 300) - 0.2) < 0.000001);
   assert.equal(secondsUntilYoutubeStart(0.3, 300), 0);
 
-  assert.equal(shouldResyncYoutubeDrift(10, 10.099, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(10, 9.901, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(0, 0.1, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(0.1, 0, 0), false);
-  assert.equal(shouldResyncYoutubeDrift(10, 10.101, 0), true);
-  assert.equal(shouldResyncYoutubeDrift(10, 9.899, 0), true);
-  assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.249, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.751, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.25, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.75, 0), false);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.251, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 9.749, 0), true);
+  assert.equal(shouldResyncYoutubeDrift(10, 10.2, 0), false);
   assert.equal(shouldResyncYoutubeDrift(10, 22.5, -12500), false);
   assert.equal(shouldResyncYoutubeDrift(0.1, 0.25, 300), false);
 

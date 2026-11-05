@@ -3,6 +3,20 @@ export const MAX_YOUTUBE_LOCAL_OFFSET_MS = 5000;
 const STORAGE_KEY = "regression-code:youtube-local-offset-ms";
 
 /**
+ * 저장값이 없는 브라우저의 환경별 초기 보정값을 고른다.
+ * - 인수 : 없음
+ * - 반환값 : Android로 식별되면 -220ms, iOS/iPadOS·Windows·그 외 환경은 0ms
+ */
+function getInitialYoutubeLocalOffsetMs(): number {
+  if (typeof navigator === "undefined") return 0;
+  const userAgent = navigator.userAgent;
+  // 터치 지원 Windows도 데스크톱 기본값을 사용한다.
+  if (/Windows/i.test(userAgent)) return 0;
+  // Android에만 보정한다. iPadOS의 데스크톱 UA도 별도 판별 없이 0ms를 사용한다.
+  return /Android/i.test(userAgent) ? -220 : 0;
+}
+
+/**
  * Local offset을 정수 ms와 허용 범위로 정규화한다.
  * - 인수 : value : 요청한 보정값
  * - 반환값 : ±5000ms 정수. 비정상 값은 0
@@ -16,12 +30,14 @@ export function normalizeYoutubeLocalOffsetMs(value: number): number {
 /**
  * 현재 브라우저의 Local offset을 읽는다.
  * - 인수 : 없음
- * - 반환값 : 저장된 값. 부재·오염·접근 실패 시 0
+ * - 반환값 : 저장된 값. 부재 시 환경별 초기값, 오염·접근 실패 시 0
  */
 export function loadYoutubeLocalOffsetMs(): number {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return normalizeYoutubeLocalOffsetMs(raw === null || raw.trim() === "" ? 0 : Number(raw));
+    // 저장된 0도 사용자 선택이다. 키가 없을 때만 초기값을 적용하며 자동 저장하지 않는다.
+    if (raw === null) return getInitialYoutubeLocalOffsetMs();
+    return normalizeYoutubeLocalOffsetMs(raw.trim() === "" ? 0 : Number(raw));
   } catch {
     return 0;
   }
