@@ -177,7 +177,9 @@ Deprioritized material:
 
 - score files store the base score layout
 - user-specific layout customizations are stored separately
-- user layout customization is stored per instrument preset
+- user layout presets use three shared browser-local slots, independent of score and instrument preset ID
+- loading or applying a score/layout must preserve saved slots; only explicit Local Save replaces a selected slot
+- legacy instrument-scoped slots require no migration or recovery (user decision, 2026-11-08); use only shared slot keys
 - zoom level and last scroll position are not persisted
 - font size is user preference, not score data
 

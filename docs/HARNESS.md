@@ -421,6 +421,39 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-08 레이아웃 흐름 수정 배포 — 최신 재개점
+
+- 사용자 정상 동작 확인 및 커밋·배포 요청에 따라 공통 3슬롯과 악보 로드 성공 시 Default 선택 초기화를 배포했다. `B935342LYS/spredtest` main의 커밋은 `c7fc9f4` (`레이아웃 흐름 수정`)이다. 제품·검사 8개 파일을 동기화했으며 원본/배포본 hash가 일치한다. 배포용 lock/CI는 유지했다.
+- 배포본 `build`(타입·라이선스 포함), `test:layout`, `test:score`, `test:examples`, `test:edit` 통과. [Pages 실행 42457608266](https://github.com/B935342LYS/spredtest/actions/runs/42457608266)의 build/deploy 모두 success.
+- 공개 HTML·JS·CSS HTTP 200 및 줄바꿈/JS raw template CR escape 정규화 후 로컬 산출물 일치 확인. 공개 Chrome에서 실제 ex.json, custom/다른 ID, 파일·Local·Examples 로드, 저장 슬롯 유지, 성공 시 Default·같은 슬롯 재적용, 실패 시 선택 보존, 새로고침 및 손상 슬롯 덮어쓰기 취소/승인 확인(pageerror 0). Examples는 fixture 응답이며 `.agents/tmp/test-shared-layout-slots.cjs`를 사용했다.
+- 구 데이터 이전 기능과 축소 시 Settings 잘림 수정은 사용자 결정대로 제외했다. 직전 배포는 `e637307`이며 롤백이 필요하면 배포 저장소에서 `c7fc9f4`를 revert한 새 커밋으로 배포한다. 아래 미배포 기록은 당시 작업 이력이다.
+
+### 2026-11-08 악보 로드 후 레이아웃 선택 Default 초기화 — 미배포
+
+- 사용자 요청으로 공통 `loadScoreJsonText`의 성공 경로에서 toolbar 선택값만 `default`로 초기화한다. 새 악보의 기본 레이아웃과 표시를 맞추고, 이전과 같은 저장 슬롯을 바로 재선택하여 적용할 수 있게 했다. change/Apply를 자동 실행하거나 저장 슬롯을 변경하지 않는다. 실패 경로는 기존 선택을 유지한다.
+- 2.4·2.5에 성공 시 선택 초기화 및 실패·취소 시 선택 보존 정책을 반영했다. 사용자 판단에 따라 축소 시 Settings 잘림은 수정하지 않는다.
+- `build`(타입·라이선스 포함), `test:layout` 통과. `.agents/tmp/test-shared-layout-slots.cjs`로 실제 ex.json 및 다른 ID 악보의 파일·Local·Examples 로드 성공 후 Default, 같은 슬롯 재적용, 잘못된 파일 로드 후 기존 선택·저장 bytes 보존을 Chrome에서 확인했다(pageerror 0). Examples는 fixture 응답이며 메뉴 포커스를 해제하고 hover → 실제 클릭으로 검사했다.
+- 원본 작업본만 수정했으며 커밋·배포하지 않았다. 배포 기준 `e637307` 유지.
+
+### 2026-11-08 레이아웃 공통 슬롯 구현 — 미배포
+
+- 사용자 후속 확정으로 구 데이터 이전·복구 기능을 제외했다. 발표 전이며 이전이 필요한 사용자가 없다. AGENTS.md와 2.4·2.5에 반영했으며 이전 key는 조회·복사·삭제하지 않는다.
+- 작업본은 `layout-slot:shared:v1:{1|2|3}`를 사용한다. toolbar/dialog의 슬롯 조회에서 현재 악기 ID 의존성을 제거했다. 파일·Local 악보·Examples 교체 후에도 저장 슬롯을 유지하며, 프리셋 metadata는 저장 대상 draft에서 얻는다. Slot 1 기본 제공 Normal Score도 악기 ID와 무관하다.
+- 슬롯별 읽기 오류는 Read error로 표시하고 원본을 자동 삭제하지 않는다. 손상된 값은 명시적 Local Save 덮어쓰기 확인 후 교체할 수 있으며 저장소 접근 실패는 저장을 중단한다. 정상 슬롯은 다른 슬롯의 오류와 독립적으로 표시한다.
+- `build`(타입·라이선스 포함), `test:layout`, `test:score`, `test:examples`, `test:edit` 통과. 정식 layout 테스트에 다른 악기 ID의 로드·Apply·저장 bytes 보존, draft metadata, 단일 슬롯 덮어쓰기, 구 key 무시, 손상·접근·용량 오류 사례를 추가했다.
+- 로컬 Chrome에서 실제 `D:/ex.json`, custom/다른 ID, 파일·Local·Examples, 잘못된 파일, toolbar Apply, dialog Load/Reset/Cancel, 새로고침, 손상 슬롯 덮어쓰기 취소/승인을 확인했다(pageerror 0). Examples는 fixture 응답이다. 검사 스크립트는 `.agents/tmp/test-shared-layout-slots.cjs`이다.
+- Settings 후속 진단: 최초 자동 검사는 hover로 열리는 toolbar에 hover 없이 클릭을 요청했다. 100%에서도 toolbar의 `opacity: 0`, `pointer-events: none` 때문에 label canvas가 hit 대상이었다. `.layout-area`에 먼저 hover하면 100/75/50%에서 보이는 버튼 중심의 실제 클릭은 정상이다. 슬롯 통합 검사도 DOM click 우회를 제거하고 hover → 실제 클릭으로 재실행하여 통과했다(pageerror 0).
+- 사용자 스크린샷의 축소 잘림은 별도 CSS 현상이다. 50%에서 label 영역은 71px로 줄지만 toolbar 최소 폭은 92px이며, 부모 `.layout-area`의 `overflow: hidden`으로 오른쪽이 잘린다. 버튼 우측 hit 대상은 옆 악보 canvas로 확인했다. 일반 배율의 클릭 장애는 확인되지 않았고, 축소 잘림은 미수정이다. 진단 도구: `.agents/tmp/diagnose-settings-hit.cjs`. 제품 코드 변경 없이 진단 및 검사 절차만 보완했다.
+- parser·analyzer·renderer·audio 및 ScoreFile 형식은 변경하지 않았다. 커밋·배포본 동기화·푸시는 하지 않았으며 배포 기준은 `e637307`이다. 아래 명세만 변경한 기록은 구현 전 이력이다.
+
+### 2026-11-08 레이아웃 공통 저장 슬롯 명세 정정 — 구현 대기
+
+- 사용자 확정: 기존 악기 프리셋별 슬롯 정책은 의도와 다르게 기록된 실수였다. 슬롯은 악보·악기 ID와 무관한 사용자 공통 3개로 유지하며, 어떤 악보에서도 저장된 슬롯을 선택하여 레이아웃을 교체할 수 있어야 한다.
+- 진단: `ex.json`은 선택 필드 `instData.presetId`가 없다. 현재 구현은 `custom` 슬롯을 조회하여 `otamatone-basic`에 저장된 값이 Empty로 보인다. 실제 저장/조회 함수와 메모리 저장소로 기존 3개 → Empty 3개 → 원래 ID 재조회 시 복원, 저장 내용 불변을 확인했다. 사용자 브라우저 저장소 직접 검사는 아니다.
+- AGENTS.md, 1.3, 2.0, 2.4, 2.5를 정정했다. 공통 key, 기존 데이터 보존·충돌 시 사용자 선택 복구, 기본 제공 Slot 1, 읽기 오류 시 원본 보존과 회귀 검증 기준을 2.5에 기록했다.
+- 다음 구현 경계는 infra 슬롯 저장소와 app 레이아웃 UI/프리셋 생성이다. parser·analyzer·renderer·audio 및 ScoreFile 형식 변경은 필요하지 않다. 기존 Apply 검증·삭제 확인을 유지한다.
+- 이번 작업은 명세 변경과 구현 방향 설명만 수행한다. 제품 코드·배포본 변경 및 빌드/테스트 실행은 하지 않았다. 공통 슬롯 전환 구현은 미완료이며 아래 배포 기준 `e637307`은 그대로다.
+
 ### 2026-11-08 YouTube 동기화 아이콘 버튼 구현 — 최신 재개점
 
 - 사용자 확정에 따라 Reload 텍스트를 원형 화살표 SVG의 정사각형 버튼(PC 30px / compact 28px, 메뉴 zoom 전)으로 변경했다. ready에서는 player 재생성 없이 현재 악보 시간과 두 offset으로 즉시 seek하며 재생 상태를 따른다. error에서는 기존 저장 ID 로드 재시도를 유지한다. loading/예약 중 및 영상 없는 idle/off에서는 비활성화한다.
@@ -2380,7 +2413,7 @@ If memo content is explicitly adopted by the user for implementation order or st
 - beat and bar marker rendering now uses timing row data, treats bar markers as stronger than beat markers at the same tick, and does not let BPM-only segment changes reset the beat/bar grid
 - `docs/1.3-score-json-format.md` now records the future layout replacement policy: incompatible cells may be deleted only after explicit user confirmation, while external JSON import still fails on invalid row references
 - `docs/2.4-layout-edit-ui-spec.md` defines the layout editor UI, simplified draft-bundle apply flow, deletion confirmation boundary, and reusable existing module boundaries
-- `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the fixed 3-slot localStorage policy per `instrumentPresetId`
+- `docs/2.5-layout-preset-format-spec.md` defines the Local/File layout preset JSON format and the shared 3-slot localStorage policy independent of score/instrument (implemented locally 2026-11-08; legacy migration excluded by user decision)
 - `docs/2.6-track-layer-ui-spec.md`는 0개 이상 active track filter, active track 대상 edit/playback, inactive track 반투명 render, `extra -> optional -> basic` draw order, 동일 track gain 정책, stopped/paused toggle 정책, `src/track/track_control.ts` 공용 정책 모듈을 정의한다
 - track layer first pass is implemented: Track menu toggles update `activeTrackIds`, note edit batches expand to all active tracks, empty active tracks block note edit while keeping global edit available, renderer items carry active/inactive alpha, audio schedule consumes only active tracks, playing state disables track toggles, and paused track toggle preserves score time for resume
 - harmonics auto-pitch direction is recorded in `docs/implementation-memo/1.36-harmonics-auto-pitch-plan.md`: the `@p(h)` special-token experiment was discarded, and the next pass should implement `AUTO◇` as a UI preset that emits existing `@p(n)` / `@m(c)` modifiers for a single sounding partial, likely defaulting to the 4th harmonic
