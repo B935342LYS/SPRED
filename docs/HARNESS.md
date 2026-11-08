@@ -314,6 +314,9 @@ Edit invalidation / partial rebuild:
 Range selection / bulk edit:
 - `docs/2.9-range-selection-edit-spec.md`
 
+Touch edit / two-finger pan:
+- `docs/2.14-touch-edit-and-pan-spec.md` — T1~T3 구현·Chromium 자동 검사·사용자 요청 배포 완료(`01a7cbc`). Android/iOS 실기기 확인은 남아 있다.
+
 Undo / redo:
 - `docs/2.10-undo-redo-edit-history-spec.md`
 
@@ -336,6 +339,7 @@ Appendix:
 - `2.13-layout-bulk-pitch-remap-spec.md` — 2026-11-03 사용자 요청. 일괄 레이아웃 매핑 이동 후 수동 조정; 미확정 정책을 기존 Apply 규칙 위에 자동 적용하지 않는다.
 
 `active`
+- `2.14-touch-edit-and-pan-spec.md` — 터치 입력·현재 제스처 복원·두 손가락 이동의 task-local 구현 기준. 기존 모바일 편집 제외 정책의 예외는 본 문서 범위로 한정한다.
 - `1.0-development-spec.md`
 - `1.3-score-json-format.md`
 - `1.5-note-cell-parser-spec.md`
@@ -417,7 +421,46 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
-### 2026-11-05 코드 리뷰 보완 배포 — 최신 재개점
+### 2026-11-08 YouTube 동기화 아이콘 버튼 구현 — 최신 재개점
+
+- 사용자 확정에 따라 Reload 텍스트를 원형 화살표 SVG의 정사각형 버튼(PC 30px / compact 28px, 메뉴 zoom 전)으로 변경했다. ready에서는 player 재생성 없이 현재 악보 시간과 두 offset으로 즉시 seek하며 재생 상태를 따른다. error에서는 기존 저장 ID 로드 재시도를 유지한다. loading/예약 중 및 영상 없는 idle/off에서는 비활성화한다.
+- `youtube_binding.ts`의 기존 입력 확정·요청 수명을 재사용했다. 클릭 중 Video 변경은 새 요청 하나만 생성하고, 활성 offset 확정으로 이미 정렬했으면 중복 seek하지 않는다. 상태별 title/aria-label, HTML 도움말, 한·영 매뉴얼과 2.7 정책을 갱신했다. 기존 3.7의 항상 Reload 설명은 이 사용자 후속 정책으로 대체한다.
+- `test:youtube`(ready 무재생성·강제 seek·재생/일시정지·offset 확정 단일 seek·loading 중복 차단·오류 재시도), `test:audio`, `build`(타입·라이선스 포함) 통과. 로컬 Chrome + YouTube API 대역에서 기존 metadata/요청 수명·재생/drift 회귀와 정상 버튼 클릭의 player 수 유지·seek 증가, 오류 복구, 390/1000/1280/1920px 배치를 확인했다(pageerror 0). `.agents/tmp/test-youtube-resync.cjs` 사용. 실제 모바일/외부 YouTube 재생 검증은 아니다.
+- 이전 입력칸 축소와 함께 원본에만 반영했다. 커밋·배포본 동기화·푸시는 하지 않았으며 공개 배포 기준은 `01a7cbc`다.
+
+### 2026-11-08 모바일 YouTube 입력 크기 보완 — 최신 재개점
+
+- 사용자 스크린샷 및 입력칸·라벨 축소 요청에 따라 `regression-code/styles/playback.css`만 제품 수정했다. viewport 900px 이하에서 Offset/Local 폭 68/76px, 입력·버튼 높이 28px, 라벨 10px, 간격 4px 및 Video 폭 96px 기준을 적용했다. 기존 상단 zoom·영상 영역·PC 스타일은 유지한다.
+- 사용자 설명의 네 자리 전제와 기존 명세의 곡 ±60000ms가 달라, 범위 변경 없이 부호 포함 다섯 자리까지 보이도록 해석했다. 2.7에 표시 정책을 기록했다. parser/analyzer/audio/저장 형식 및 YouTube 동기화 로직 변경은 없다.
+- build(타입·라이선스 포함) 통과. 로컬 Edge headless의 320/360/390/414/768/900/1280px에서 입력 영역 넘침·영상 겹침·토글 off 숨김·페이지 오류 없음을 검사했다. 360~900px의 두 offset 동일 행 및 음수 최댓값 표시를 확인했다. 영상 ready 상태는 DOM 대역이며 실제 모바일/YouTube 재생 검증은 아니다. 검사 도구·화면: `.agents/tmp/check-youtube-mobile-size.cjs`, `youtube-mobile-compact.png`.
+- 이번 크기 보완은 로컬 미커밋·미배포. 배포 기준은 `01a7cbc`(모바일 스크롤 개선)이며 기존 터치 구현·사용자 문서 변경은 보존했다.
+
+### 2026-11-06 모바일 스크롤 개선 배포 — 최신 재개점
+
+- 사용자 요청에 따라 배포 사본에 터치 편집·두 손가락 이동과 관련 검사를 동기화했다. `B935342LYS/spredtest` main에 `01a7cbc` (`모바일 스크롤 개선`)로 커밋·푸시했다. 배포용 lock/CI는 유지했다.
+- [Pages 실행 42086122389](https://github.com/B935342LYS/spredtest/actions/runs/42086122389)의 build/deploy 모두 success. 공개 페이지 및 JS/CSS HTTP 200, JS의 raw template CR escape·줄바꿈 정규화 후 로컬 빌드와 일치 확인(바이트 동일 주장은 아님).
+- 배포본 `test:edit`, `test:edit-transaction`, `test:edit-effects`, `test:layout`, `test:audio`, `test:youtube`, `build` 통과. 공개 사이트 Edge headless/CDP에서 한 손가락 입력, 두 번째 접촉 시 복원, 두 손가락 스크롤, 다운로드 셀 보존, Undo, 편집/보기 touch-action 전환, pageerror 0 확인. 로컬 보조 검사 `.agents/tmp/test-touch-public.cjs` 사용.
+- 직전 배포 기준 `faddfb2`. 문제 시 배포 저장소의 `01a7cbc`를 revert한 새 커밋으로 복구한다. 배포 저장소 작업 트리는 깨끗하며 원본 제품·문서 변경은 로컬 미커밋 상태다.
+- T5는 이번 명시적 요청으로 완료했다. T4의 Android Chrome·iOS Safari 실기기 확인은 여전히 남아 있으며 이번 공개 브라우저 검사를 실기기 검증으로 간주하지 않는다.
+
+### 2026-11-06 터치 편집·두 손가락 이동 구현 — 최신 재개점
+
+- 사용자 구현 요청으로 2.14의 T1~T3을 `regression-code/`에 반영했다. `touch_edit_gesture.ts`는 접촉 수명·복원 확인·중심 이동을 순수 판정하고, `edit_pointer_binding.ts`는 터치만 해당 경로로 전달한다. 첫 편집 전 transaction을 확보하고 두 번째 접촉에서 미반영 RAF를 폐기한 뒤 현재 제스처의 적용된 셀만 복원한다.
+- `main.ts`에 터치 소유 토큰·문서 세대·rollback 재시도 계약을 추가했다. 이전 Undo/Redo 보존, 새 문서의 오래된 이벤트 거부, 복원 실패 시 pan/추가 편집 차단을 구현했다. 외부 명령은 먼저 터치를 정리하며, 늦은 비동기 구조 후보가 터치 도중 도착하면 해당 명령 재시도를 안내한다.
+- 편집 악보 stage에만 `touch-action: none`, 터치 환경에 간단한 안내를 추가했다. 기존 scroll listener의 라벨·viewport·seek 연결을 재사용한다. 미리듣기 runtime에는 취소 전 비동기 시작이 뒤늦게 음을 예약하지 않도록 세대 검사를 추가했다. parser/analyzer/renderer/audio 엔진·저장 형식 변경이나 새 의존성은 없다.
+- 검증: `test:edit`, `test:edit-transaction`(18개 시나리오), `test:edit-effects`(preview 취소 포함), `test:layout`, `test:audio`, `test:youtube`, `build`(타입·라이선스 포함) 통과. `dev/test_touch_browser.cjs`로 실제 Edge headless/CDP touch 입력 및 보충 합성 이벤트 검사 통과(pageerror 0). 390×844 터치 환경의 안내/CSS 범위도 확인했다.
+- **T4 일부 완료 / 다음 작업은 Android Chrome·iOS Safari 실기기 확인.** 기기별 A2~A6·A9·A11 및 회전/큰 악보/재생 상호작용 확인을 남긴다. 자동 검사는 실제 모바일 안정화 완료를 뜻하지 않는다. 상세 결과·실행 방법은 2.14의 9절을 따른다.
+- 작업 HEAD `6ce2cc3`, 배포 기준 `faddfb2` 유지. 기존 사용자 문서 변경을 보존하고 진행 상태를 갱신했다. 커밋·푸시·배포본 동기화는 하지 않았다. T5는 사용자 확인 이후다. 아래 미착수 기록은 이전 명세 작성 시점의 이력이다.
+
+### 2026-11-06 터치 편집·두 손가락 이동 명세 고정 — 최신 재개점
+
+- [2.14 터치 편집과 두 손가락 이동](2.14-touch-edit-and-pan-spec.md)을 작성했다. 한 손가락 편집, 두 번째 접촉 시 현재 제스처 전체 복원 후 이동, 한 손가락 잔류·세 번째 접촉 시 모두 뗄 때까지 중단으로 고정했다. 마우스·펜은 접촉 개수 판정에서 제외한다.
+- `touch-action` 범위, 가로·세로 이동, pending RAF 폐기, 원래 셀 값 복원, 이전 Undo/Redo 보존, 문서 세대 확인과 실패 처리를 명시했다. 기존 cancel transaction은 악보를 복원하지 않으므로 새 rollback 경계가 필요하다.
+- **제품 구현 미착수. 다음은 T1 제스처 판정 순수 모듈과 테스트.** 이후 T2 복원 → T3 UI 연결 → T4 통합·실기기 확인 → T5 사용자 확인 후 배포 순서다.
+- 재개 시 본 문서 9절의 진행 기록과 git diff를 대조한다. 요약만으로 완료 여부를 추정하지 않는다. 각 단계에서 변경 파일·계약·검증·다음 작업을 갱신한다.
+- 기준 HEAD: 작업본 `6ce2cc3`, 배포본 `faddfb2`. 이번에는 명세와 안내 문서만 변경했으며 코드·테스트 실행·커밋·배포는 하지 않았다.
+
+### 2026-11-05 코드 리뷰 보완 배포
 
 - 배포 저장소에 `faddfb2` (`저장 용량·레이아웃 입력 보존·삭제 집계 경계 보완`)로 커밋·푸시했다. 직전 배포 기준은 `9639ce1`이며 문제 시 `faddfb2`를 revert하여 복구한다.
 - 배포본 `test:score`, `test:layout`, `test:edit`, `build` 통과. Pages 실행 `41897747387` 성공. 공개 사이트에서 이름 입력 후 높이 변경·행 선택 시 보존, Pitch Shift 왕복, JSON 다운로드와 페이지 오류 없음을 확인했다.
