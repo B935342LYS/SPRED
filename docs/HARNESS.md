@@ -421,6 +421,23 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-10 Gliss 분할 버튼 배포 — 최신 재개점
+
+- 사용자 확인·즉시 배포 요청에 따라 Gliss 2×2 버튼과 Edit Actions 폭 재배분을 배포했다. `B935342LYS/spredtest` main 커밋은 `98278e1` (`Gliss 분할 버튼 및 편집 패널 공간 개선`)이다. 제품·브라우저 검사 9개 파일을 동기화했고 배포용 lock/CI는 유지했다.
+- 배포본 `build`(타입·라이선스 포함), `test:edit`, `test:edit-effects`, `test:edit-transaction` 통과. [Pages 실행 42677122115](https://github.com/B935342LYS/spredtest/actions/runs/42677122115)의 build/deploy 모두 success.
+- 공개 Chrome에서 4종 rawText preview·재클릭 none·단일 선택·id·Enter/Space·보기/comment/eraser 잠금·dark 선택 표시와 1920/1280/900/390px 배치를 확인했다(pageerror 0). 공개 HTML·JS·CSS HTTP 200, 줄바꿈/JS raw template CR escape 정규화 후 로컬 산출물 일치. 공개 검사는 `.agents/tmp/test-gliss-public.cjs`이며 busy 상태 검사는 로컬의 `dev/test_gliss_buttons_browser.cjs`에서 수행했다.
+- 직전 배포는 `c7fc9f4`다. 필요 시 `98278e1`을 revert한 새 커밋으로 롤백한다. 아래 로컬 시험 기록은 배포 전 이력이다.
+- 사용자 요청에 따라 Long의 `- / ~`, Trem의 `2 / 3 / 4`를 한 줄 분할 버튼으로 바꾸는 이미지 시안을 제안했다. 선택된 버튼 재클릭으로 none을 표현하는 검토안이며 아직 구현하지 않았다.
+
+### 2026-11-10 Gliss 분할 버튼 및 Edit Actions 공간 재배분 — 로컬 시험 구현
+
+- 사용자 단계별 시도 요청에 따라 Gliss 종류 드롭다운을 start / -start / curve / end의 2×2 버튼으로 교체했다. 단일 선택이며 선택된 버튼 재클릭은 none이다. id는 제목 옆에 배치하고 none에서는 비활성화하되 값을 유지한다. `-start`는 기존 holdStart composer 의미 그대로다.
+- Gliss 최소 폭 118→142px, Edit Actions 190→166px로 24px를 재배분했다. fr도 0.68→0.82, 0.95→0.81로 조정해 총 최소 폭·총 비율은 유지했다. Actions의 오른쪽 86px 고정 여백을 제거하고 Pending을 제목 행에 배치했다. 다른 카드의 폭 설정은 유지한다.
+- 변경 경계는 HTML/CSS·app DOM/입력 binding/UI sync이다. parser·analyzer·renderer·audio·저장 형식은 변경하지 않았다. 기존 composer와 버튼 패턴을 사용했으며 외부 코드·의존성은 추가하지 않았다.
+- `build`(타입·라이선스 포함), `test:edit`, `test:edit-effects`, `test:edit-transaction` 통과. `dev/test_gliss_buttons_browser.cjs`로 Chrome 실제 클릭·Enter/Space, 종류별 rawText preview, id 변경, none/선택 보존, 보기·busy·comment/eraser 잠금, 어두운 테마 선택 표시를 확인했다(pageerror 0).
+- 1920/1280/900/390px에서 버튼 텍스트 넘침·편집 패널 추가 세로 잘림 없음. 1280px에서 Gliss 142px / Actions 166px, 1920px에서 약 176px / 174px였다. 좁은 화면의 기존 가로 스크롤·0.55 compact 배율은 유지한다. 이는 데스크톱 브라우저 viewport 모사이며 실기기 터치 검증은 아니다.
+- 실제 화면 기록: `.agents/tmp/gliss-buttons-editor.png`. 다음은 사용자 사용감 확인 후 필요 시 폭·표시 조정이다. 커밋·배포본 동기화·배포는 하지 않았다. 공개 배포 기준은 `c7fc9f4`다.
+
 ### 2026-11-08 레이아웃 흐름 수정 배포 — 최신 재개점
 
 - 사용자 정상 동작 확인 및 커밋·배포 요청에 따라 공통 3슬롯과 악보 로드 성공 시 Default 선택 초기화를 배포했다. `B935342LYS/spredtest` main의 커밋은 `c7fc9f4` (`레이아웃 흐름 수정`)이다. 제품·검사 8개 파일을 동기화했으며 원본/배포본 hash가 일치한다. 배포용 lock/CI는 유지했다.
