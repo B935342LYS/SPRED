@@ -421,6 +421,15 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-11 Loop On/Off 즉시 반영 — 배포 완료, 최신 재개점
+
+- 직전 버튼 개선은 개발 저장소 `56b40f8`, 배포 저장소 `43f106f`에 `버튼 추가 개선`으로 커밋·푸시했고 Pages 배포를 완료했다. 상세 검증은 아래 배포 기록을 따른다.
+- 사용자 발견: 재생 중 Loop Off를 눌러도 일시정지·재개 전까지 반복이 계속됐다. 원인은 toggle이 AppState/marker/UI만 변경하고 playback controller의 loop를 갱신하지 않는 것이었다.
+- app toggle 연결과 audio playback controller에 즉시 동기화를 추가했다. 현재 반복 위치를 새 재생 기준점으로 삼고 기존 선행 예약을 취소·재예약하여 Off 후 이전 구간 끝을 넘어 진행한다. On도 즉시 반영하며 구간 밖이면 시작점으로 이동한다. 게임의 단회 연습 범위는 이 반복 경로에 전달하지 않는다. parser/analyzer/저장 형식 변경 없음.
+- `2.0`, `2.3`에 재생 중 toggle 정책을 명시했다. `test:audio`(여러 cycle 후 Off·위치 유지·이전 예약 취소·끝점 통과·On 재활성화·paused 유지), `build`(타입·라이선스 포함), `test:youtube` 통과. Chrome `dev/test_loop_toggle_browser.cjs`에서 실제 Off/On 클릭과 기존 끝점 통과, pageerror 0 확인.
+- `test:view`는 기존 Fit Height footer 높이 assertion에서 실패했다. 이번 수정을 반영하지 않은 배포 작업본에서도 동일하게 재현했으며 이번 loop 범위에서는 변경하지 않았다.
+- 사용자 정상 동작 확인 후 `루프 개선` 커밋·배포를 진행했다. 배포 저장소 main `dc60eb9`, [Pages 실행 42880524477](https://github.com/B935342LYS/spredtest/actions/runs/42880524477)의 build/deploy 모두 success. 배포본 `build`, `test:audio`, `test:youtube` 통과. 공개 Chrome에서 On/Off 버튼, pageerror 0 및 줄바꿈/JS raw template CR escape 정규화 후 공개 JS와 로컬 빌드 일치를 확인했다(`.agents/tmp/test-loop-public.cjs`). 기존 YouTube 관련 문서 변경은 보존했다.
+
 ### 2026-11-11 버튼 추가 개선 배포 — 최신 재개점
 
 - 사용자 확인 후 개발본·배포본에 `버튼 추가 개선` 커밋을 요청받았다. 배포 저장소 `B935342LYS/spredtest` main에 `43f106f`로 커밋·푸시했다. 제품·검사 9개 파일의 개발본/배포본 hash가 일치하며 배포용 lock/CI는 유지했다.
