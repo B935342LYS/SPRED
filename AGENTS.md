@@ -160,7 +160,7 @@ Deprioritized material:
 - `cent_num` allows up to 1 fractional digit.
 - cell `rawText` length limit: `200`
 - `score comment` length limit: `500`
-- JSON file size limit: `8MB`
+- Score JSON file size warning threshold: `8 MiB`; column count warning threshold: `10,000`. File load/download and column expansion may exceed these thresholds after explicit confirmation for each operation. Structural validation and the `3 MiB` localStorage limit remain enforced.
 - no global cell-count hard limit is imposed
 - mobile target scope is view/load/play only
 - mobile edit mode is out of scope for the initial version

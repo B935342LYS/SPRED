@@ -421,6 +421,19 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-11 Add Row 종류 버튼 / 대용량 경고 후 허용 — 배포 완료, 최신 재개점
+
+- 후속 검토: `main.ts` 전체 변경처럼 보인 것은 LF→CRLF 변환 때문이었다. 원래 LF로 복원했으며 실제 Git diff는 6줄 추가/2줄 삭제(승인 인자·전달·주석)뿐이다. 이번 검토에서 중대한 기능 오류는 발견하지 않았다. `build`, `test:score`, `test:layout`, `test:audio`와 대용량 승인/취소 브라우저 검사를 재실행하여 통과했다. 기존 `test:view` 실패는 아래 기록대로 남아 있다.
+- 수동 테스트 자료: `.agents/tmp/large-score-examples.zip` 및 같은 이름의 폴더에 01 일반, 02 10,001열, 03 공백으로 8 MiB+1바이트, 04 10,000열/40,009개 음표 셀, 05 12,000열/40,009개 음표 셀 JSON과 README.txt를 생성했다. 04/05는 약 9.43 MiB이며 셀별 허용 길이까지 공백을 채운 합성 음표다. 실제 개발 서버 Chrome에서 5개 모두 로드, 정상 열/셀 수, 01 경고 없음·02~05 경고 각 1회, pageerror 0 확인. 복잡한 효과 악보의 성능 상한을 입증하는 자료는 아니다. 생성물은 로컬 검사 자료이며 배포 대상에 포함하지 않는다.
+- 레이아웃 Add Row의 note/gap 드롭다운을 작은 단일 선택 버튼 두 개로 교체했다. 기본 note, 재클릭 시 선택 유지, gap에서만 개별 높이 입력 활성화 및 기존 삽입 규칙을 유지한다. 변경 경계는 HTML/CSS·app DOM 타입/조회·layout dialog binding이며 parser/analyzer/저장 형식 변경 없음.
+- 개발본 `build`(타입·라이선스 포함), `test:layout` 통과. 로컬 Chrome에서 선택·재클릭 유지·Space 키 선택·높이 입력 잠금·상단 note 추가 및 pageerror 0을 확인했다. 개발본 로컬 수정 상태이며 커밋·배포하지 않았다.
+- 사용자 확정: 로드·파일 저장·열 확장 모두 경고 후 허용한다. 기존 AGENTS/1.3의 8 MiB 하드 제한과 구현의 10,000열 거부는 이 결정으로 대체했다. `AGENTS.md`, `1.3`, `2.4`에 새 정책을 반영했다. 아래 과거 하드 제한 기록은 당시 이력이다.
+- `SCORE_JSON_WARNING_BYTES`(8 MiB), `SCORE_COLUMN_WARNING_THRESHOLD`(10,000)를 경고 기준으로 사용한다. 파일은 읽기 전 크기를 확인하고 파싱·구조 검증 후 열 수를 확인한다. 한 로드에서 두 기준을 모두 초과해도 확인은 한 번이며 다음 작업에 승인을 이어가지 않는다. 다운로드는 기존 공백 생략을 유지하고 최종 크기/열 수가 초과하면 확인한다. 열 확장 취소 시 재생 재생성도 하지 않는다.
+- 대용량 승인과 구조 검증을 분리하여 승인한 악보의 layout 적용을 허용했다. 열 수의 양의 safe integer 조건, 참조·좌표·문자열·행 수 제약과 localStorage 3 MiB 제한은 유지한다. 승인 경고는 브라우저 멈춤/메모리 부족과 미저장 변경 손실 가능성을 안내하며, 성능 보장을 의미하지 않는다.
+- 추가 검증: `build`, `test:score`(대용량 승인/취소·정확한 경계·다중 바이트·8 MiB 초과 다운로드/재로드·구조 오류 거부·열 확장·layout 적용), `test:layout` 통과. 로컬 Chrome `dev/test_large_score_browser.cjs`에서 실제 파일 입력·한 번 확인·취소 시 문서 보존·열 확장·다운로드 승인/취소·pageerror 0 확인. `test:view`는 열 확장 검사를 통과한 뒤 기존 Fit Height footer assertion에서 동일하게 실패한다.
+- 사용자 실측에서 극단적인 대용량 악보의 입력 지연과 표시 문자열 좌표 어긋남을 확인했다. 사용자는 경고 후 허용 정책을 유지하고 추가 최적화는 하지 않기로 결정했다. 메모리 부족·탭 멈춤·미저장 변경 손실 가능성도 남는다. 이번 범위의 승인 우회·취소 시 데이터 보존·구조 검증·UI 문자열 출력 경로 검토에서 배포를 막을 새 결함/취약점은 발견하지 않았다. 전체 프로그램의 무취약점을 보장하는 보안 감사는 아니다.
+- 사용자 요청으로 `용량 제한 해제 및 경고로 변환` 커밋·배포를 진행했다. 배포 저장소 main `720177e`, [Pages 실행 42895573043](https://github.com/B935342LYS/spredtest/actions/runs/42895573043)의 build/deploy 모두 success. 19개 제품/검사 파일을 개발본과 동기화하고 배포본 `build`, `test:score`, `test:layout`, `test:audio` 통과. 공개 Chrome에서 약 9.43 MiB·12,000열 파일의 취소/승인·중복 경고 없음·다운로드 내용 보존·note/gap 선택·pageerror 0 및 줄바꿈 정규화 후 공개 JS와 로컬 빌드 일치를 확인했다(`.agents/tmp/test-large-score-public.cjs`). 기존 YouTube 문서 변경과 로컬 대용량 예제는 이번 커밋에서 제외했다.
+
 ### 2026-11-11 Loop On/Off 즉시 반영 — 배포 완료, 최신 재개점
 
 - 직전 버튼 개선은 개발 저장소 `56b40f8`, 배포 저장소 `43f106f`에 `버튼 추가 개선`으로 커밋·푸시했고 Pages 배포를 완료했다. 상세 검증은 아래 배포 기록을 따른다.
