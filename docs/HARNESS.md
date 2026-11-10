@@ -421,6 +421,22 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-11 버튼 추가 개선 배포 — 최신 재개점
+
+- 사용자 확인 후 개발본·배포본에 `버튼 추가 개선` 커밋을 요청받았다. 배포 저장소 `B935342LYS/spredtest` main에 `43f106f`로 커밋·푸시했다. 제품·검사 9개 파일의 개발본/배포본 hash가 일치하며 배포용 lock/CI는 유지했다.
+- 배포본 `build`(타입·라이선스 포함), `test:edit`, `test:edit-effects` 통과. [Pages 실행 42879088152](https://github.com/B935342LYS/spredtest/actions/runs/42879088152)의 build/deploy 모두 success.
+- 공개 Chrome에서 Long/Trem/Gliss의 rawText preview·단일 선택·재클릭 none·기존 충돌/holdStart 규칙·id·키보드·보기/comment/eraser 잠금·dark 선택 표시를 확인했다(pageerror 0). 1920/1280/900/390px에서 Long 59px / Trem 88px, 버튼 28px 및 글자 넘침·추가 세로 잘림 없음 확인(기존 compact 배율 적용 전 치수). busy 검사는 로컬에서 완료했다.
+- 공개 HTML·JS·CSS HTTP 200 및 줄바꿈/JS raw template CR escape 정규화 후 로컬 산출물 일치 확인. 공개 검사 도구는 `.agents/tmp/test-long-trem-public.cjs`다. 실기기 터치 검증은 아니다.
+- 직전 배포는 `98278e1`이며 필요 시 배포 저장소에서 `43f106f`를 revert한 새 커밋으로 롤백한다. 아래 로컬 구현 기록은 배포 전 이력이다.
+
+### 2026-11-11 Long/Trem 소형 분할 버튼 — 로컬 구현
+
+- 사용자 요청으로 Long `- / ~`, Trem `2 / 3 / 4`를 한 줄 분할 버튼으로 구현했다. 그룹별 단일 선택·재클릭 none이며 Gliss와 동일한 버튼 binding/선택 표시를 사용한다. 한 칸 28×26px, 경계 포함 전체 폭 Long 59px / Trem 88px(기존 compact 배율 적용 전)이다. 카드·전체 패널의 열 너비는 변경하지 않았다.
+- 변경 경계는 HTML/CSS·app DOM/입력 binding/UI sync다. parser·analyzer·renderer·audio·저장 형식과 composer 의미는 유지했다. 외부 코드·의존성을 추가하지 않았다.
+- `build`(타입·라이선스 포함), `test:edit`, `test:edit-effects` 통과. 기존 `dev/test_gliss_buttons_browser.cjs`에 Long/Trem 입력·재클릭·단일 선택·독립 합성·키보드·선택 보존·잠금·dark 표시 검사를 추가했고 Chrome에서 통과했다. `~`+Trem 거절과 holdStart 우선 동작도 보존 확인(pageerror 0).
+- 1920/1280/900/390px에서 그룹 폭 59/88px와 각 버튼 28px, 글자 넘침·추가 세로 잘림 없음을 확인했다. 기존 compact 배율과 가로 스크롤은 유지하며 실기기 터치 검증은 아니다. 실제 화면: `.agents/tmp/long-trem-buttons-editor.png`.
+- 다음은 사용자 사용감 확인이다. 커밋·배포본 동기화·배포는 하지 않았으며 공개 배포 기준은 `98278e1`이다.
+
 ### 2026-11-10 Gliss 분할 버튼 배포 — 최신 재개점
 
 - 사용자 확인·즉시 배포 요청에 따라 Gliss 2×2 버튼과 Edit Actions 폭 재배분을 배포했다. `B935342LYS/spredtest` main 커밋은 `98278e1` (`Gliss 분할 버튼 및 편집 패널 공간 개선`)이다. 제품·브라우저 검사 9개 파일을 동기화했고 배포용 lock/CI는 유지했다.
