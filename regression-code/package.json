@@ -23,7 +23,9 @@
     "test:partial": "tsx ./dev/test_partial_rebuild.ts",
     "test:examples": "tsx ./dev/test_examples.ts",
     "inspect:sheet": "node --experimental-specifier-resolution=node ./src/dev/inspect_sheet.ts",
-    "bench:edit-noop": "tsx ./dev/benchmark_noop_edit.ts"
+    "bench:edit-noop": "tsx ./dev/benchmark_noop_edit.ts",
+    "bench:edit-rebuild": "tsx ./dev/benchmark_edit_rebuild.ts",
+    "bench:render": "node ./dev/benchmark_render_browser.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",

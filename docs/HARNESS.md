@@ -258,6 +258,7 @@ Interpretation rules:
 
 Graduation exhibition / stable maintenance (current work):
 - `docs/4.3-exhibition-maintenance-plan.md` — 작업 계획; 구현 완료 명세 아님. 3차 확장 중단, 전시 준비, 트랙 유지·싱크 검토·모바일 가설 검증 재개점
+- `docs/4.4-performance-comparison-presentation.md` — 발표·보고용 성능 비교 자료. 산출물 재사용·viewport·네 조건 표와 측정 조건을 정리한 자료이며 구현 명세가 아니다. Pages 링크 접근 실패로 로컬 원본과 `.agents/tmp/performance-presentation/`의 HTML·PDF를 준비했다.
 
 Project overview:
 - `docs/1.0-development-spec.md`
@@ -421,6 +422,66 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-17 Info 안내 및 베타 목록 잠금 배포 완료 — 최신 재개점
+
+- 사용자 즉시 배포 요청으로 Info 안내·Examples 입력/요청 잠금과 관련 검사·서버용 소스 10개 파일을 배포 사본에 동기화했다. 복사 직후 hash 일치를 확인했고 배포용 package/lock/CI는 유지했다. 성능 측정 도구·발표 자료·기존 YouTube 문서 변경은 배포에 포함하지 않았다.
+- 배포 저장소 `B935342LYS/spredtest` main에 `7e712df` (`저작권 안내 강화 및 베타 목록 접근 중단`)를 커밋·푸시했다. [Pages 실행 44021932624](https://github.com/B935342LYS/spredtest/actions/runs/44021932624)의 build/deploy 모두 success.
+- 배포 사본 `build`(타입·라이선스 포함), `test:examples`, Chrome 잠금 검사 통과. 공개 주소 `https://b935342lys.github.io/spredtest/`에서도 Info 한영 상단 안내, 390px 가로 넘침 없음, 베타 입력/버튼 잠금, 재개방·통신 실패 뒤 잠금 유지, disabled 제거 후 클릭/submit 요청 차단, 공개 목록 선택과 pageerror 0을 확인했다. 공개 사이트 검사에서도 외부 manifest는 fixture로 대체했으며 실제 Supabase 차단 검증이 아니다.
+- 실제 Supabase Edge Function·DB·Storage 정책은 변경하지 않았다. 배포 사본의 서버용 txt는 소스 보관이며 Supabase 자동 배포가 아니다. 기존 공개 악보 URL 차단은 별도 서버/Storage 작업으로 남는다. 직전 배포는 `701e72a`; 아래 로컬 구현 상태는 배포 전 이력이다.
+
+### 2026-11-17 Info 안내 강화 및 베타 목록 제공 중단 — 로컬 구현
+
+- 사용자 요청으로 Info 최상단에 한영 강조 안내를 추가했다. 저작권 있는 곡의 악보/데이터 공유·게시·배포를 금지하고 허용 범위 내 개인 연습 용도로 사용할 것을 안내한다. 개인 이용 자체가 이용 허락을 부여하는 것은 아니라는 문구를 함께 둔다.
+- Examples의 Access word와 Load Beta Test List를 초기 HTML·busy 해제·재개방에서 잠근다. dialog 클릭/submit, binding, provider의 베타 요청을 차단하고 보관 접근 단어 재사용도 막는다. 공개 예제 자동 로드·선택은 유지한다. DB 구조·데이터는 삭제하지 않았다.
+- `dev/supabase_get_example_manifest_edge_function.ts.txt`에도 비공개 목록 요청을 403 BETA_ACCESS_DISABLED로 거부하는 중단 정책을 반영했다. 이것은 서버용 소스 준비이며 실제 Supabase 서버 변경이 아니다. UI/목록 잠금으로 기존 공개 Storage/외부 URL을 차단할 수는 없다. 실제 Edge Function 반영과 파일 접근 정책 확인은 남아 있다.
+- `test:examples`(직접 provider 베타 요청의 fetch 미실행·공개 목록 유지), `build`(타입·라이선스 포함) 통과. `dev/test_examples_lock_browser.cjs`의 Chrome 검사에서 재개방·실패 후 잠금, disabled 속성 제거 후 클릭/submit 요청 차단, 공개 목록 선택, 한영 Info 상단·390px 가로 넘침 없음 및 pageerror 0을 확인했다. 외부 manifest는 fixture로 대체했다.
+- 제품 경계는 Info HTML/CSS·Examples UI/binding/provider다. parser/analyzer/audio/저장 형식은 변경하지 않았다. 2.11에 중단 정책과 서버 적용 한계를 반영했다. 커밋·배포 및 실제 DB/Storage 변경은 하지 않았다.
+
+### 2026-11-17 viewport 및 산출물 재사용 2×2 비교 — 로컬 검증
+
+- `npm run bench:render`와 `dev/benchmark_render_browser.cjs`, `benchmark_render.ts/html/md`를 추가했다. 기존 Node 도구와 합성 악보·편집 명령을 `benchmark_edit_fixture.ts`로 공유한다. 제품 코드·기존 profiler·배포본은 변경하지 않았다.
+- 전체 폭/viewport 렌더 단독 비교와 산출물 재사용×viewport의 네 조건 비교를 headless Chrome에서 수행했다. 부분 갱신은 산출물 재사용만 뜻하며 모든 조건에서 `renderCanvasScore`를 호출한다. layer 선택 재그리기·DOM UI·audio·이력·화면 표시 완료는 제외한다. Canvas 호출 반환 시간과 layer별 1픽셀 읽기 비용을 분리했다.
+- 같은 해상도를 유지하기 위해 합성 100/500/1,000열, zoom/DPR 1, viewport 1,008px·overscan 252px를 사용한다. 9,000열 전체 Canvas의 해상도 축소가 개입하는 비교는 하지 않는다. 4회 워밍업·조건별 32회 순서 회전 측정, 결과 동일성·원본 보존·비축소·화면 근사 비교를 통과했다. 화면 픽셀은 완전 동일하지 않다. 1,000열에서 평균 0.056/255 수준의 차이를 발견해 PNG를 확인했고, 검증 기준과 한계를 안내 문서에 기록했다.
+- 결과 경로: `.agents/tmp/render-benchmark-2026-11-16T23-37-11-684Z/`(UTC 폴더 시각). viewport/네 조건/둘 다 없음 대 둘 다 있음 CSV와 원시 JSON을 생성했다. 1,000열 렌더 단독 시작 위치 중앙값은 3.55→0.50ms, 단일 셀 편집+Canvas 명령 제출은 6.05→1.30ms였다. 해당 편집의 최소 읽기 포함 중앙값은 43.80→4.10ms이며 실제 화면 지연으로 해석하지 않는다.
+- `build`(타입·라이선스 포함), `test:partial` 통과. 측정 중 다른 빌드/테스트를 실행하지 않았다. 실제 곡·시연 노트북·사용자 입력 지연은 미측정이며 이전 Node 수치와 합산하지 않는다. 커밋·배포하지 않았다.
+
+### 2026-11-17 발표용 편집 산출물 비교 도구 추가 — 로컬 검증
+
+- `regression-code/dev/benchmark_edit_rebuild.ts`와 `npm run bench:edit-rebuild`를 추가했다. 실행·해석 안내는 같은 디렉터리의 `benchmark_edit_rebuild.md`다. 제품 동작·기존 profiler·배포본은 변경하지 않았다.
+- 현재 코드의 전체 재계산과 산출물 재사용을 비교한다. 양쪽 모두 셀 변경·인덱스 생성·파싱/분석/renderInput 생성까지 포함하고 Canvas draw·DOM·audio·이력·초기 로드는 제외한다. Node 계산 시간이며 과거 버전 대비 개선 또는 화면 반응속도로 해석하지 않는다.
+- 합성 100/1,000/9,000열, 동일한 세 트랙의 gliss/tuplet/hold/vib/trem 패턴에서 단일 셀·32셀·전체 트랙·BPM 편집 12조건을 검사한다. 전체/재사용/실제 앱 경로의 산출물 동일성, 원본 보존, 무변경·fallback 거부를 확인한 뒤 10쌍 워밍업·51쌍 AB/BA 교대 측정한다. 원시 표본·중앙값·P95·환경을 JSON, 비교표를 CSV로 저장한다.
+- `build`(타입·라이선스 포함), `test:partial` 통과. 첫 검증 실행 이후 다른 검사와 겹치지 않게 재측정했다. 결과: `.agents/tmp/edit-rebuild-2026-11-16T23-27-54-908Z/`(폴더 시각 UTC, 한국 날짜 11월 17일). 9,000열 중앙값 전체/재사용은 단일 셀 148.294/38.110ms, 32셀 148.827/38.006ms, 전체 트랙 153.378/157.209ms, BPM 149.565/1.938ms였다. 전체 트랙에서는 느려지는 결과도 그대로 기록했다.
+- 위 수치는 현재 PC의 합성 입력 측정이며 실사용 악보·브라우저·시연 노트북 측정이 아니다. 발표에 사용할 때 범위를 명시하고 시연 환경에서 재측정한다. 실제 악보 비교는 그 악보에 맞는 고정 편집 사례 선정이 필요하다. 커밋·배포하지 않았다.
+
+### 2026-11-16 첫 사용 안내 UI — 배포 완료
+
+- 사용자 승인 문구로 한국어·영어 첫 사용 안내를 구현했다. 한국어는 “SPRED 고유 형식”으로 명시하며, 전용 JSON, 예제 또는 직접 편집 시작, 저장/불러오기, 매뉴얼 경로를 안내한다.
+- 브라우저 언어로 초기 언어 선택, 안내 안의 언어 전환, Help → Introduction 재열기 지원. 닫기 또는 Escape 시 localStorage 확인 기록을 남기며 다음 방문부터 자동 표시를 생략한다. 저장소 차단 시에도 앱을 사용할 수 있다.
+- 변경 경계는 앱 UI 및 안내 확인 여부 저장에 한정한다. parser/analyzer/renderer/audio 및 악보 형식은 변경하지 않았다. 상세 동작은 2.11의 첫 사용 안내 추가 절을 따른다.
+- 개발본 build(타입 검사·라이선스 검사 포함)와 Chrome의 최초 표시, 한영 전환, 확인 후 새로고침 생략, Help 재열기, Escape, 375px 모바일, 안내 저장소 차단 검사를 통과했다. 사용자 확인 후 창 폭을 820px로 확대하고 Help 메뉴명을 Introduction으로 확정했다. 개발본 `ea9715b`, 배포본 `701e72a`에 `첫 사용 안내 추가` 커밋·푸시 완료. Actions `43887455730` 성공 및 공개 사이트에서도 동일 브라우저 검사를 통과했다. 양쪽 빌드의 JS/CSS 파일명이 일치한다.
+- 직전 라이선스 페이지의 내부 개발명 제거는 개발본 `fdf7bff`, 배포본 `1e0a714`로 배포 완료했다. Actions `43791360884` 성공과 공개 페이지 문구 반영을 확인했다. 전송 패키지는 이전 시점 스냅샷으로 이 변경들과 첫 사용 안내를 포함하지 않는다.
+
+### 2026-11-16 발표 제출 완료 / 전시용 노트북 준비 — 최신 재개점
+
+- 사용자 확인: 최종 발표 영상의 준비와 제출을 완료했다. PPT 31쪽과 대본의 기술 검토를 진행했고, 사용자가 약 14분 발표를 목표로 대본을 축약했다. 실제 발표 시간은 별도로 측정하지 않았다. 에이전트는 PDF 원본을 수정하지 않았으며, 마지막 교정 제안의 최종 반영 여부는 확인하지 않았다.
+- 발표 자료 경로: `1. 개발문서/졸업전시 준비/최종발표 ppt/`. 이전 패키지에는 `1. 개발문서/졸업전시 준비/영상/`의 `전시회 발표 1920p.mp4`, `최종발표.pdf`, `최종발표 풀대본.pdf`를 넣었다. 이 파일들과 실제 제출본의 동일성은 사용자 확인 사항이다.
+- 성능 설명: 코드·과거 대화·실험 자료를 조사했으나 서로 다른 측정 구간을 단일 전후 수치로 합치지 않았다. 최종 검토 대본은 구체적 ms 비교 대신 부분 갱신의 분석 결과 재사용과 viewport/overscan 기반 그리기 범위 축소를 설명한다. 이번 작업에서 성능을 새로 측정하지 않았다.
+- 주간 보고서 후속: 사용자가 갱신한 11월 2주차 보고서를 검토하고 5.3절의 검출기 비교·롤백 및 Easy 판정 설명 등에 교정안을 제안했다. 보고서 제출 완료 여부는 미확인이다. 아래 11월 12일 기록은 당시 초안 검토 상태이며 자동으로 보고서 작업을 재개하지 않는다.
+- 전시 환경 전환: 대학 부지에서 기존 데스크탑을 사용할 수 없어 새 노트북으로 이전한다. 사용자 확인 기준 Chrome, VS Code, Git 설치 완료. Node.js 설치와 제품 실행 완료는 아직 확인되지 않았다.
+- 2026-11-15 전송 패키지 생성: `D:\SPRED-노트북-전송-2026-11-15`(약 184 MiB). 현재 제품 코드, `.env.local`, SQL Generator, `regression-code-report-commentary-2026-10-15/`, 개발 문서, 발표 자료, 작업 폴더의 `sheet.json`을 복사했다. 1,120개 복사 파일의 원본·복사본 SHA-256 일치를 확인했다. `node_modules`, `dist`, `.git`, 실행 로그는 제외했다. 원본 파일은 변경하지 않았다.
+- 패키지 안내: `먼저 읽기 - 노트북 설치 및 전시 준비.md`에 Node.js 설치, `npm.cmd ci` → `npm.cmd run build` → `npm.cmd run preview`, 개발 실행, Git 재연결, 전시 점검 절차를 기록했다. `복사 검증.json`에 파일 해시·크기·당시 커밋과 원격 주소를 기록했다. 이 패키지는 환경 설정이 포함된 개인 이전용이며 공개 배포 대상이 아니다. 패키지 안의 하네스는 복사 당시 스냅샷으로, 이번 갱신은 포함하지 않는다.
+- 다음 확인 범위: 노트북 전송·Node.js 설치·의존성 설치·빌드·로컬 실행, 실제 시연 악보와 레이아웃 슬롯의 파일 내보내기/가져오기, 마이크·음향·Practice·YouTube 싱크 및 전시장 네트워크 점검. 브라우저 localStorage와 로그인 정보는 복사되지 않았고, 배포 주소와 로컬 주소의 저장 공간은 별개다. 파일 복사 검증을 노트북 실행 검증으로 간주하지 않는다.
+- 제품 코드 변경·커밋·배포는 이번 발표 검토 및 이전 준비 범위에서 수행하지 않았다. 3차 확장 구현이나 과거 대기 작업을 자동 재개하지 않고 전시 준비와 필요한 안정판 유지보수를 우선한다.
+
+### 2026-11-12 주간 보고서 재개 / 5.3절 초안 검토 — 최신 재개점
+
+- 추가 대조: `7_11_3.md`와 `3.4-practice-pitch-detector-backend-spec.md`의 2026-07-12 롤백 기록까지 확인했다. pYIN/SwiftF0 비교를 5.3에 포함할 경우, 일부 녹음의 개선과 실시간 적용 실패를 구분하고 SwiftF0를 고전 알고리즘으로 분류하지 않는다. 현재 제품의 `game_pitch_input.ts`는 `pitchy`를 직접 사용한다. 10월 3주차 보고서의 CREPE 상세 실험은 반복하지 않는다.
+- 최근 개발 상태: 개발 저장소 `668c747`, 배포 저장소 `720177e`에 `용량 제한 해제 및 경고로 변환` 커밋·푸시 및 Pages 배포 완료. 대용량 승인 정책과 Add Row note/gap 버튼이 반영되어 있다. 극단적인 대용량 입력의 지연·표시 좌표 어긋남은 사용자 확인 후 추가 최적화 없이 알려진 제한으로 남겼다. 자세한 검증·배포 이력은 아래 항목을 따른다.
+- 대용량 JSON의 들여쓰기/줄바꿈 생략은 현재 8 MiB 초과 시 적용된다. 하드 제한 해제 후 필수는 아니지만 파일 크기 감소 효과가 있어 유지하는 방향을 제안했으며, 제거 작업은 요청받지 않아 구현은 그대로다. 기존 `test:view` Fit Height 실패와 별도 YouTube 문서 미커밋 변경도 남아 있다.
+- 제출 요구로 주간 보고서 작업을 재개한다. 대상은 `1. 개발문서/주간보고서/11월 2주차 보고서.pdf`(12쪽)이며, 5.3절 `초기 음정 개선 시도`가 11~12쪽에서 미완성 상태다. 이번에는 원본 PDF를 수정하지 않고 대화로 본문 초안을 제안한다.
+- 근거는 `docs/코덱스 로그/6_27_4.md`, `6_27_5.md`, `6_27_6.md`, `6_27_7.md`, `7_11_1.md`, `7_11_2.md`와 관련 작업 메모 `1.43`, `1.44`, `1.54`, 활성 명세 `3.2` 및 현재 pitch 입력 코드다. 사용자 요청의 작업 문서 검토 범위에서 관련 메모를 읽었다.
+- 5.3절 서술 방향: 6월 target 기반 octave/harmonic/hysteresis 보정의 판정 왜곡과 제거 → 7월 harmonic/low-pass 검증, 저음 후보 선택, 최저 에너지 주파수 탐색의 실사용 실패와 롤백 → 원시 입력 수집·동일 입력 기반 검출기 비교로 전환. 합성 테스트 통과와 실제 마이크 개선 여부를 구분하며, 현재 구현에 실패한 보정이 남아 있다고 서술하지 않는다. 특정 마이크의 기음 성분 소실은 확인된 원인으로 단정하지 않는다.
+
 ### 2026-11-11 Add Row 종류 버튼 / 대용량 경고 후 허용 — 배포 완료, 최신 재개점
 
 - 후속 검토: `main.ts` 전체 변경처럼 보인 것은 LF→CRLF 변환 때문이었다. 원래 LF로 복원했으며 실제 Git diff는 6줄 추가/2줄 삭제(승인 인자·전달·주석)뿐이다. 이번 검토에서 중대한 기능 오류는 발견하지 않았다. `build`, `test:score`, `test:layout`, `test:audio`와 대용량 승인/취소 브라우저 검사를 재실행하여 통과했다. 기존 `test:view` 실패는 아래 기록대로 남아 있다.
@@ -508,6 +569,14 @@ If memo content is explicitly adopted by the user for implementation order or st
 - AGENTS.md, 1.3, 2.0, 2.4, 2.5를 정정했다. 공통 key, 기존 데이터 보존·충돌 시 사용자 선택 복구, 기본 제공 Slot 1, 읽기 오류 시 원본 보존과 회귀 검증 기준을 2.5에 기록했다.
 - 다음 구현 경계는 infra 슬롯 저장소와 app 레이아웃 UI/프리셋 생성이다. parser·analyzer·renderer·audio 및 ScoreFile 형식 변경은 필요하지 않다. 기존 Apply 검증·삭제 확인을 유지한다.
 - 이번 작업은 명세 변경과 구현 방향 설명만 수행한다. 제품 코드·배포본 변경 및 빌드/테스트 실행은 하지 않았다. 공통 슬롯 전환 구현은 미완료이며 아래 배포 기준 `e637307`은 그대로다.
+
+### 2026-11-08 모바일 YouTube UI·즉시 동기화 배포 — 최신 재개점
+
+- 문서 정리 완료: `2.7-youtube-sync-ui-spec.md`의 버튼·player 수명·검증 기준을 ready 즉시 seek / error 재시도 정책으로 맞추고, `3.7-youtube-local-offset-spec.md`에 입력 크기·범위 유지·중복 실행 방지·검증·배포 기록을 모았다. 이전 Reload 재생성 설명과 과거 배포 번호는 최신 정책과 구분하여 읽는다.
+- 사용자 배포 요청으로 입력 크기 축소·원형 화살표 동기화/재시도 버튼·관련 검사·한영 매뉴얼 6개 파일을 배포 사본에 동기화했다. `B935342LYS/spredtest` main에 `e637307` (`모바일 YouTube UI 및 즉시 동기화 개선`) 커밋·푸시 완료. 배포용 lock/CI는 유지했다.
+- 배포본 `test:youtube`, `test:audio`, `build`(타입·라이선스 포함) 통과. [Pages 실행 42431240274](https://github.com/B935342LYS/spredtest/actions/runs/42431240274)의 build/deploy 모두 success. 원본·배포본 동기화 파일 6개 hash 일치, 배포 저장소 clean 확인.
+- 공개 페이지와 JS/CSS HTTP 200. JS raw template CR escape·줄바꿈 정규화 후 공개 산출물이 로컬 build와 일치한다. 공개 Edge headless에서 정사각형 SVG 버튼, 360/390/900px 두 offset 동일 행, 1280px 버튼, ready에서 player 수 유지·seek 증가, error 재시도·off 숨김 및 pageerror 0 확인. `.agents/tmp/test-youtube-resync-public.cjs` 사용. YouTube API는 대역이므로 실제 영상 재생·실기기 싱크 검증을 뜻하지 않는다.
+- 직전 배포 `01a7cbc`. 문제 시 배포 저장소에서 `e637307`을 revert한 새 커밋으로 복구한다. 원본 제품·문서 변경은 로컬 미커밋 상태로 보존했다. 아래 미배포 기록은 구현 당시 이력이다.
 
 ### 2026-11-08 YouTube 동기화 아이콘 버튼 구현 — 최신 재개점
 

@@ -31,6 +31,10 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// 베타 목록 제공 중단. 테이블·Storage 구조와 공개 예제 조회는 유지한다.
+// 이 소스 변경은 Dashboard에 반영하기 전까지 실제 서버에 적용되지 않는다.
+const BETA_EXAMPLES_ENABLED = false;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -50,6 +54,10 @@ Deno.serve(async (req) => {
   const accessWord = payload.accessWord?.trim() ?? "";
   const expectedAccessWord = Deno.env.get("EXAMPLE_ACCESS_WORD")?.trim() ?? "";
   const isPublicRequest = accessWord.length === 0;
+
+  if (!BETA_EXAMPLES_ENABLED && !isPublicRequest) {
+    return jsonError("BETA_ACCESS_DISABLED", "Beta test list access is disabled.", 403);
+  }
 
   if (!isPublicRequest && (expectedAccessWord.length === 0 || accessWord !== expectedAccessWord)) {
     return jsonError("INVALID_ACCESS_WORD", "Access word is invalid.", 401);
