@@ -295,6 +295,11 @@ export function syncUiControls(dom: AppDom, state: AppState): void {
   dom.editToggle.setAttribute("aria-pressed", String(isEditMode));
   dom.editToggle.disabled = isBusy || isGameLocked;
   dom.defaultModeSelect.disabled = isBusy || !isEditMode;
+  dom.touchEraserButton.disabled = isBusy || !isEditMode || isGameLocked;
+  dom.touchEraserButton.setAttribute("aria-pressed", String(
+    state.mode.kind === "edit" && state.mode.tool.kind === "default"
+    && state.mode.tool.input.mode === "eraser",
+  ));
   dom.customTextInput.disabled = isBusy || !isEditMode || dom.defaultModeSelect.value === "eraser";
   for (const button of dom.holdTokenButtons) button.disabled = isBusy || !isEditMode || !isNoteComposerMode;
   const glissDisabled = isBusy || !isEditMode || !isNoteComposerMode;

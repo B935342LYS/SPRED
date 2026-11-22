@@ -188,6 +188,7 @@ export type AppDom = {
   editToggle: HTMLInputElement;
   trackToggleButtons: HTMLButtonElement[];
   defaultModeSelect: HTMLSelectElement;
+  touchEraserButton: HTMLButtonElement;
   customTextInput: HTMLInputElement;
   holdTokenButtons: HTMLButtonElement[];
   glissKindButtons: HTMLButtonElement[];

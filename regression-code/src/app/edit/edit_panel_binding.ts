@@ -97,6 +97,12 @@ export function bindEditPanelControls(
 
   // edit panel 입력이 바뀔 때마다 현재 rawText preview와 click 적용 상태를 동기화한다.
   dom.defaultModeSelect.addEventListener("change", syncDefaultEditInput);
+  // 터치 단축 버튼도 기존 도구 동기화 경로를 사용해 입력값과 미리보기를 함께 갱신한다.
+  dom.touchEraserButton.addEventListener("click", () => {
+    if (dom.touchEraserButton.disabled) return;
+    dom.defaultModeSelect.value = "eraser";
+    syncDefaultEditInput();
+  });
   dom.customTextInput.addEventListener("input", syncDefaultEditInput);
   // Long/Gliss/Trem은 그룹마다 하나만 선택하며, 재클릭하면 해당 그룹만 none으로 해제한다.
   for (const buttons of [dom.holdTokenButtons, dom.glissKindButtons, dom.tremDivisionButtons]) {

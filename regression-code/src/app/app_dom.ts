@@ -91,6 +91,7 @@ export function collectAppDom(): AppDom {
     editToggle: queryElement("#edit-mode-toggle", HTMLInputElement),
     trackToggleButtons,
     defaultModeSelect: queryElement(".default-mode-select", HTMLSelectElement),
+    touchEraserButton: queryElement(".touch-eraser-button", HTMLButtonElement),
     customTextInput: queryElement(".custom-text-input", HTMLInputElement),
     holdTokenButtons: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-hold-token]")),
     glissKindButtons: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-gliss-kind]")),

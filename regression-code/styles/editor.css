@@ -133,6 +133,7 @@
 }
 
 .edit-panel select,
+.edit-panel .touch-eraser-button,
 .edit-panel input[type="text"],
 .edit-panel input[type="number"] {
   min-height: calc(var(--ui-control-height) - 4px);
@@ -314,7 +315,7 @@
 
 .tuplet-slots {
   display: grid;
-  grid-template-columns: repeat(7, minmax(64px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
   min-width: 0;
 }
@@ -342,7 +343,23 @@
   font-size: 11px;
 }
 
+.touch-eraser-button {
+  display: none;
+}
+
+.touch-eraser-button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  font-weight: 700;
+}
+
 @media (any-pointer: coarse) {
+  .default-card .edit-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .default-card .custom-text-input { grid-column: 1 / -1; }
   .touch-edit-hint { display: block; }
+  .touch-eraser-button { display: inline-flex; align-items: center; justify-content: center; }
 }
 
