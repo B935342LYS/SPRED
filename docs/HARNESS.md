@@ -422,6 +422,18 @@ If memo content is explicitly adopted by the user for implementation order or st
 
 ## 9. Current Working Mode
 
+### 2026-11-22 터치 지우개와 Tuplet 슬롯 너비 조정 배포 완료 — 최신 재개점
+
+- `Default` 카드에서 터치 환경용 `Eraser` 버튼을 모드 드롭다운 오른쪽에 배치하고 높이와 글자 크기를 맞췄다. 한 번 탭하면 기존 지우개 도구가 선택되고 버튼에 선택 상태가 표시된다.
+- `Tuplet` 카드의 슬롯 7개가 카드 너비를 균등하게 나누도록 고정 최소 너비를 제거했다. 창을 줄여도 마지막 슬롯이 `Edit Actions` 영역에 겹치지 않는다.
+- 작업본 `ed76898`, 배포본 `0411d26`. 사용자가 작업본 동작을 확인했고 배포 사본에서 `build`와 `test:edit`를 통과했다.
+- Pages 배포 성공 후 공개 사이트에서 Chrome 터치 모사(320·390·1024px)로 버튼 위치·높이, 탭 후 지우개 전환과 선택 상태를 확인했다. 마우스 환경(1280·1920px)에서는 단축 버튼이 숨겨지고, 다섯 너비 모두 슬롯 7개가 카드 안 한 줄에 배치됐다. [배포 기록](https://github.com/B935342LYS/spredtest/actions/runs/45003377418)
+
+### 2026-11-19~21 빌드 보안 업데이트와 레이아웃 행 추가 배포
+
+- 11월 19일 빌드 환경을 Node.js 24.22.3에 맞추고 개발 의존성을 갱신했다. 당시 `npm audit` 결과는 0건이었고 Pages 빌드에도 검사를 추가했다. 작업본 `1388b68`, 배포본 `ecc25b7`. 기존 `test:view`의 Fit Height 검사는 당시에도 실패했다. [배포 기록](https://github.com/B935342LYS/spredtest/actions/runs/44459661760)
+- 11월 21일 Layout Settings의 `Add Row at Top`과 `Add Row at Bottom`으로 현재 편집 중인 string의 양끝에 바로 행을 추가하도록 변경했다. 공개 사이트에서 중간 행을 선택한 상태로 양쪽에 추가하고 새 행이 선택되는 동작을 확인했다. 작업본 `6221d29`, 배포본 `5c61d49`. [배포 기록](https://github.com/B935342LYS/spredtest/actions/runs/44896328629)
+
 ### 2026-11-17 Info 안내 및 베타 목록 잠금 배포 완료 — 최신 재개점
 
 - 사용자 즉시 배포 요청으로 Info 안내·Examples 입력/요청 잠금과 관련 검사·서버용 소스 10개 파일을 배포 사본에 동기화했다. 복사 직후 hash 일치를 확인했고 배포용 package/lock/CI는 유지했다. 성능 측정 도구·발표 자료·기존 YouTube 문서 변경은 배포에 포함하지 않았다.
